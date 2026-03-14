@@ -125,10 +125,11 @@
     .task-card.done .task-time{text-decoration:line-through;}
     .task-card.cal-event{border-left:3px solid var(--sonics-gold);}
     .task-card.cal-event.done{border-left-color:var(--border);}
-    .task-card.dragging{opacity:0.4;border:1.5px dashed var(--border-mid);}
-    .task-card.drag-over{border-color:var(--sonics-gold);border-style:dashed;}
-    .drag-handle{cursor:grab;color:var(--text-tertiary);font-size:14px;padding:2px 4px 0 0;flex-shrink:0;touch-action:none;user-select:none;}
-    .drag-handle:active{cursor:grabbing;}
+    .reorder-btns{display:flex;flex-direction:column;gap:2px;flex-shrink:0;padding-top:1px;}
+    .reorder-btn{background:none;border:0.5px solid var(--border-mid);border-radius:4px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-tertiary);font-size:11px;line-height:1;font-family:var(--font);transition:background 0.15s,color 0.15s;}
+    .reorder-btn:hover{background:var(--sonics-gold);color:var(--sonics-dark);border-color:var(--sonics-gold);}
+    .reorder-btn:active{background:var(--sonics-green);color:white;border-color:var(--sonics-green);}
+    .reorder-btn:disabled{opacity:0.2;cursor:default;}
     .check-wrap{padding-top:2px;flex-shrink:0;}
     .check-wrap input[type=checkbox]{width:17px;height:17px;cursor:pointer;accent-color:var(--sonics-green);}
     .cal-icon{width:18px;height:18px;border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
@@ -291,10 +292,10 @@
   <!-- AI Panel -->
   <div class="ai-panel" id="ai-panel" style="display:none;">
     <div id="brain-dump-section">
-      <textarea id="brain-dump-input" placeholder="Brain dump your tasks in any format&#10;e.g. mow lawn, pick up meds, hardware store, groceries, call insurance&#10;&#10;The AI will sort, schedule, and add location info for you." style="width:100%;min-height:82px;resize:vertical;font-size:13px;padding:9px 10px;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text);font-family:var(--font);outline:none;margin-bottom:8px;line-height:1.5;"></textarea>
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <textarea id="brain-dump-input" placeholder="e.g. mow lawn, pick up meds, hardware store, grocery run..." style="width:100%;height:38px;min-height:38px;max-height:160px;resize:vertical;font-size:13px;padding:8px 10px;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text);font-family:var(--font);outline:none;margin-bottom:8px;line-height:1.4;overflow:hidden;" oninput="this.style.height='38px';this.style.height=Math.min(this.scrollHeight,160)+'px';"></textarea>
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
         <button class="btn btn-ai" id="dump-btn" onclick="organizeDump()" style="flex:1;margin:0;padding:10px;">&#9998; Organize my day</button>
-        <button class="btn btn-ai" id="plan-btn" onclick="planMyDay()" style="flex:1;margin:0;padding:10px;background:var(--sonics-green);color:white;">&#10022; Re-optimize list</button>
+        <button id="plan-btn" onclick="planMyDay()" title="Re-optimize open tasks" style="flex-shrink:0;width:38px;height:38px;background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" onmouseover="this.style.background='var(--sonics-dark)'" onmouseout="this.style.background='var(--sonics-green)'">&#8635;</button>
       </div>
     </div>
     <div id="plan-output"></div>
@@ -414,7 +415,7 @@
   let tasks=[], calEvents=[], rolledTasks=[], activeFilter='all';
   let accessToken=null, tokenExpiry=0, sheetId='', sheetReady=false;
   let weatherData=null, chatHistory=[], profile={}, anthropicKey='';
-  let dragSrcIdx=null;
+
 
   // ── Default profile ───────────────────────────────────────────────────────────
   const DEFAULT_PROFILE = {
@@ -794,7 +795,7 @@ ${raw}`;
 
   async function planMyDay(){
     const btn=document.getElementById('plan-btn');
-    btn.disabled=true; btn.textContent='Optimizing…';
+    btn.disabled=true; btn.innerHTML='&#8987;';
     const openTasks = tasks.filter(t=>!t.done);
     const doneTasks = tasks.filter(t=>t.done);
     const openList = openTasks.map(t=>`- ${t.title} (${t.start?fmt12(t.start):'no time set'}${t.end?' – '+fmt12(t.end):''}, ${t.tag})`).join('\n')||'No open tasks.';
@@ -817,7 +818,7 @@ ALREADY COMPLETED TODAY: ${doneList}
 OPEN CALENDAR EVENTS:\n${calList}
 Re-optimize the schedule for my remaining open tasks starting from now. Do not suggest times in the past. Include lunch only if it is still upcoming. Flag anything overloaded.`;
     const reply = await callAI(userMsg, 'json');
-    btn.disabled=false; btn.textContent='✦ Re-optimize list';
+    btn.disabled=false; btn.innerHTML='&#8635;';
     if(reply) renderPlanOutput(reply);
   }
 
@@ -847,9 +848,14 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
           <div class="plan-item-reason">${escHtml(item.reason||'')}</div>
           <div class="plan-item-actions">
             <span class="tag tag-${item.tag||'admin'}">${item.tag||'task'}</span>
-            ${alreadyAdded
-              ?`<span style="font-size:11px;color:var(--text-tertiary);">already on list</span>`
-              :`<button class="btn-add-plan" onclick="addPlanItem(${i})">+ add to list</button>`}
+            ${(()=>{
+              const existing=tasks.find(t=>t.title.toLowerCase()===item.title.toLowerCase());
+              if(!existing) return `<button class="btn-add-plan" onclick="addPlanItem(${i})">+ add to list</button>`;
+              const timeChanged=(existing.start||'')!==(item.start||'')&&item.start;
+              return `<span style="font-size:11px;color:var(--text-tertiary);">on list</span>`
+                +(timeChanged?`<button class="btn-add-plan" style="border-color:var(--sonics-gold);color:var(--sonics-green);" onclick="updatePlanItem(${i})">&#8635; update time</button>`:'')
+            })()
+            }
           </div>
         </div>`;
       });
@@ -861,6 +867,23 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     out.innerHTML=html;
     window._lastPlan=plan;
     document.getElementById('ai-placeholder')?.remove();
+  }
+
+  function updatePlanItem(idx){
+    const plan=window._lastPlan;if(!plan||!plan.items[idx])return;
+    const item=plan.items[idx];
+    const t=tasks.find(t=>t.title.toLowerCase()===item.title.toLowerCase());
+    if(!t)return;
+    if(item.start) t.start=item.start;
+    if(item.end)   t.end=item.end;
+    if(item.location) t.location=item.location;
+    saveTasks();renderAll();
+    // Swap update button to "updated" confirmation
+    const card=document.querySelector(`.plan-item[data-plan-idx="${idx}"]`);
+    if(card){
+      const btn=card.querySelector('.btn-add-plan');
+      if(btn){btn.textContent='✓ updated';btn.disabled=true;btn.style.opacity='0.5';}
+    }
   }
 
   function addPlanItem(idx){
@@ -1071,53 +1094,12 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function showSheetsStatus(m,ok){const el=document.getElementById('sheets-status');el.textContent=m;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
 
   // ── Drag to reorder ───────────────────────────────────────────────────────────
-  function onDragStart(e,idx){dragSrcIdx=idx;e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
-  function onDragOver(e,idx){e.preventDefault();if(idx===dragSrcIdx)return;document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over'));e.currentTarget.classList.add('drag-over');}
-  function onDrop(e,idx){
-    e.preventDefault();
-    if(dragSrcIdx===null||dragSrcIdx===idx)return;
-    const moved=tasks.splice(dragSrcIdx,1)[0];
-    tasks.splice(idx,0,moved);
-    dragSrcIdx=null;saveTasks();renderAll();
-  }
-  function onDragEnd(){dragSrcIdx=null;document.querySelectorAll('.task-card').forEach(c=>{c.classList.remove('dragging');c.classList.remove('drag-over');});}
-
-  // Touch drag support
-  let touchDragIdx=null,touchClone=null;
-  function onTouchStart(e,idx){
-    touchDragIdx=idx;
-    const card=e.currentTarget;
-    touchClone=card.cloneNode(true);
-    touchClone.style.cssText=`position:fixed;opacity:0.7;pointer-events:none;z-index:9999;width:${card.offsetWidth}px;`;
-    document.body.appendChild(touchClone);
-  }
-  function onTouchMove(e){
-    if(touchDragIdx===null)return;
-    e.preventDefault();
-    const t=e.touches[0];
-    if(touchClone){touchClone.style.left=(t.clientX-40)+'px';touchClone.style.top=(t.clientY-20)+'px';}
-    const el=document.elementFromPoint(t.clientX,t.clientY);
-    const card=el?.closest('.task-card[data-idx]');
-    document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over'));
-    if(card) card.classList.add('drag-over');
-  }
-  function onTouchEnd(e){
-    if(touchDragIdx===null)return;
-    if(touchClone){touchClone.remove();touchClone=null;}
-    const t=e.changedTouches[0];
-    const el=document.elementFromPoint(t.clientX,t.clientY);
-    const card=el?.closest('.task-card[data-idx]');
-    if(card){
-      const toIdx=parseInt(card.dataset.idx);
-      if(!isNaN(toIdx)&&toIdx!==touchDragIdx){
-        const moved=tasks.splice(touchDragIdx,1)[0];
-        tasks.splice(toIdx,0,moved);
-        saveTasks();
-      }
-    }
-    touchDragIdx=null;
-    document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over'));
-    renderAll();
+  function moveTask(idx, dir){
+    const newIdx = idx + dir;
+    if(newIdx < 0 || newIdx >= tasks.length) return;
+    const moved = tasks.splice(idx, 1)[0];
+    tasks.splice(newIdx, 0, moved);
+    saveTasks(); renderAll();
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1168,14 +1150,10 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       // Calendar events get a checkbox now
       const leftEl=t.isCalEvent
         ?`<div class="check-wrap"><input type="checkbox" ${t.done?'checked':''} onchange="toggleCalEvent('${t.id}')" /></div>`
-        :`<div class="drag-handle" draggable="true"
-            ondragstart="onDragStart(event,${taskIdx})"
-            ondragover="onDragOver(event,${taskIdx})"
-            ondrop="onDrop(event,${taskIdx})"
-            ondragend="onDragEnd()"
-            ontouchstart="onTouchStart(event,${taskIdx})"
-            ontouchmove="onTouchMove(event)"
-            ontouchend="onTouchEnd(event)">⠿</div>
+        :`<div class="reorder-btns">
+            <button class="reorder-btn" onclick="moveTask(${taskIdx},-1)" ${taskIdx===0?"disabled":""}>▲</button>
+            <button class="reorder-btn" onclick="moveTask(${taskIdx},1)" ${taskIdx===tasks.filter(t=>!t.done).length-1?"disabled":""}>▼</button>
+          </div>
           <div class="check-wrap"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${t.id})" /></div>`;
 
       const rollBtn=(!t.isCalEvent&&!t.done)?`<button class="btn-rollover" onclick="manualRollover(${t.id})">roll over</button>`:'';
