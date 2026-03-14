@@ -646,12 +646,14 @@ ABOUT THIS PERSON:
 ${KNOWN_LOCATIONS}
 
 CONCIERGE RULES:
-- Always start around 10am unless tasks suggest otherwise
-- Always include a 45-60 min lunch break around noon-1pm
+- The current local time is provided in each request — ALWAYS use it as your scheduling anchor
+- Only suggest start times that are in the future relative to the current time — never schedule tasks in the past
+- If it is already past noon, skip the morning entirely and plan from the current time forward
+- Always include a 45-60 min lunch break if the remaining day spans noon-1pm and lunch hasn't passed
 - Group tasks geographically to cut Seattle travel time
 - Schedule outdoor/physical tasks when weather is best
-- Focus planning energy on OPEN (uncompleted) tasks only — completed tasks are context
-- Warn clearly if the open task list is too ambitious for one day
+- Focus planning energy on OPEN (uncompleted) tasks only — completed tasks are context, never re-schedule them
+- Warn clearly if the remaining open task list is too ambitious for the hours left today
 - When you know a location for a task, include it`;
 
     if(mode==='json') return base + `
@@ -708,7 +710,16 @@ If they ask what to do next, look at their open tasks and the time of day and gi
 Keep responses short and actionable.`;
   }
 
-  async function organizeDump(){
+  function currentTimeContext(){
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const tzShort = now.toLocaleTimeString('en-US',{timeZoneName:'short'}).split(' ').pop();
+    const dateStr = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+    return `${dateStr}, current time is ${timeStr} ${tzShort} (timezone: ${tzName})`;
+  }
+
+    async function organizeDump(){
     const input = document.getElementById('brain-dump-input');
     const raw = input.value.trim();
     if(!raw){ addChatMessage('ai','Type or paste your tasks above first.'); return; }
@@ -716,12 +727,15 @@ Keep responses short and actionable.`;
     btn.disabled=true; btn.textContent='Organizing…';
     const openTasks = tasks.filter(t=>!t.done);
     const calList = calEvents.map(e=>`- ${e.title} (${e.start?fmt12(e.start):'all day'}${e.end?' – '+fmt12(e.end):''}${e.location?' @ '+e.location:''})`).join('\n')||'None.';
-    const userMsg = `Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.
+    const now = new Date();
+    const hoursLeft = Math.max(0, (22 - now.getHours() - now.getMinutes()/60)).toFixed(1);
+    const userMsg = `${currentTimeContext()}.
 WEATHER: ${weatherSummary()}
-ALREADY ON MY LIST (open): ${openTasks.length ? openTasks.map(t=>`${t.title}`).join(', ') : 'none'}
+HOURS REMAINING IN DAY: approximately ${hoursLeft} hours (do not schedule anything before right now)
+ALREADY ON MY LIST (open): ${openTasks.length ? openTasks.map(t=>`${t.title}${t.start?' at '+fmt12(t.start):''}`).join(', ') : 'none'}
 CALENDAR EVENTS TODAY:\n${calList}
 
-MY BRAIN DUMP — please parse, enrich, and organize these into a full day plan:
+MY BRAIN DUMP — please parse, enrich, and organize these into a full day plan starting from the current time:
 ${raw}`;
     const reply = await callAI(userMsg, 'dump');
     btn.disabled=false; btn.textContent='✎ Organize my day';
@@ -739,12 +753,22 @@ ${raw}`;
     const openList = openTasks.map(t=>`- ${t.title} (${t.start?fmt12(t.start):'no time set'}${t.end?' – '+fmt12(t.end):''}, ${t.tag})`).join('\n')||'No open tasks.';
     const doneList = doneTasks.map(t=>`- ${t.title}`).join(', ')||'none';
     const calList = calEvents.filter(e=>!e.done).map(e=>`- ${e.title} (${e.start?fmt12(e.start):'all day'}${e.end?' – '+fmt12(e.end):''}${e.location?' @ '+e.location:''})`).join('\n')||'None.';
-    const userMsg = `Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.
+    const now2 = new Date();
+    const hoursLeft2 = Math.max(0, (22 - now2.getHours() - now2.getMinutes()/60)).toFixed(1);
+    const nowMinutes = now2.getHours()*60 + now2.getMinutes();
+    // Flag open tasks whose end time has already passed
+    const pastTasks = openTasks.filter(t => t.end && timeToMinutes(t.end) < nowMinutes);
+    const futureTasks = openTasks.filter(t => !t.end || timeToMinutes(t.end) >= nowMinutes);
+    const futureList = futureTasks.map(t=>`- ${t.title} (${t.start?fmt12(t.start):'no time set'}${t.end?' – '+fmt12(t.end):''}, ${t.tag})`).join('\n')||'No open tasks remaining.';
+    const pastList = pastTasks.map(t=>`- ${t.title}`).join(', ')||'none';
+    const userMsg = `${currentTimeContext()}.
 WEATHER: ${weatherSummary()}
-OPEN TASKS (need scheduling):\n${openList}
+HOURS REMAINING IN DAY: approximately ${hoursLeft2} hours
+OPEN TASKS TO SCHEDULE (future only):\n${futureList}
+OPEN TASKS WHOSE TIME HAS PASSED (do NOT re-schedule these — just flag if still open): ${pastList}
 ALREADY COMPLETED TODAY: ${doneList}
 OPEN CALENDAR EVENTS:\n${calList}
-Re-optimize the schedule for my remaining open tasks. Review their current times and suggest improvements. Include lunch if the day spans it. Flag anything overloaded.`;
+Re-optimize the schedule for my remaining open tasks starting from now. Do not suggest times in the past. Include lunch only if it is still upcoming. Flag anything overloaded.`;
     const reply = await callAI(userMsg, 'json');
     btn.disabled=false; btn.textContent='✦ Re-optimize list';
     if(reply) renderPlanOutput(reply);
@@ -1063,7 +1087,7 @@ Re-optimize the schedule for my remaining open tasks. Review their current times
       if(!t.isCalEvent&&t.done&&!shownDone){html+=`<div class="divider-label">completed</div>`;shownDone=true;}
       const taskIdx=t._origIdx!==undefined?t._origIdx:renderIdx;
       const timeStr=t.start?fmt12(t.start)+(t.end?' – '+fmt12(t.end):''):'';
-      const locHtml=t.location?`<span class="task-location"><svg width="9" height="12" viewBox="0 0 12 16" fill="currentColor"><path d="M6 0C3.24 0 1 2.24 1 5c0 3.75 5 11 5 11s5-7.25 5-11c0-2.76-2.24-5-5-5zm0 7.5A2.5 2.5 0 1 1 6 2.5a2.5 2.5 0 0 1 0 5z"/></svg>${escHtml(t.location)}</span>`:'';
+      const locHtml=t.location?`<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.location)}" target="_blank" class="task-location" style="text-decoration:none;"><svg width="9" height="12" viewBox="0 0 12 16" fill="currentColor"><path d="M6 0C3.24 0 1 2.24 1 5c0 3.75 5 11 5 11s5-7.25 5-11c0-2.76-2.24-5-5-5zm0 7.5A2.5 2.5 0 1 1 6 2.5a2.5 2.5 0 0 1 0 5z"/></svg>${escHtml(t.location)}</a>`:'';
 
       // Calendar events get a checkbox now
       const leftEl=t.isCalEvent
@@ -1139,6 +1163,7 @@ Re-optimize the schedule for my remaining open tasks. Review their current times
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
   function todayStr(){return new Date().toISOString().slice(0,10);}
+  function timeToMinutes(t){if(!t)return 9999;const[h,m]=t.split(':').map(Number);return h*60+m;}
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function isoToTime(iso){if(!iso||iso.length===10)return'';const d=new Date(iso);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
   function fmt12(t){if(!t)return'';const[h,m]=t.split(':').map(Number);return`${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'pm':'am'}`;}
