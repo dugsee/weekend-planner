@@ -269,13 +269,19 @@
 
   <!-- AI Panel -->
   <div class="ai-panel" id="ai-panel" style="display:none;">
-    <button class="btn btn-ai" id="plan-btn" onclick="planMyDay()">✦ Plan my day</button>
+    <div id="brain-dump-section">
+      <textarea id="brain-dump-input" placeholder="Brain dump your tasks in any format&#10;e.g. mow lawn, pick up meds, hardware store, groceries, call insurance&#10;&#10;The AI will sort, schedule, and add location info for you." style="width:100%;min-height:82px;resize:vertical;font-size:13px;padding:9px 10px;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text);font-family:var(--font);outline:none;margin-bottom:8px;line-height:1.5;"></textarea>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="btn btn-ai" id="dump-btn" onclick="organizeDump()" style="flex:1;margin:0;padding:10px;">&#9998; Organize my day</button>
+        <button class="btn btn-ai" id="plan-btn" onclick="planMyDay()" style="flex:1;margin:0;padding:10px;background:var(--purple-dark);">&#10022; Re-optimize list</button>
+      </div>
+    </div>
     <div id="plan-output"></div>
     <div class="chat-messages" id="chat-messages">
-      <div class="chat-msg ai" id="ai-placeholder">Hit "Plan my day" for a smart schedule, or ask me anything about your tasks.</div>
+      <div class="chat-msg ai" id="ai-placeholder">Paste a brain dump above to build your day, or hit Re-optimize to re-order your existing open tasks.</div>
     </div>
     <div class="chat-input-row">
-      <input type="text" id="chat-input" placeholder="Ask about your day…" onkeydown="if(event.key==='Enter')sendChat()"/>
+      <input type="text" id="chat-input" placeholder="Ask your concierge anything&#8230;" onkeydown="if(event.key==='Enter')sendChat()"/>
       <button class="btn btn-outline" onclick="sendChat()">send</button>
     </div>
   </div>
@@ -368,11 +374,11 @@
   // ── Default profile ───────────────────────────────────────────────────────────
   const DEFAULT_PROFILE = {
     address:      'Bryant neighborhood, Seattle 98115 (near Ravenna and Wedgewood)',
-    destinations: 'Home Depot Northgate or Lowes, kids\' sports fields, mother\'s house for medication pickups',
+    destinations: 'Home Depot Northgate (1335 N Northgate Way), Mom\'s house at Parkshore Retirement Center in Madison Park (1630 43rd Ave E, Seattle) for medication pickups, kids\' sports fields',
     family:       'Tweens and teens at home, college-age kids sometimes around. Solo on most weekend tasks.',
     routine:      'Start around 10am. Always take a proper lunch break. Prefer outdoor tasks when weather is good. Done by early evening.',
     energy:       'Varies a lot weekend to weekend — some days full energy for heavy work, other days need lighter tasks.',
-    other:        'Pick up mom\'s medications when near Northgate. Kids may have weekend activities that affect timing.'
+    other:        'Mom is at Parkshore Retirement Center, Madison Park (1630 43rd Ave E) — about 15 min from Bryant. Home Depot is at Northgate (1335 N Northgate Way) — 10 min from home. These two trips can be combined via the 520/Eastlake route. Kids may have weekend activities that affect timing.'
   };
 
   // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -612,8 +618,22 @@
   }
 
   // ── AI planning ───────────────────────────────────────────────────────────────
-  function buildSystemPrompt(isJson=false){
-    const base=`You are a smart personal weekend day planner for someone in Seattle, WA.
+  const KNOWN_LOCATIONS = `
+KNOWN LOCATIONS FOR THIS PERSON (use these when relevant):
+- Home: Bryant neighborhood, Seattle 98115 (near Ravenna & Wedgewood)
+- Home Depot: 1335 N Northgate Way, Seattle (10 min from home)
+- Mom (Parkshore Retirement Center): 1630 43rd Ave E, Seattle — Madison Park (15 min from home, 20 min from Northgate via 520/Eastlake)
+- Kids sports fields: typically Dahl Playfield or Lower Woodland Park
+- Grocery: QFC on 65th or Trader Joe's Roosevelt
+- Hardware small items: Hardwick's Hardware (Roosevelt area)
+
+TRAVEL LOGIC:
+- Northgate + Madison Park can be batched on one loop via I-5/520
+- Outdoor tasks are best before noon or after 3pm in Seattle weather
+- Bryant to Northgate: ~10 min. Bryant to Madison Park: ~15 min.`;
+
+  function buildSystemPrompt(mode='chat'){
+    const base = `You are a personal concierge and weekend day planner for someone in Seattle, WA. You know them well and help them complete their day efficiently.
 
 ABOUT THIS PERSON:
 - Home: ${profile.address||DEFAULT_PROFILE.address}
@@ -623,57 +643,126 @@ ABOUT THIS PERSON:
 - Energy level: ${profile.energy||DEFAULT_PROFILE.energy}
 - Other context: ${profile.other||DEFAULT_PROFILE.other}
 
-PLANNING RULES:
-- Default start around 10am, always include a lunch break around noon-1pm
-- Group errands geographically to minimize Seattle travel time
+${KNOWN_LOCATIONS}
+
+CONCIERGE RULES:
+- Always start around 10am unless tasks suggest otherwise
+- Always include a 45-60 min lunch break around noon-1pm
+- Group tasks geographically to cut Seattle travel time
 - Schedule outdoor/physical tasks when weather is best
-- Warn if list is too ambitious
-- Review existing task times and locations — flag conflicts or improvements`;
+- Focus planning energy on OPEN (uncompleted) tasks only — completed tasks are context
+- Warn clearly if the open task list is too ambitious for one day
+- When you know a location for a task, include it`;
 
-    if(isJson) return base+`
+    if(mode==='json') return base + `
 
-Respond ONLY in this exact JSON format, no other text, no markdown fences:
+Respond ONLY in this exact JSON format — no other text, no markdown fences:
+{
+  "warning": "string describing any concerns, or null",
+  "items": [
+    {
+      "time": "10:00 am – 11:00 am",
+      "title": "Task name",
+      "location": "Address or place name, or empty string",
+      "reason": "One sentence on why this order/time makes sense",
+      "tag": "home|errands|health|admin",
+      "start": "10:00",
+      "end": "11:00"
+    }
+  ],
+  "suggestions": ["optional task from history worth adding today"]
+}`;
+
+    if(mode==='dump') return base + `
+
+The user has given you a raw brain dump of tasks. Your job:
+1. Parse out every distinct task from their text (even if messy or combined)
+2. Enrich each task with: a clean title, suggested start/end time, location if you can infer it, category tag, and a one-line reason for its place in the schedule
+3. Order them logically for the day accounting for geography, weather, energy, and the person's routine
+4. Only include a lunch break item if the schedule spans it
+5. Flag if the list seems too long
+
+Respond ONLY in this exact JSON format — no other text, no markdown:
 {
   "warning": "string or null",
   "items": [
-    {"time":"9:00 am - 10:00 am","title":"Task name","reason":"Why this time/order","tag":"home|errands|health|admin","start":"09:00","end":"10:00"}
+    {
+      "time": "10:00 am – 11:00 am",
+      "title": "Clean task name",
+      "location": "Specific address or place name if known, else empty string",
+      "reason": "One sentence on timing/order logic",
+      "tag": "home|errands|health|admin",
+      "start": "10:00",
+      "end": "11:00"
+    }
   ],
-  "suggestions": ["recurring task worth adding"]
+  "suggestions": []
 }`;
 
-    return base+`
+    // chat mode
+    return base + `
 
-Respond in plain conversational text — no JSON, no markdown. Be warm and concise.
-When the user asks to add tasks, tell them the suggested task names and times clearly. Do not output any JSON under any circumstances.`;
+You are their concierge — respond in warm, conversational plain text. No JSON ever.
+You know their open tasks, calendar, and locations. Help them think through their day.
+If they ask what to do next, look at their open tasks and the time of day and give a direct recommendation.
+Keep responses short and actionable.`;
+  }
+
+  async function organizeDump(){
+    const input = document.getElementById('brain-dump-input');
+    const raw = input.value.trim();
+    if(!raw){ addChatMessage('ai','Type or paste your tasks above first.'); return; }
+    const btn = document.getElementById('dump-btn');
+    btn.disabled=true; btn.textContent='Organizing…';
+    const openTasks = tasks.filter(t=>!t.done);
+    const calList = calEvents.map(e=>`- ${e.title} (${e.start?fmt12(e.start):'all day'}${e.end?' – '+fmt12(e.end):''}${e.location?' @ '+e.location:''})`).join('\n')||'None.';
+    const userMsg = `Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.
+WEATHER: ${weatherSummary()}
+ALREADY ON MY LIST (open): ${openTasks.length ? openTasks.map(t=>`${t.title}`).join(', ') : 'none'}
+CALENDAR EVENTS TODAY:\n${calList}
+
+MY BRAIN DUMP — please parse, enrich, and organize these into a full day plan:
+${raw}`;
+    const reply = await callAI(userMsg, 'dump');
+    btn.disabled=false; btn.textContent='✎ Organize my day';
+    if(reply){
+      renderPlanOutput(reply);
+      input.value='';
+    }
   }
 
   async function planMyDay(){
     const btn=document.getElementById('plan-btn');
-    btn.disabled=true;btn.textContent='Planning…';
-    const taskList=tasks.map(t=>`- ${t.title} (${t.start?fmt12(t.start):'no time'}${t.end?' – '+fmt12(t.end):''}, ${t.tag}${t.start?' already scheduled':''})`).join('\n')||'No tasks yet.';
-    const calList=calEvents.map(e=>`- ${e.title} (${e.start?fmt12(e.start):'all day'}${e.end?' – '+fmt12(e.end):''}${e.location?' @ '+e.location:''})`).join('\n')||'No calendar events.';
-    const userMsg=`Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.
+    btn.disabled=true; btn.textContent='Optimizing…';
+    const openTasks = tasks.filter(t=>!t.done);
+    const doneTasks = tasks.filter(t=>t.done);
+    const openList = openTasks.map(t=>`- ${t.title} (${t.start?fmt12(t.start):'no time set'}${t.end?' – '+fmt12(t.end):''}, ${t.tag})`).join('\n')||'No open tasks.';
+    const doneList = doneTasks.map(t=>`- ${t.title}`).join(', ')||'none';
+    const calList = calEvents.filter(e=>!e.done).map(e=>`- ${e.title} (${e.start?fmt12(e.start):'all day'}${e.end?' – '+fmt12(e.end):''}${e.location?' @ '+e.location:''})`).join('\n')||'None.';
+    const userMsg = `Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.
 WEATHER: ${weatherSummary()}
-MY TASKS:\n${taskList}
-CALENDAR EVENTS:\n${calList}
-Create an optimal ordered plan. Review existing task times and flag any that should be moved. Include lunch. Flag if overloaded.`;
-    const reply=await callAI(userMsg,true);
-    btn.disabled=false;btn.textContent='✦ Plan my day';
+OPEN TASKS (need scheduling):\n${openList}
+ALREADY COMPLETED TODAY: ${doneList}
+OPEN CALENDAR EVENTS:\n${calList}
+Re-optimize the schedule for my remaining open tasks. Review their current times and suggest improvements. Include lunch if the day spans it. Flag anything overloaded.`;
+    const reply = await callAI(userMsg, 'json');
+    btn.disabled=false; btn.textContent='✦ Re-optimize list';
     if(reply) renderPlanOutput(reply);
   }
 
   function renderPlanOutput(jsonStr){
     const out=document.getElementById('plan-output');
     let plan;
-    try{ plan=JSON.parse(jsonStr); }
-    catch(e){
-      // Fallback: show as chat message if not valid JSON
+    try{
+      const clean = jsonStr.replace(/```json|```/g,'').trim();
+      plan=JSON.parse(clean);
+    } catch(e){
       out.innerHTML='';
       addChatMessage('ai',jsonStr);
       return;
     }
     let html='';
-    if(plan.warning) html+=`<div class="plan-warning">⚠ ${escHtml(plan.warning)}</div>`;
+    if(plan.warning) html+=`<div class="plan-warning">&#9888; ${escHtml(plan.warning)}</div>`;
     if(plan.items&&plan.items.length){
       html+=`<div class="plan-list">`;
       plan.items.forEach((item,i)=>{
@@ -683,6 +772,7 @@ Create an optimal ordered plan. Review existing task times and flag any that sho
             <div class="plan-item-title">${escHtml(item.title)}</div>
             <div class="plan-item-time">${escHtml(item.time||'')}</div>
           </div>
+          ${item.location?`<div style="font-size:11px;color:#185FA5;margin-top:3px;">&#128205; ${escHtml(item.location)}</div>`:''}
           <div class="plan-item-reason">${escHtml(item.reason||'')}</div>
           <div class="plan-item-actions">
             <span class="tag tag-${item.tag||'admin'}">${item.tag||'task'}</span>
@@ -695,10 +785,9 @@ Create an optimal ordered plan. Review existing task times and flag any that sho
       html+=`</div>`;
     }
     if(plan.suggestions&&plan.suggestions.length){
-      html+=`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;"><strong style="font-weight:500;">Suggestions from your history:</strong> ${plan.suggestions.map(s=>`<span style="background:var(--bg-secondary);padding:2px 8px;border-radius:99px;margin:2px;display:inline-block;">${escHtml(s)}</span>`).join('')}</div>`;
+      html+=`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;padding:8px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);"><span style="font-weight:500;">Suggestions:</span> ${plan.suggestions.map(s=>`<span style="background:var(--bg);border:0.5px solid var(--border-mid);padding:2px 8px;border-radius:99px;margin:2px;display:inline-block;">${escHtml(s)}</span>`).join('')}</div>`;
     }
     out.innerHTML=html;
-    // Store plan items for addPlanItem
     window._lastPlan=plan;
     document.getElementById('ai-placeholder')?.remove();
   }
@@ -708,7 +797,6 @@ Create an optimal ordered plan. Review existing task times and flag any that sho
     const item=plan.items[idx];
     tasks.push({id:Date.now(),title:item.title,start:item.start||'',end:item.end||'',tag:item.tag||'admin',done:false});
     saveTasks();renderAll();
-    // Re-render plan to update "already on list" state
     renderPlanOutput(JSON.stringify(plan));
   }
 
@@ -717,11 +805,11 @@ Create an optimal ordered plan. Review existing task times and flag any that sho
     const msg=input.value.trim();if(!msg)return;
     input.value='';
     addChatMessage('user',msg);
-    const reply=await callAI(msg,false);
+    const reply=await callAI(msg,'chat');
     if(reply) addChatMessage('ai',reply);
   }
 
-  async function callAI(userMessage, isJson=false){
+  async function callAI(userMessage, mode='chat'){
     if(!anthropicKey){addChatMessage('ai','Add your Anthropic API key in the connections panel above.');return null;}
     const thinking=addChatMessage('ai','Thinking…',false,true);
     try{
@@ -729,7 +817,7 @@ Create an optimal ordered plan. Review existing task times and flag any that sho
       const res=await fetch(ANTHROPIC_URL,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:AI_MODEL,max_tokens:1500,system:buildSystemPrompt(isJson),messages})
+        body:JSON.stringify({model:AI_MODEL,max_tokens:1800,system:buildSystemPrompt(mode),messages})
       });
       const data=await res.json();
       thinking.remove();
@@ -738,7 +826,7 @@ Create an optimal ordered plan. Review existing task times and flag any that sho
       chatHistory.push({role:'user',content:userMessage},{role:'assistant',content:reply});
       if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
       try{localStorage.setItem(KEYS.chatHistory,JSON.stringify(chatHistory));}catch(e){}
-      if(!isJson) document.getElementById('ai-placeholder')?.remove();
+      if(mode==='chat') document.getElementById('ai-placeholder')?.remove();
       return reply;
     }catch(e){
       thinking.remove();
