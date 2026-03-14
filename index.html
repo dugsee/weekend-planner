@@ -148,7 +148,7 @@
     .task-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-top:1px;}
     .delete-btn{background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:14px;padding:3px 5px;border-radius:4px;transition:color 0.15s;}
     .delete-btn:hover{color:var(--text);background:var(--bg-secondary);}
-    .divider-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;padding:10px 0 4px;letter-spacing:0.1em;text-transform:uppercase;}
+    .divider-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;padding:10px 0 4px;letter-spacing:0.1em;text-transform:uppercase;user-select:none;}
 
     /* Rolled over */
     .suggestions{background:var(--amber-bg);border:0.5px solid var(--amber);border-radius:var(--radius-lg);padding:11px 13px;margin-bottom:10px;}
@@ -787,10 +787,10 @@ Keep responses short and actionable.`;
     const userMsg = `${currentTimeContext()}.
 WEATHER: ${weatherSummary()}
 HOURS REMAINING IN DAY: approximately ${hoursLeft} hours. ALL times must be between 10:00 am and 6:00 pm local time. Start/end fields must be 24h format HH:MM (e.g. 10:00, 14:30). Do not schedule anything before the current time.
-ALREADY ON MY LIST (open): ${openTasks.length ? openTasks.map(t=>`${t.title}${t.start?' at '+fmt12(t.start):''}`).join(', ') : 'none'}
+CURRENT OPEN TASKS (already on my list — do NOT duplicate these, just schedule around them):\n${openTasks.length ? openTasks.map(t=>`- ${t.title}${t.start?' at '+fmt12(t.start)+(t.end?' – '+fmt12(t.end):''):''}${t.location?' @ '+t.location:''}`).join('\n') : 'none'}
 CALENDAR EVENTS TODAY:\n${calList}
 
-MY BRAIN DUMP — please parse, enrich, and organize these into a full day plan starting from the current time:
+MY BRAIN DUMP — parse ONLY these tasks (do not invent new ones). Enrich with times, locations, tags. Schedule around existing open tasks. Start from current time:
 ${raw}`;
     const reply = await callAI(userMsg, 'dump');
     btn.disabled=false; btn.textContent='✎ Organize my day';
@@ -845,6 +845,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     if(plan.items&&plan.items.length){
       html+=`<div class="plan-list">`;
       plan.items.forEach((item,i)=>{
+        if(item._added) return;
         const alreadyAdded=tasks.some(t=>t.title.toLowerCase()===item.title.toLowerCase());
         html+=`<div class="plan-item" data-plan-idx="${i}">
           <div class="plan-item-header">
@@ -896,19 +897,12 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const plan=window._lastPlan;if(!plan||!plan.items[idx])return;
     const item=plan.items[idx];
     tasks.push({id:Date.now(),title:item.title,start:item.start||'',end:item.end||'',tag:item.tag||'admin',done:false,location:item.location||''});
-    saveTasks();renderAll();
-    // Remove just this card from the plan output instead of re-rendering everything
-    const card=document.querySelector(`.plan-item[data-plan-idx="${idx}"]`);
-    if(card){
-      card.style.transition='opacity 0.2s';
-      card.style.opacity='0';
-      setTimeout(()=>{
-        card.remove();
-        // If no plan items left, collapse the plan-list wrapper too
-        const list=document.querySelector('.plan-list');
-        if(list&&list.querySelectorAll('.plan-item').length===0) list.remove();
-      },200);
-    }
+    // Mark item as added in the plan so it stays removed after re-render
+    plan.items[idx]._added=true;
+    saveTasks();
+    renderAll();
+    // Re-render plan output so this item disappears (now marked _added)
+    renderPlanOutput(JSON.stringify(plan));
   }
 
   async function sendChat(){
@@ -1099,6 +1093,11 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function showSheetsStatus(m,ok){const el=document.getElementById('sheets-status');el.textContent=m;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
 
   // ── Drag to reorder ───────────────────────────────────────────────────────────
+  function toggleCompleted(){
+    completedCollapsed=!completedCollapsed;
+    renderAll();
+  }
+
   function moveTask(idx, dir){
     const newIdx = idx + dir;
     if(newIdx < 0 || newIdx >= tasks.length) return;
@@ -1125,7 +1124,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     else if(activeFilter==='calendar') visible=calEvents;
     else if(activeFilter==='location') visible=all.filter(t=>t.location);
 
-    const done=manualTasks.filter(t=>t.done).length,total=manualTasks.length;
+    const done=manualTasks.filter(t=>t.done).length+calEvents.filter(t=>t.done).length,total=manualTasks.length+calEvents.length;
     const pct=total?Math.round((done/total)*100):0;
     document.getElementById('prog-fill').style.width=pct+'%';
     document.getElementById('prog-text').textContent=`${done} of ${total} tasks complete`;
@@ -1140,14 +1139,24 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     else if(activeFilter==='location') sorted=[...sortedManual,...sortedCal].filter(t=>t.location);
     else sorted=[...sortedManual,...sortedCal];
 
-    // Put done manual tasks at bottom
-    const activeSorted=sorted.filter(t=>!(!t.isCalEvent&&t.done));
-    const doneSorted=sorted.filter(t=>!t.isCalEvent&&t.done);
+    // Active items: open manual tasks + open cal events
+    const activeSorted=sorted.filter(t=>!t.done);
+    // Done items: both manual and cal events that are checked off
+    const doneSorted=sorted.filter(t=>t.done);
     const finalSorted=[...activeSorted,...doneSorted];
 
     let html='',shownDone=false;
     finalSorted.forEach((t,renderIdx)=>{
-      if(!t.isCalEvent&&t.done&&!shownDone){html+=`<div class="divider-label">completed</div>`;shownDone=true;}
+      if(t.done&&!shownDone){
+        const count=doneSorted.length;
+        html+=`<div class="divider-label" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleCompleted()">
+          <span>completed (${count})</span>
+          <span style="font-size:14px;transition:transform 0.2s;display:inline-block;transform:${completedCollapsed?'rotate(-90deg)':'rotate(0deg)'};">&#9660;</span>
+        </div>`;
+        shownDone=true;
+        if(completedCollapsed){html+='';return;}
+      }
+      if(t.done&&completedCollapsed) return;
       const taskIdx=t._origIdx!==undefined?t._origIdx:renderIdx;
       const timeStr=t.start?fmt12(t.start)+(t.end?' – '+fmt12(t.end):''):'';
       const locHtml=t.location?`<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.location)}" target="_blank" class="task-location" style="text-decoration:none;"><svg width="9" height="12" viewBox="0 0 12 16" fill="currentColor"><path d="M6 0C3.24 0 1 2.24 1 5c0 3.75 5 11 5 11s5-7.25 5-11c0-2.76-2.24-5-5-5zm0 7.5A2.5 2.5 0 1 1 6 2.5a2.5 2.5 0 0 1 0 5z"/></svg>${escHtml(t.location)}</a>`:'';
@@ -1233,6 +1242,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
 
   // ── Task editing ───────────────────────────────────────────────────────────
   let editingTaskId = null;
+  let completedCollapsed = false;
 
   function openEdit(id){
     const t=tasks.find(t=>t.id===id);if(!t)return;
