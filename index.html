@@ -758,7 +758,7 @@ Please create a realistic, ordered plan for my day. Group tasks smartly, account
       await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:G1000`);
       if(!tasks.length)return;
       const rows=tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',todayStr()]);
-      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:G${rows.length+1}?valueInputOption=RAW`,{values:rows});
+      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:G:append?valueInputOption=RAW`,{values:rows});
     }catch(e){console.warn('Sync write failed',e);}
   }
 
