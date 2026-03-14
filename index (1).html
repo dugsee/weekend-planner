@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekend Planner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg-secondary: #f5f5f3;
+      --bg-tertiary: #efefec;
+      --text: #1a1a18;
+      --text-secondary: #6b6b66;
+      --text-tertiary: #9e9e99;
+      --border: rgba(0,0,0,0.12);
+      --border-mid: rgba(0,0,0,0.22);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --green: #1D9E75;
+      --green-dark: #0F6E56;
+      --blue: #378ADD;
+      --blue-dark: #185FA5;
+      --amber: #BA7517;
+      --amber-bg: #FAEEDA;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a;
+        --bg-secondary: #252523;
+        --bg-tertiary: #2e2e2b;
+        --text: #f0f0ec;
+        --text-secondary: #a0a09a;
+        --text-tertiary: #6a6a65;
+        --border: rgba(255,255,255,0.1);
+        --border-mid: rgba(255,255,255,0.2);
+        --amber-bg: #633806;
+        --amber: #FAC775;
+      }
+    }
+
+    body { font-family: var(--font); background: var(--bg-tertiary); color: var(--text); min-height: 100vh; padding: 1rem; }
+    .app { max-width: 600px; margin: 0 auto; padding: 1.5rem 0 4rem; }
+
+    .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem; }
+    .date-label { font-size: 13px; color: var(--text-secondary); }
+    .day-label { font-size: 22px; font-weight: 600; color: var(--text); }
+    .remaining-label { font-size: 13px; color: var(--text-secondary); text-align: right; }
+    .remaining-count { font-size: 22px; font-weight: 600; text-align: right; }
+
+    .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.4s ease; }
+    .progress-text { font-size: 12px; color: var(--text-tertiary); text-align: right; margin-bottom: 1.25rem; }
+
+    .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 13px 15px; margin-bottom: 1rem; }
+    .card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+    .card-title { font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+
+    .setup-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+    .setup-row input { flex: 1; min-width: 180px; font-size: 13px; padding: 8px 10px; border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text); font-family: var(--font); outline: none; }
+    .setup-row input:focus { border-color: var(--blue); }
+
+    .status-line { font-size: 12px; margin-top: 8px; }
+    .status-line.ok  { color: #3B6D11; }
+    .status-line.err { color: #A32D2D; }
+
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; font-size: 13px; font-family: var(--font); font-weight: 500; border: none; border-radius: var(--radius-md); cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .btn-google { background: var(--blue); color: white; }
+    .btn-google:hover { background: var(--blue-dark); }
+    .btn-green  { background: var(--green); color: white; }
+    .btn-green:hover { background: var(--green-dark); }
+    .btn-sheets { background: #1D9E75; color: white; }
+    .btn-sheets:hover { background: #0F6E56; }
+    .btn-outline { background: none; color: var(--text-secondary); border: 0.5px solid var(--border-mid); }
+    .btn-outline:hover { background: var(--bg-secondary); color: var(--text); }
+    .btn-ghost { background: none; border: none; color: var(--text-tertiary); font-size: 12px; padding: 4px 8px; cursor: pointer; font-family: var(--font); }
+    .btn-ghost:hover { color: var(--text-secondary); }
+    .btn-rollover { background: none; border: 0.5px solid var(--border-mid); color: var(--text-secondary); font-size: 11px; padding: 2px 8px; border-radius: 99px; cursor: pointer; font-family: var(--font); transition: all 0.15s; white-space: nowrap; }
+    .btn-rollover:hover { background: var(--amber-bg); color: var(--amber); border-color: var(--amber); }
+
+    .filter-row { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-label { font-size: 12px; color: var(--text-tertiary); }
+    .chip { font-size: 12px; padding: 4px 11px; border-radius: 99px; border: 0.5px solid var(--border-mid); background: none; cursor: pointer; color: var(--text-secondary); font-family: var(--font); transition: all 0.15s; }
+    .chip.active { background: var(--bg-secondary); color: var(--text); }
+    .filter-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+    .task-list { display: flex; flex-direction: column; gap: 6px; }
+    .task-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 11px 13px; display: flex; align-items: flex-start; gap: 11px; transition: opacity 0.3s, border-color 0.2s; }
+    .task-card:hover { border-color: var(--border-mid); }
+    .task-card.done { opacity: 0.45; }
+    .task-card.done .task-title { text-decoration: line-through; color: var(--text-tertiary); }
+    .task-card.done .task-time  { text-decoration: line-through; }
+    .task-card.cal-event { border-left: 2.5px solid var(--blue); }
+    .task-card.cal-event.done { border-left-color: var(--border); }
+
+    .check-wrap { padding-top: 2px; flex-shrink: 0; }
+    .check-wrap input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; accent-color: var(--green); }
+    .cal-icon { width: 18px; height: 18px; border-radius: 50%; background: #E6F1FB; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+
+    .task-body { flex: 1; min-width: 0; }
+    .task-title { font-size: 15px; font-weight: 500; line-height: 1.4; }
+    .task-meta { display: flex; align-items: center; gap: 7px; margin-top: 3px; flex-wrap: wrap; }
+    .task-time { font-size: 12px; color: var(--text-secondary); }
+    .task-location { font-size: 12px; color: var(--blue-dark); display: flex; align-items: center; gap: 3px; }
+
+    .tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; }
+    .tag-errands  { background: #E6F1FB; color: #185FA5; }
+    .tag-home     { background: #FAEEDA; color: #854F0B; }
+    .tag-health   { background: #EAF3DE; color: #3B6D11; }
+    .tag-admin    { background: #EEEDFE; color: #3C3489; }
+    .tag-calendar { background: #E6F1FB; color: #185FA5; }
+
+    .task-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-top: 1px; }
+    .delete-btn { background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 14px; padding: 3px 5px; border-radius: 4px; transition: color 0.15s, background 0.15s; }
+    .delete-btn:hover { color: var(--text); background: var(--bg-secondary); }
+
+    .divider-label { font-size: 11px; color: var(--text-tertiary); padding: 10px 0 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    .suggestions { background: var(--amber-bg); border: 0.5px solid var(--amber); border-radius: var(--radius-lg); padding: 11px 13px; margin-bottom: 10px; }
+    .suggestions-title { font-size: 12px; font-weight: 500; color: var(--amber); margin-bottom: 8px; }
+    .suggestion-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
+    .suggestion-name { font-size: 13px; color: var(--text); }
+    .btn-add-suggestion { font-size: 11px; padding: 3px 10px; background: var(--bg); border: 0.5px solid var(--border-mid); border-radius: 99px; cursor: pointer; font-family: var(--font); color: var(--text-secondary); white-space: nowrap; }
+    .btn-add-suggestion:hover { background: var(--bg-secondary); }
+
+    .add-btn { width: 100%; padding: 12px; background: none; border: 0.5px dashed var(--border-mid); border-radius: var(--radius-lg); font-size: 14px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; font-family: var(--font); margin-top: 10px; }
+    .add-btn:hover { background: var(--bg-secondary); color: var(--text); border-style: solid; }
+    .add-form { background: var(--bg); border: 0.5px solid var(--border-mid); border-radius: var(--radius-lg); padding: 13px; display: flex; flex-direction: column; gap: 9px; margin-top: 10px; }
+    .form-row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+    .form-row input[type="text"], .form-row input[type="time"], .form-row select { font-size: 13px; padding: 8px 10px; border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text); font-family: var(--font); outline: none; }
+    .form-row input[type="text"] { flex: 1; min-width: 160px; font-size: 14px; }
+    .form-row input:focus, .form-row select:focus { border-color: var(--blue); }
+    .form-sep { font-size: 13px; color: var(--text-tertiary); }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    .history-section { margin-top: 1.5rem; border-top: 0.5px solid var(--border); padding-top: 1rem; }
+    .history-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .history-toggle-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+    .history-toggle-arrow { font-size: 12px; color: var(--text-tertiary); transition: transform 0.2s; }
+    .history-toggle-arrow.open { transform: rotate(90deg); }
+    .history-content { margin-top: 12px; }
+
+    @media (prefers-color-scheme: dark) {
+      .cal-icon { background: #0C447C; }
+      .tag-errands, .tag-calendar { background: #0C447C; color: #B5D4F4; }
+      .tag-home  { background: #633806; color: #FAC775; }
+      .tag-health { background: #27500A; color: #C0DD97; }
+      .tag-admin { background: #3C3489; color: #CECBF6; }
+      .task-location { color: #85B7EB; }
+      .status-line.ok  { color: #97C459; }
+      .status-line.err { color: #F09595; }
+    }
+    @media (max-width: 480px) {
+      body { padding: 0.5rem; }
+      .app { padding: 1rem 0 3rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div>
+      <div class="date-label" id="date-label"></div>
+      <div class="day-label"  id="day-label"></div>
+    </div>
+    <div>
+      <div class="remaining-label">tasks left</div>
+      <div class="remaining-count" id="remaining-count">0</div>
+    </div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="progress-text" id="prog-text">0 of 0 complete</div>
+
+  <!-- Google sign-in -->
+  <div class="card" id="setup-banner">
+    <p>Sign in with Google to pull your calendar and sync your task history to Google Sheets.</p>
+    <div class="setup-row">
+      <input type="text" id="cal-id-input" placeholder="Calendar ID  (usually your Gmail address)" />
+      <button class="btn btn-google" onclick="startOAuth()">
+        <svg width="14" height="14" viewBox="0 0 18 18" fill="white"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.706 17.64 9.2z"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Sign in with Google
+      </button>
+    </div>
+    <div class="status-line" id="cal-status"></div>
+  </div>
+
+  <!-- Sheets setup (shown after sign-in) -->
+  <div class="card" id="sheets-setup" style="display:none;">
+    <div class="card-title">Google Sheets — task history</div>
+    <p>Create a blank Google Sheet, then paste its ID here to start logging. The Sheet ID is the long string in the URL between <code style="font-size:11px;background:var(--bg-secondary);padding:1px 4px;border-radius:3px;">/d/</code> and <code style="font-size:11px;background:var(--bg-secondary);padding:1px 4px;border-radius:3px;">/edit</code>. &nbsp;<a id="sheets-link" href="#" target="_blank" style="color:var(--blue);font-size:13px;display:none;">Open Sheet ↗</a></p>
+    <div class="setup-row">
+      <input type="text" id="sheet-id-input" placeholder="Sheet ID" />
+      <button class="btn btn-sheets" onclick="connectSheet()">connect</button>
+    </div>
+    <div class="status-line" id="sheets-status"></div>
+  </div>
+
+  <!-- Filter row -->
+  <div class="filter-row" id="filter-row" style="display:none;">
+    <span class="filter-label">show:</span>
+    <button class="chip active" data-filter="all"      onclick="setFilter('all')">all</button>
+    <button class="chip"        data-filter="tasks"    onclick="setFilter('tasks')">my tasks</button>
+    <button class="chip"        data-filter="calendar" onclick="setFilter('calendar')">calendar</button>
+    <button class="chip"        data-filter="location" onclick="setFilter('location')">has location</button>
+    <div class="filter-actions">
+      <button class="btn-ghost" onclick="fetchCalendar()">↻ refresh</button>
+      <button class="btn-ghost" onclick="signOut()">sign out</button>
+    </div>
+  </div>
+
+  <!-- Rolled-over suggestions -->
+  <div id="suggestions-banner"></div>
+
+  <!-- Task list -->
+  <div class="task-list" id="task-list"></div>
+
+  <!-- Add task -->
+  <button class="add-btn" id="add-btn" onclick="showForm()">+ add task</button>
+  <div class="add-form" id="add-form" style="display:none;">
+    <div class="form-row">
+      <input type="text" id="new-title" placeholder="task name..." />
+    </div>
+    <div class="form-row">
+      <input type="time" id="new-start" />
+      <span class="form-sep">to</span>
+      <input type="time" id="new-end" />
+      <select id="new-tag">
+        <option value="errands">errands</option>
+        <option value="home">home</option>
+        <option value="health">health</option>
+        <option value="admin">admin</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="hideForm()">cancel</button>
+      <button class="btn btn-green"   onclick="saveTask()">add task</button>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="history-section" id="history-section" style="display:none;">
+    <div class="history-toggle" onclick="toggleHistory()">
+      <span class="history-toggle-label">task history &amp; recurring insights</span>
+      <span class="history-toggle-arrow" id="history-arrow">›</span>
+    </div>
+    <div class="history-content" id="history-content" style="display:none;"></div>
+  </div>
+
+</div>
+<script>
+  const CLIENT_ID     = '451013372558-r77l7knno1pgob7vkbi9hv3jdr19qobi.apps.googleusercontent.com';
+  const SCOPES        = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
+  const TASKS_KEY     = 'wknd_tasks_v2';
+  const TOKEN_KEY     = 'wknd_token_v2';
+  const EVENTS_KEY    = 'wknd_cal_events_v2';
+  const CAL_ID_KEY    = 'wknd_cal_id';
+  const SHEET_ID_KEY  = 'wknd_sheet_id';
+  const ROLLED_KEY    = 'wknd_rolled_v2';
+  const LAST_DAY_KEY  = 'wknd_last_day';
+  const SHEET_NAME    = 'Tasks';
+  const SHEET_HEADERS = ['Date','Task','Tag','Sched Start','Sched End','Duration (min)','Completed At','Source','Status','Notes'];
+
+  let tasks=[], calEvents=[], rolledTasks=[], activeFilter='all';
+  let accessToken=null, tokenExpiry=0, sheetId='', sheetReady=false;
+
+  function boot() {
+    setHeader();
+    loadState();
+    checkDayRollover();
+    scheduleMidnight();
+    if (accessToken && Date.now() < tokenExpiry) {
+      showConnected();
+      if (calEvents.length) renderAll(); else fetchCalendar();
+      if (sheetId) initSheet();
+    } else { renderAll(); }
+  }
+
+  function loadState() {
+    try { const r=localStorage.getItem(TASKS_KEY);  if(r) tasks=JSON.parse(r); } catch(e){}
+    try { const r=localStorage.getItem(ROLLED_KEY); if(r) rolledTasks=JSON.parse(r); } catch(e){}
+    try { const t=JSON.parse(localStorage.getItem(TOKEN_KEY)||'null'); if(t&&t.expiry>Date.now()){accessToken=t.token;tokenExpiry=t.expiry;} } catch(e){}
+    try { const ev=JSON.parse(localStorage.getItem(EVENTS_KEY)||'null'); if(ev&&ev.date===todayStr()) calEvents=ev.events; } catch(e){}
+    sheetId=localStorage.getItem(SHEET_ID_KEY)||'';
+    if(sheetId){document.getElementById('sheet-id-input').value=sheetId;updateSheetLink();}
+    const cid=localStorage.getItem(CAL_ID_KEY);
+    if(cid) document.getElementById('cal-id-input').value=cid;
+    if(!tasks.length){
+      tasks=[
+        {id:1,title:'Grocery run',start:'09:00',end:'10:00',tag:'errands',done:false},
+        {id:2,title:'Mow the lawn',start:'10:30',end:'11:30',tag:'home',done:false},
+        {id:3,title:'Morning walk',start:'07:30',end:'08:15',tag:'health',done:false},
+      ];
+      saveTasks();
+    }
+  }
+
+  function saveTasks()  { try{localStorage.setItem(TASKS_KEY,  JSON.stringify(tasks));}catch(e){} }
+  function saveRolled() { try{localStorage.setItem(ROLLED_KEY, JSON.stringify(rolledTasks));}catch(e){} }
+
+  function checkDayRollover() {
+    const last=localStorage.getItem(LAST_DAY_KEY), today=todayStr();
+    if(last && last!==today) {
+      const incomplete=tasks.filter(t=>!t.done);
+      if(incomplete.length) {
+        const nr=incomplete.map(t=>({...t,id:Date.now()+Math.random(),rolledFrom:last,status:'rolled-over'}));
+        rolledTasks=[...rolledTasks,...nr];
+        saveRolled();
+        if(sheetReady) nr.forEach(t=>logToSheet(t,'rolled-over',null));
+      }
+      tasks=[]; saveTasks();
+    }
+    localStorage.setItem(LAST_DAY_KEY, today);
+  }
+
+  function scheduleMidnight() {
+    const now=new Date();
+    const next=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,5);
+    setTimeout(()=>{checkDayRollover();renderAll();scheduleMidnight();}, next-now);
+  }
+
+  function manualRollover(id) {
+    const idx=tasks.findIndex(t=>t.id===id); if(idx===-1) return;
+    const t=tasks[idx];
+    const rolled={...t,id:Date.now(),rolledFrom:todayStr(),status:'rolled-over'};
+    rolledTasks.push(rolled); saveRolled();
+    tasks.splice(idx,1); saveTasks();
+    if(sheetReady) logToSheet(rolled,'rolled-over',null);
+    renderAll();
+  }
+
+  function addRolledToToday(id) {
+    const idx=rolledTasks.findIndex(t=>t.id===id); if(idx===-1) return;
+    const t=rolledTasks[idx];
+    tasks.push({id:Date.now(),title:t.title,start:t.start,end:t.end,tag:t.tag,done:false});
+    rolledTasks.splice(idx,1); saveTasks(); saveRolled(); renderAll();
+  }
+
+  function dismissRolled(id) {
+    rolledTasks=rolledTasks.filter(t=>t.id!==id); saveRolled(); renderAll();
+  }
+
+  function startOAuth() {
+    const calId=document.getElementById('cal-id-input').value.trim();
+    if(!calId){showCalStatus('Enter your Calendar ID first.',false);return;}
+    localStorage.setItem(CAL_ID_KEY,calId);
+    const params=new URLSearchParams({client_id:CLIENT_ID,redirect_uri:window.location.origin+window.location.pathname,response_type:'token',scope:SCOPES,prompt:'consent'});
+    const popup=window.open('https://accounts.google.com/o/oauth2/v2/auth?'+params,'google_oauth','width=520,height=620,left=200,top=80');
+    const poll=setInterval(()=>{
+      try{
+        if(!popup||popup.closed){clearInterval(poll);return;}
+        const url=popup.location.href;
+        if(url.includes('access_token')){
+          clearInterval(poll);popup.close();
+          const hash=new URLSearchParams(url.split('#')[1]||'');
+          const token=hash.get('access_token'),exp=parseInt(hash.get('expires_in')||'3600');
+          if(token){
+            accessToken=token;tokenExpiry=Date.now()+exp*1000;
+            try{localStorage.setItem(TOKEN_KEY,JSON.stringify({token:accessToken,expiry:tokenExpiry}));}catch(e){}
+            showConnected();fetchCalendar();if(sheetId)initSheet();
+          }
+        }
+      }catch(e){}
+    },600);
+  }
+
+  function signOut() {
+    accessToken=null;calEvents=[];sheetReady=false;
+    try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(EVENTS_KEY);}catch(e){}
+    document.getElementById('setup-banner').style.display='block';
+    document.getElementById('filter-row').style.display='none';
+    document.getElementById('sheets-setup').style.display='none';
+    document.getElementById('history-section').style.display='none';
+    renderAll();
+  }
+
+  function showConnected() {
+    document.getElementById('setup-banner').style.display='none';
+    document.getElementById('filter-row').style.display='flex';
+    document.getElementById('sheets-setup').style.display='block';
+  }
+
+  async function fetchCalendar() {
+    if(!accessToken||Date.now()>tokenExpiry){expiredSession();return;}
+    const calId=localStorage.getItem(CAL_ID_KEY)||'';if(!calId)return;
+    showCalStatus('Loading events…',null);
+    const now=new Date();
+    const start=new Date(now.getFullYear(),now.getMonth(),now.getDate()).toISOString();
+    const end=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).toISOString();
+    try{
+      const res=await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${start}&timeMax=${end}&singleEvents=true&orderBy=startTime&maxResults=50`,{headers:{Authorization:'Bearer '+accessToken}});
+      const data=await res.json();
+      if(data.error){showCalStatus('Error: '+data.error.message,false);return;}
+      calEvents=(data.items||[]).map(e=>({id:'cal_'+e.id,title:e.summary||'(no title)',start:isoToTime(e.start?.dateTime||e.start?.date),end:isoToTime(e.end?.dateTime||e.end?.date),location:e.location||'',tag:'calendar',done:false,isCalEvent:true}));
+      try{localStorage.setItem(EVENTS_KEY,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
+      showCalStatus(`${calEvents.length} event${calEvents.length!==1?'s':''} loaded`,true);
+      renderAll();
+    }catch(err){showCalStatus('Network error.',false);}
+  }
+
+  function connectSheet() {
+    const val=document.getElementById('sheet-id-input').value.trim();
+    if(!val){showSheetsStatus('Paste your Sheet ID first.',false);return;}
+    sheetId=val;localStorage.setItem(SHEET_ID_KEY,sheetId);updateSheetLink();initSheet();
+  }
+
+  function updateSheetLink() {
+    const a=document.getElementById('sheets-link');
+    if(sheetId){a.href=`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;a.style.display='inline';}
+    else a.style.display='none';
+  }
+
+  async function initSheet() {
+    if(!accessToken||!sheetId)return;
+    showSheetsStatus('Connecting…',null);
+    try{
+      const res=await sheetsGet(`${sheetId}/values/${SHEET_NAME}!A1:J1`);
+      const data=await res.json();
+      if(data.error&&data.error.code===404){
+        await sheetsPost(`${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:SHEET_NAME}}}]});
+        await writeHeaders();
+      } else if(!data.values||!data.values[0]||data.values[0][0]!=='Date'){
+        await writeHeaders();
+      }
+      sheetReady=true;
+      showSheetsStatus('Connected — logging task completions ✓',true);
+      document.getElementById('history-section').style.display='block';
+      loadHistory();
+    }catch(e){showSheetsStatus('Could not connect. Check the Sheet ID and make sure the Sheet is not restricted.',false);}
+  }
+
+  async function writeHeaders() {
+    await sheetsPost(`${sheetId}/values/${SHEET_NAME}!A1:J1:append?valueInputOption=RAW`,{values:[SHEET_HEADERS]});
+  }
+
+  async function logToSheet(task, status, completedAt) {
+    if(!sheetReady||!accessToken)return;
+    const duration=(task.start&&task.end)?timeDiffMin(task.start,task.end):'';
+    const row=[todayStr(),task.title,task.tag,task.start||'',task.end||'',duration,completedAt?fmtDateTime(completedAt):'',task.isCalEvent?'Google Calendar':'manual',status,task.rolledFrom?`rolled from ${task.rolledFrom}`:''];
+    try{await sheetsPost(`${sheetId}/values/${SHEET_NAME}!A:J:append?valueInputOption=RAW`,{values:[row]});}catch(e){console.warn('Sheets log failed',e);}
+  }
+
+  async function loadHistory() {
+    if(!sheetReady||!accessToken)return;
+    const el=document.getElementById('history-content');
+    el.innerHTML='<p style="font-size:13px;color:var(--text-tertiary);">Loading…</p>';
+    try{
+      const res=await sheetsGet(`${sheetId}/values/${SHEET_NAME}!A2:J1000`);
+      const data=await res.json();
+      const rows=data.values||[];
+      if(!rows.length){el.innerHTML='<p style="font-size:13px;color:var(--text-tertiary);">No history yet — completed tasks will appear here.</p>';return;}
+      const counts={};
+      rows.forEach(r=>{const name=r[1]||'',status=r[8]||'';if(status==='completed')counts[name]=(counts[name]||0)+1;});
+      const recurring=Object.entries(counts).filter(([,v])=>v>1).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      const recent=rows.filter(r=>r[8]==='completed').slice(-10).reverse();
+      let html='';
+      if(recurring.length){
+        html+=`<div style="margin-bottom:1.25rem;"><div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:8px;">recurring tasks</div><div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+        recurring.forEach(([name,count])=>{
+          html+=`<div style="background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);padding:5px 10px;font-size:12px;"><span style="color:var(--text);">${escHtml(name)}</span><span style="color:var(--text-tertiary);margin-left:6px;">×${count}</span></div>`;
+        });
+        html+=`</div></div>`;
+      }
+      if(recent.length){
+        html+=`<div><div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:8px;">recent completions</div><table style="width:100%;font-size:12px;border-collapse:collapse;"><tr style="color:var(--text-tertiary);"><td style="padding:3px 8px 3px 0;">date</td><td style="padding:3px 8px;">task</td><td style="padding:3px 0;">tag</td></tr>`;
+        recent.forEach(r=>{html+=`<tr style="border-top:0.5px solid var(--border);"><td style="padding:5px 8px 5px 0;color:var(--text-tertiary);">${r[0]||''}</td><td style="padding:5px 8px;color:var(--text);">${escHtml(r[1]||'')}</td><td style="padding:5px 0;"><span class="tag tag-${r[2]||'admin'}">${r[2]||''}</span></td></tr>`;});
+        html+=`</table></div>`;
+      }
+      el.innerHTML=html||'<p style="font-size:13px;color:var(--text-tertiary);">No completed tasks yet.</p>';
+    }catch(e){el.innerHTML='<p style="font-size:13px;color:var(--text-tertiary);">Could not load history.</p>';}
+  }
+
+  function toggleHistory() {
+    const content=document.getElementById('history-content');
+    const arrow=document.getElementById('history-arrow');
+    const open=content.style.display==='block';
+    content.style.display=open?'none':'block';
+    arrow.classList.toggle('open',!open);
+    if(!open) loadHistory();
+  }
+
+  function sheetsGet(path){return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`,{headers:{Authorization:'Bearer '+accessToken}});}
+  function sheetsPost(path,body){return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify(body)});}
+  function showCalStatus(msg,ok){const el=document.getElementById('cal-status');el.textContent=msg;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
+  function showSheetsStatus(msg,ok){const el=document.getElementById('sheets-status');el.textContent=msg;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
+
+  function renderAll() {
+    const sb=document.getElementById('suggestions-banner');
+    if(rolledTasks.length){
+      let html=`<div class="suggestions"><div class="suggestions-title">↻ rolled over from a previous day</div>`;
+      rolledTasks.forEach(t=>{html+=`<div class="suggestion-item"><span class="suggestion-name">${escHtml(t.title)} <span style="color:var(--text-tertiary);font-size:11px;">${t.rolledFrom||''}</span></span><div style="display:flex;gap:6px;align-items:center;"><button class="btn-add-suggestion" onclick="addRolledToToday(${t.id})">+ add today</button><button class="btn-ghost" onclick="dismissRolled(${t.id})" style="font-size:11px;">dismiss</button></div></div>`;});
+      html+=`</div>`;sb.innerHTML=html;
+    } else {sb.innerHTML='';}
+
+    const all=[...tasks,...calEvents];
+    let visible=all;
+    if(activeFilter==='tasks') visible=tasks;
+    else if(activeFilter==='calendar') visible=calEvents;
+    else if(activeFilter==='location') visible=all.filter(t=>t.location);
+
+    const done=tasks.filter(t=>t.done).length, total=tasks.length;
+    const pct=total?Math.round((done/total)*100):0;
+    document.getElementById('prog-fill').style.width=pct+'%';
+    document.getElementById('prog-text').textContent=`${done} of ${total} tasks complete`;
+    document.getElementById('remaining-count').textContent=total-done;
+
+    const sorted=[...visible].sort((a,b)=>{
+      if(!a.isCalEvent&&!b.isCalEvent&&a.done!==b.done) return a.done?1:-1;
+      if(a.start&&b.start) return a.start.localeCompare(b.start);
+      return a.start?-1:b.start?1:0;
+    });
+
+    let html='',shownDone=false;
+    for(const t of sorted){
+      if(!t.isCalEvent&&t.done&&!shownDone){html+=`<div class="divider-label">completed</div>`;shownDone=true;}
+      const timeStr=t.start?fmt12(t.start)+(t.end?' – '+fmt12(t.end):''):'';
+      const locHtml=t.location?`<span class="task-location"><svg width="9" height="12" viewBox="0 0 12 16" fill="currentColor"><path d="M6 0C3.24 0 1 2.24 1 5c0 3.75 5 11 5 11s5-7.25 5-11c0-2.76-2.24-5-5-5zm0 7.5A2.5 2.5 0 1 1 6 2.5a2.5 2.5 0 0 1 0 5z"/></svg>${escHtml(t.location)}</span>`:'';
+      const leftEl=t.isCalEvent?`<div class="cal-icon"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#185FA5" stroke-width="1.3" stroke-linecap="round"><rect x="1" y="2" width="10" height="9" rx="1.5"/><path d="M1 5h10M4 1v2M8 1v2"/></svg></div>`:`<div class="check-wrap"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${t.id})" /></div>`;
+      const rollBtn=(!t.isCalEvent&&!t.done)?`<button class="btn-rollover" onclick="manualRollover(${t.id})">roll over</button>`:'';
+      const delBtn=t.isCalEvent?'':`<button class="delete-btn" onclick="deleteTask(${t.id})">✕</button>`;
+      html+=`<div class="task-card ${t.isCalEvent?'cal-event':''} ${t.done?'done':''}">${leftEl}<div class="task-body"><div class="task-title">${escHtml(t.title)}</div><div class="task-meta">${timeStr?`<span class="task-time">${timeStr}</span>`:''}<span class="tag tag-${t.tag}">${t.tag}</span>${locHtml}</div></div><div class="task-actions">${rollBtn}${delBtn}</div></div>`;
+    }
+    if(!html) html=`<div style="font-size:14px;color:var(--text-tertiary);padding:1rem 0;">nothing here for this filter</div>`;
+    document.getElementById('task-list').innerHTML=html;
+  }
+
+  function toggleTask(id){
+    const t=tasks.find(t=>t.id===id);if(!t)return;
+    t.done=!t.done;saveTasks();
+    if(t.done&&sheetReady) logToSheet(t,'completed',new Date());
+    renderAll();
+    if(t.done&&sheetReady) setTimeout(loadHistory,1500);
+  }
+  function deleteTask(id){tasks=tasks.filter(t=>t.id!==id);saveTasks();renderAll();}
+  function showForm(){document.getElementById('add-form').style.display='flex';document.getElementById('add-btn').style.display='none';document.getElementById('new-title').focus();}
+  function hideForm(){document.getElementById('add-form').style.display='none';document.getElementById('add-btn').style.display='block';['new-title','new-start','new-end'].forEach(id=>document.getElementById(id).value='');}
+  function saveTask(){
+    const title=document.getElementById('new-title').value.trim();if(!title)return;
+    tasks.push({id:Date.now(),title,start:document.getElementById('new-start').value,end:document.getElementById('new-end').value,tag:document.getElementById('new-tag').value,done:false});
+    saveTasks();hideForm();renderAll();
+  }
+  function setFilter(f){activeFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.filter===f));renderAll();}
+  function expiredSession(){showCalStatus('Session expired — please sign in again.',false);document.getElementById('setup-banner').style.display='block';document.getElementById('filter-row').style.display='none';accessToken=null;sheetReady=false;}
+
+  function todayStr(){return new Date().toISOString().slice(0,10);}
+  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function isoToTime(iso){if(!iso||iso.length===10)return '';const d=new Date(iso);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+  function fmt12(t){if(!t)return '';const[h,m]=t.split(':').map(Number);return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'pm':'am'}`;}
+  function timeDiffMin(s,e){const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return (eh*60+em)-(sh*60+sm);}
+  function fmtDateTime(d){const dt=new Date(d);return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+fmt12(`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`);}
+  function setHeader(){const now=new Date();document.getElementById('date-label').textContent=now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});document.getElementById('day-label').textContent=now.toLocaleDateString('en-US',{weekday:'long'});}
+
+  boot();
+</script>
+</body>
+</html>
