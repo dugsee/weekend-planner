@@ -6,35 +6,39 @@
   <title>Weekend Planner</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@500;600;700&family=DM+Sans:wght@400;500&display=swap');
     :root{
-      --bg:#ffffff;--bg-secondary:#f5f5f3;--bg-tertiary:#efefec;
-      --text:#1a1a18;--text-secondary:#6b6b66;--text-tertiary:#9e9e99;
-      --border:rgba(0,0,0,0.12);--border-mid:rgba(0,0,0,0.22);
-      --radius-md:8px;--radius-lg:12px;
-      --green:#1D9E75;--green-dark:#0F6E56;
-      --blue:#378ADD;--blue-dark:#185FA5;
-      --purple:#7F77DD;--purple-dark:#534AB7;
-      --amber:#BA7517;--amber-bg:#FAEEDA;
-      --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+      --bg:#ffffff;--bg-secondary:#f0f7f0;--bg-tertiary:#e8f3e8;
+      --text:#0a1a0a;--text-secondary:#2d4a2d;--text-tertiary:#6a856a;
+      --border:rgba(0,80,0,0.15);--border-mid:rgba(0,80,0,0.28);
+      --radius-md:6px;--radius-lg:10px;
+      --green:#006837;--green-dark:#004225;
+      --blue:#006837;--blue-dark:#004225;
+      --purple:#FFC200;--purple-dark:#e6a800;
+      --amber:#FFC200;--amber-bg:#fff8e1;
+      --sonics-green:#006837;--sonics-gold:#FFC200;--sonics-dark:#004225;
+      --font:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      --font-display:'Bebas Neue','Arial Narrow',Arial,sans-serif;
+      --font-condensed:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
     }
     @media(prefers-color-scheme:dark){:root{
-      --bg:#1c1c1a;--bg-secondary:#252523;--bg-tertiary:#2e2e2b;
-      --text:#f0f0ec;--text-secondary:#a0a09a;--text-tertiary:#6a6a65;
-      --border:rgba(255,255,255,0.1);--border-mid:rgba(255,255,255,0.2);
-      --amber-bg:#633806;--amber:#FAC775;
+      --bg:#071207;--bg-secondary:#0d1f0d;--bg-tertiary:#0a180a;
+      --text:#f0f7f0;--text-secondary:#a8c8a8;--text-tertiary:#5a7a5a;
+      --border:rgba(0,200,0,0.12);--border-mid:rgba(0,200,0,0.22);
+      --amber-bg:#2a1f00;--amber:#FFC200;
     }}
     body{font-family:var(--font);background:var(--bg-tertiary);color:var(--text);min-height:100vh;padding:1rem;}
     .app{max-width:600px;margin:0 auto;padding:1.5rem 0 4rem;}
 
     /* Header */
     .header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;}
-    .date-label{font-size:13px;color:var(--text-secondary);}
-    .day-label{font-size:22px;font-weight:600;}
-    .remaining-label{font-size:13px;color:var(--text-secondary);text-align:right;}
-    .remaining-count{font-size:22px;font-weight:600;text-align:right;}
+    .date-label{font-size:12px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;}
+    .day-label{font-size:28px;font-weight:400;font-family:var(--font-display);color:var(--sonics-green);letter-spacing:0.05em;line-height:1;}
+    .remaining-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;text-align:right;}
+    .remaining-count{font-size:28px;font-weight:400;font-family:var(--font-display);text-align:right;color:var(--sonics-green);line-height:1;}
     .progress-bar{height:4px;background:var(--border);border-radius:2px;margin-bottom:4px;overflow:hidden;}
-    .progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width 0.4s ease;}
-    .progress-text{font-size:12px;color:var(--text-tertiary);text-align:right;margin-bottom:1.25rem;}
+    .progress-fill{height:100%;background:var(--sonics-gold);border-radius:2px;transition:width 0.4s ease;}
+    .progress-text{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;text-align:right;margin-bottom:1.25rem;}
 
     /* Collapsed connection bar */
     .conn-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px;font-size:12px;color:var(--text-secondary);cursor:pointer;flex-wrap:wrap;}
@@ -46,7 +50,7 @@
     /* Cards */
     .card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:13px 15px;margin-bottom:10px;}
     .card p{font-size:13px;color:var(--text-secondary);line-height:1.6;}
-    .card-title{font-size:13px;font-weight:500;margin-bottom:6px;color:var(--text);}
+    .card-title{font-size:15px;font-weight:600;font-family:var(--font-condensed);letter-spacing:0.04em;margin-bottom:6px;color:var(--sonics-green);text-transform:uppercase;}
     .setup-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;}
     .setup-row input{flex:1;min-width:180px;}
     .status-line{font-size:12px;margin-top:8px;}
@@ -59,34 +63,34 @@
       border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text);
       font-family:var(--font);outline:none;
     }
-    input:focus,select:focus,textarea:focus{border-color:var(--blue);}
+    input:focus,select:focus,textarea:focus{border-color:var(--sonics-green);}
 
     /* Buttons */
     .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;font-size:13px;font-family:var(--font);font-weight:500;border:none;border-radius:var(--radius-md);cursor:pointer;transition:background 0.15s;white-space:nowrap;}
     .btn-google{background:var(--blue);color:white;}.btn-google:hover{background:var(--blue-dark);}
     .btn-green{background:var(--green);color:white;}.btn-green:hover{background:var(--green-dark);}
     .btn-sheets{background:var(--green);color:white;}.btn-sheets:hover{background:var(--green-dark);}
-    .btn-ai{background:var(--purple);color:white;width:100%;justify-content:center;padding:11px;font-size:14px;margin-bottom:10px;}
-    .btn-ai:hover{background:var(--purple-dark);}.btn-ai:disabled{opacity:0.6;cursor:not-allowed;}
+    .btn-ai{background:var(--sonics-gold);color:var(--sonics-dark);width:100%;justify-content:center;padding:12px;font-size:17px;font-family:var(--font-display);font-weight:400;letter-spacing:0.08em;margin-bottom:10px;}
+    .btn-ai:hover{background:#e6a800;color:var(--sonics-dark);}.btn-ai:disabled{opacity:0.6;cursor:not-allowed;}
     .btn-outline{background:none;color:var(--text-secondary);border:0.5px solid var(--border-mid);}
     .btn-outline:hover{background:var(--bg-secondary);}
     .btn-ghost{background:none;border:none;color:var(--text-tertiary);font-size:12px;padding:4px 8px;cursor:pointer;font-family:var(--font);}
     .btn-ghost:hover{color:var(--text-secondary);}
     .btn-rollover{background:none;border:0.5px solid var(--border-mid);color:var(--text-secondary);font-size:11px;padding:2px 8px;border-radius:99px;cursor:pointer;font-family:var(--font);transition:all 0.15s;white-space:nowrap;}
     .btn-rollover:hover{background:var(--amber-bg);color:var(--amber);border-color:var(--amber);}
-    .btn-add-plan{background:none;border:0.5px solid var(--purple);color:var(--purple);font-size:11px;padding:3px 9px;border-radius:99px;cursor:pointer;font-family:var(--font);white-space:nowrap;transition:all 0.15s;}
-    .btn-add-plan:hover{background:var(--purple);color:white;}
+    .btn-add-plan{background:none;border:1px solid var(--sonics-gold);color:var(--sonics-green);font-size:11px;padding:3px 9px;border-radius:99px;cursor:pointer;font-family:var(--font);white-space:nowrap;transition:all 0.15s;font-weight:500;}
+    .btn-add-plan:hover{background:var(--sonics-gold);color:var(--sonics-dark);}
 
     /* Weather */
-    .weather-strip{display:flex;align-items:center;gap:10px;padding:8px 13px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px;font-size:13px;color:var(--text-secondary);}
+    .weather-strip{display:flex;align-items:center;gap:10px;padding:8px 13px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px;font-size:13px;font-family:var(--font-condensed);font-weight:500;letter-spacing:0.02em;color:var(--text-secondary);}
     .weather-icon{font-size:18px;}
     .weather-detail{font-size:12px;color:var(--text-tertiary);}
 
     /* Filter row */
     .filter-row{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
     .filter-label{font-size:12px;color:var(--text-tertiary);}
-    .chip{font-size:12px;padding:4px 11px;border-radius:99px;border:0.5px solid var(--border-mid);background:none;cursor:pointer;color:var(--text-secondary);font-family:var(--font);transition:all 0.15s;}
-    .chip.active{background:var(--bg-secondary);color:var(--text);}
+    .chip{font-size:11px;padding:4px 12px;border-radius:99px;border:0.5px solid var(--border-mid);background:none;cursor:pointer;color:var(--text-secondary);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;transition:all 0.15s;}
+    .chip.active{background:var(--sonics-green);color:white;border-color:var(--sonics-green);}
     .filter-actions{margin-left:auto;display:flex;gap:8px;align-items:center;}
 
     /* AI Panel */
@@ -95,7 +99,7 @@
     .plan-item{background:var(--bg-secondary);border-radius:var(--radius-md);padding:10px 12px;}
     .plan-item-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
     .plan-item-title{font-size:14px;font-weight:500;color:var(--text);line-height:1.4;}
-    .plan-item-time{font-size:12px;color:var(--blue-dark);white-space:nowrap;margin-top:1px;}
+    .plan-item-time{font-size:13px;color:var(--sonics-green);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.03em;white-space:nowrap;margin-top:1px;}
     .plan-item-reason{font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5;}
     .plan-item-actions{display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap;}
     .plan-warning{background:#FCEBEB;border:0.5px solid #E24B4A;border-radius:var(--radius-md);padding:9px 12px;font-size:13px;color:#791F1F;margin-bottom:8px;line-height:1.5;}
@@ -105,7 +109,7 @@
     .chat-msg.user{background:var(--bg-secondary);color:var(--text);align-self:flex-end;max-width:85%;border-bottom-right-radius:3px;}
     .chat-msg.ai{background:#EEEDFE;color:#26215C;align-self:flex-start;max-width:92%;border-bottom-left-radius:3px;}
     .chat-msg.ai.thinking{color:var(--text-tertiary);font-style:italic;background:var(--bg-secondary);}
-    @media(prefers-color-scheme:dark){.chat-msg.ai{background:#3C3489;color:#CECBF6;}}
+    @media(prefers-color-scheme:dark){.chat-msg.ai{background:#0d2d0d;color:#a8d8a8;}}
     .chat-input-row{display:flex;gap:8px;}
     .chat-input-row input{flex:1;font-size:13px;}
 
@@ -116,22 +120,22 @@
     .task-card.done{opacity:0.45;}
     .task-card.done .task-title{text-decoration:line-through;color:var(--text-tertiary);}
     .task-card.done .task-time{text-decoration:line-through;}
-    .task-card.cal-event{border-left:2.5px solid var(--blue);}
+    .task-card.cal-event{border-left:3px solid var(--sonics-gold);}
     .task-card.cal-event.done{border-left-color:var(--border);}
     .task-card.dragging{opacity:0.4;border:1.5px dashed var(--border-mid);}
-    .task-card.drag-over{border-color:var(--purple);border-style:dashed;}
+    .task-card.drag-over{border-color:var(--sonics-gold);border-style:dashed;}
     .drag-handle{cursor:grab;color:var(--text-tertiary);font-size:14px;padding:2px 4px 0 0;flex-shrink:0;touch-action:none;user-select:none;}
     .drag-handle:active{cursor:grabbing;}
     .check-wrap{padding-top:2px;flex-shrink:0;}
-    .check-wrap input[type=checkbox]{width:17px;height:17px;cursor:pointer;accent-color:var(--green);}
+    .check-wrap input[type=checkbox]{width:17px;height:17px;cursor:pointer;accent-color:var(--sonics-green);}
     .cal-icon{width:18px;height:18px;border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
     .task-body{flex:1;min-width:0;}
-    .task-title{font-size:15px;font-weight:500;line-height:1.4;}
+    .task-title{font-size:15px;font-weight:500;font-family:var(--font);line-height:1.4;}
     .task-meta{display:flex;align-items:center;gap:7px;margin-top:3px;flex-wrap:wrap;}
     .task-time{font-size:12px;color:var(--text-secondary);}
     .task-location{font-size:12px;color:var(--blue-dark);display:flex;align-items:center;gap:3px;}
     .task-suggestion{font-size:11px;color:var(--amber);background:var(--amber-bg);padding:2px 8px;border-radius:99px;margin-top:4px;display:inline-block;}
-    .tag{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500;}
+    .tag{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:700;font-family:var(--font-condensed);letter-spacing:0.06em;text-transform:uppercase;}
     .tag-errands{background:#E6F1FB;color:#185FA5;}
     .tag-home{background:#FAEEDA;color:#854F0B;}
     .tag-health{background:#EAF3DE;color:#3B6D11;}
@@ -140,11 +144,11 @@
     .task-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-top:1px;}
     .delete-btn{background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:14px;padding:3px 5px;border-radius:4px;transition:color 0.15s;}
     .delete-btn:hover{color:var(--text);background:var(--bg-secondary);}
-    .divider-label{font-size:11px;color:var(--text-tertiary);padding:10px 0 4px;letter-spacing:0.06em;text-transform:uppercase;}
+    .divider-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;padding:10px 0 4px;letter-spacing:0.1em;text-transform:uppercase;}
 
     /* Rolled over */
     .suggestions{background:var(--amber-bg);border:0.5px solid var(--amber);border-radius:var(--radius-lg);padding:11px 13px;margin-bottom:10px;}
-    .suggestions-title{font-size:12px;font-weight:500;color:var(--amber);margin-bottom:8px;}
+    .suggestions-title{font-size:13px;font-weight:700;font-family:var(--font-condensed);letter-spacing:0.06em;text-transform:uppercase;color:var(--sonics-gold);margin-bottom:8px;}
     .suggestion-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;flex-wrap:wrap;}
     .btn-add-suggestion{font-size:11px;padding:3px 10px;background:var(--bg);border:0.5px solid var(--border-mid);border-radius:99px;cursor:pointer;font-family:var(--font);color:var(--text-secondary);white-space:nowrap;}
     .btn-add-suggestion:hover{background:var(--bg-secondary);}
@@ -161,7 +165,7 @@
     /* Profile + History */
     .section-block{margin-top:1rem;border-top:0.5px solid var(--border);padding-top:1rem;}
     .section-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
-    .section-toggle-label{font-size:13px;font-weight:500;color:var(--text-secondary);}
+    .section-toggle-label{font-size:14px;font-weight:600;font-family:var(--font-condensed);color:var(--sonics-green);letter-spacing:0.05em;text-transform:uppercase;}
     .section-arrow{font-size:12px;color:var(--text-tertiary);transition:transform 0.2s;display:inline-block;}
     .section-arrow.open{transform:rotate(90deg);}
     .profile-form{margin-top:12px;display:flex;flex-direction:column;gap:10px;}
@@ -170,16 +174,16 @@
     .profile-field textarea{resize:vertical;min-height:60px;line-height:1.5;}
 
     @media(prefers-color-scheme:dark){
-      .cal-icon{background:#0C447C;}
-      .tag-errands,.tag-calendar{background:#0C447C;color:#B5D4F4;}
-      .tag-home{background:#633806;color:#FAC775;}
-      .tag-health{background:#27500A;color:#C0DD97;}
-      .tag-admin{background:#3C3489;color:#CECBF6;}
-      .task-location{color:#85B7EB;}
-      .status-line.ok{color:#97C459;}
+      .cal-icon{background:#1a3d1a;}
+      .tag-errands,.tag-calendar{background:#1a3d1a;color:#a8d8a8;}
+      .tag-home{background:#3d2800;color:#FFC200;}
+      .tag-health{background:#1a3d1a;color:#a8d8a8;}
+      .tag-admin{background:#2d2d00;color:#FFC200;}
+      .task-location{color:#6ab86a;}
+      .status-line.ok{color:#6ab86a;}
       .status-line.err{color:#F09595;}
-      .btn-add-plan{color:#AFA9EC;border-color:#AFA9EC;}
-      .btn-add-plan:hover{background:#534AB7;color:white;}
+      .btn-add-plan{color:#FFC200;border-color:#FFC200;}
+      .btn-add-plan:hover{background:#FFC200;color:#004225;}
     }
     @media(max-width:480px){body{padding:0.5rem;}.app{padding:1rem 0 3rem;}}
   </style>
@@ -188,6 +192,15 @@
 <div class="app">
 
   <!-- Header -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--sonics-gold);">
+    <div style="background:var(--sonics-green);border-radius:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#FFC200" stroke-width="1.5"/><path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4" stroke="#FFC200" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FFC200"/></svg>
+    </div>
+    <div>
+      <div style="font-family:var(--font-display);font-size:26px;font-weight:400;color:var(--sonics-green);letter-spacing:0.06em;line-height:1;">WEEKEND PLANNER</div>
+      <div style="font-size:10px;color:var(--sonics-gold);font-weight:500;letter-spacing:0.12em;text-transform:uppercase;">Seattle SuperSonics Edition</div>
+    </div>
+  </div>
   <div class="header">
     <div>
       <div class="date-label" id="date-label"></div>
@@ -227,7 +240,7 @@
     <!-- Sheets setup -->
     <div class="card" id="sheets-setup" style="display:none;">
       <div class="card-title">Google Sheets — task history &amp; sync</div>
-      <p>Sheet ID from your Sheet URL (between /d/ and /edit). &nbsp;<a id="sheets-link" href="#" target="_blank" style="color:var(--blue);font-size:13px;display:none;">Open Sheet ↗</a></p>
+      <p>Sheet ID from your Sheet URL (between /d/ and /edit). &nbsp;<a id="sheets-link" href="#" target="_blank" style="color:var(--sonics-green);font-size:13px;display:none;">Open Sheet ↗</a></p>
       <div class="setup-row">
         <input type="text" id="sheet-id-input" placeholder="Sheet ID"/>
         <button class="btn btn-sheets" onclick="connectSheet()">connect</button>
@@ -238,7 +251,7 @@
     <!-- Anthropic API key -->
     <div class="card" id="ai-key-setup" style="display:none;">
       <div class="card-title">AI planning — Anthropic API key</div>
-      <p>Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue);">console.anthropic.com</a>. Stored only in this browser.</p>
+      <p>Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--sonics-green);">console.anthropic.com</a>. Stored only in this browser.</p>
       <div class="setup-row">
         <input type="password" id="anthropic-key-input" placeholder="sk-ant-…" style="flex:1;min-width:180px;"/>
         <button class="btn btn-sheets" onclick="connectAnthropicKey()">save key</button>
@@ -273,7 +286,7 @@
       <textarea id="brain-dump-input" placeholder="Brain dump your tasks in any format&#10;e.g. mow lawn, pick up meds, hardware store, groceries, call insurance&#10;&#10;The AI will sort, schedule, and add location info for you." style="width:100%;min-height:82px;resize:vertical;font-size:13px;padding:9px 10px;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text);font-family:var(--font);outline:none;margin-bottom:8px;line-height:1.5;"></textarea>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <button class="btn btn-ai" id="dump-btn" onclick="organizeDump()" style="flex:1;margin:0;padding:10px;">&#9998; Organize my day</button>
-        <button class="btn btn-ai" id="plan-btn" onclick="planMyDay()" style="flex:1;margin:0;padding:10px;background:var(--purple-dark);">&#10022; Re-optimize list</button>
+        <button class="btn btn-ai" id="plan-btn" onclick="planMyDay()" style="flex:1;margin:0;padding:10px;background:var(--sonics-green);color:white;">&#10022; Re-optimize list</button>
       </div>
     </div>
     <div id="plan-output"></div>
@@ -363,7 +376,7 @@
   const SHEET_NAME    = 'Tasks';
   const SHEET_HEADERS = ['Date','Task','Tag','Sched Start','Sched End','Duration (min)','Completed At','Source','Status','Notes'];
   const SYNC_NAME     = 'Sync';
-  const SYNC_HEADERS  = ['id','title','tag','start','end','done','date'];
+  const SYNC_HEADERS  = ['id','title','tag','start','end','done','date','isCalEvent','location'];
 
   // ── State ─────────────────────────────────────────────────────────────────────
   let tasks=[], calEvents=[], rolledTasks=[], activeFilter='all';
@@ -791,7 +804,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       html+=`<div class="plan-list">`;
       plan.items.forEach((item,i)=>{
         const alreadyAdded=tasks.some(t=>t.title.toLowerCase()===item.title.toLowerCase());
-        html+=`<div class="plan-item">
+        html+=`<div class="plan-item" data-plan-idx="${i}">
           <div class="plan-item-header">
             <div class="plan-item-title">${escHtml(item.title)}</div>
             <div class="plan-item-time">${escHtml(item.time||'')}</div>
@@ -821,7 +834,18 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const item=plan.items[idx];
     tasks.push({id:Date.now(),title:item.title,start:item.start||'',end:item.end||'',tag:item.tag||'admin',done:false});
     saveTasks();renderAll();
-    renderPlanOutput(JSON.stringify(plan));
+    // Remove just this card from the plan output instead of re-rendering everything
+    const card=document.querySelector(`.plan-item[data-plan-idx="${idx}"]`);
+    if(card){
+      card.style.transition='opacity 0.2s';
+      card.style.opacity='0';
+      setTimeout(()=>{
+        card.remove();
+        // If no plan items left, collapse the plan-list wrapper too
+        const list=document.querySelector('.plan-list');
+        if(list&&list.querySelectorAll('.plan-item').length===0) list.remove();
+      },200);
+    }
   }
 
   async function sendChat(){
@@ -915,7 +939,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         await sheetsPost(`${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:SYNC_NAME}}}]});
         await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:G1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
       } else if(!data2.values||!data2.values[0]||data2.values[0][0]!=='id'){
-        await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A:G`);
+        await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A:I`);
         await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:G1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
       }
       sheetReady=true;
@@ -934,23 +958,41 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   async function syncTasksToSheet(){
     if(!sheetReady||!accessToken)return;
     try{
-      await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:G1000`);
-      if(!tasks.length)return;
-      const rows=tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',todayStr()]);
-      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:G:append?valueInputOption=RAW`,{values:rows});
+      await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      const allItems=[
+        ...tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',todayStr(),'FALSE',t.location||'']),
+        ...calEvents.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',todayStr(),'TRUE',t.location||''])
+      ];
+      if(!allItems.length)return;
+      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:I:append?valueInputOption=RAW`,{values:allItems});
     }catch(e){console.warn('Sync write failed',e);}
   }
 
   async function loadTasksFromSheet(){
     if(!sheetReady||!accessToken)return;
     try{
-      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:G1000`);
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
       const data=await res.json();
       const rows=data.values||[];
       if(!rows.length)return;
       if((rows[0][6]||'')!==todayStr())return;
-      const loaded=rows.map(r=>({id:parseFloat(r[0])||Date.now(),title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',done:r[5]==='TRUE'}));
-      if(loaded.length){tasks=loaded;try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}renderAll();}
+      const loadedTasks=[], loadedCal=[];
+      rows.forEach(r=>{
+        const isCalEvent=r[7]==='TRUE';
+        const item={id:r[0],title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',done:r[5]==='TRUE',location:r[8]||''};
+        if(isCalEvent){item.isCalEvent=true;loadedCal.push(item);}
+        else{loadedTasks.push({...item,id:parseFloat(r[0])||Date.now()});}
+      });
+      if(loadedTasks.length){tasks=loadedTasks;try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}}
+      if(loadedCal.length){
+        // Merge done status back into calEvents — preserve existing cal event data, just update done flag
+        loadedCal.forEach(lc=>{
+          const existing=calEvents.find(e=>e.id===lc.id);
+          if(existing) existing.done=lc.done;
+        });
+        try{localStorage.setItem(KEYS.events,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
+      }
+      renderAll();
     }catch(e){console.warn('Sync read failed',e);}
   }
 
@@ -1135,6 +1177,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const t=calEvents.find(t=>t.id===id);if(!t)return;
     t.done=!t.done;
     try{localStorage.setItem(KEYS.events,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
+    if(sheetReady) syncTasksToSheet();
     if(t.done&&sheetReady)logToSheet(t,'completed',new Date());
     renderAll();
     if(t.done&&sheetReady)setTimeout(loadHistory,1500);
