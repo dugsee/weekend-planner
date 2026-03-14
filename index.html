@@ -87,9 +87,7 @@
     .btn-add-plan:hover{background:var(--sonics-gold);color:var(--sonics-dark);}
 
     /* Weather */
-    .weather-strip{display:flex;align-items:center;gap:10px;padding:8px 13px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px;font-size:13px;font-family:var(--font-condensed);font-weight:500;letter-spacing:0.02em;color:var(--text-secondary);}
-    .weather-icon{font-size:18px;}
-    .weather-detail{font-size:12px;color:var(--text-tertiary);}
+    .wx-inline{font-size:12px;font-family:var(--font-condensed);font-weight:500;letter-spacing:0.03em;color:var(--text-secondary);display:flex;align-items:center;gap:5px;margin-top:3px;}
 
     /* Filter row */
     .filter-row{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
@@ -191,6 +189,14 @@
       .btn-add-plan:hover{background:#FFC200;color:#004225;}
     }
     @media(max-width:480px){body{padding:0.5rem;}.app{padding:1rem 0 3rem;}}
+    .edit-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:flex-end;justify-content:center;}
+    .edit-modal{background:var(--bg);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px 32px;width:100%;max-width:600px;display:flex;flex-direction:column;gap:11px;}
+    .edit-modal-title{font-size:15px;font-weight:600;font-family:var(--font-condensed);letter-spacing:0.05em;color:var(--sonics-green);text-transform:uppercase;margin-bottom:2px;}
+    .edit-modal input,.edit-modal select{width:100%;font-size:14px;padding:9px 11px;}
+    .edit-row{display:flex;gap:8px;align-items:center;}
+    .edit-row input{flex:1;}
+    .edit-sep{font-size:13px;color:var(--text-tertiary);}
+    .edit-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
   </style>
 </head>
 <body>
@@ -203,13 +209,17 @@
     </div>
     <div>
       <div style="font-family:var(--font-display);font-size:26px;font-weight:400;color:var(--sonics-green);letter-spacing:0.06em;line-height:1;">WEEKEND PLANNER</div>
-      <div style="font-size:10px;color:var(--sonics-gold);font-weight:500;letter-spacing:0.12em;text-transform:uppercase;">Seattle SuperSonics Edition</div>
+      <div style="font-size:10px;color:var(--sonics-gold);font-weight:500;letter-spacing:0.12em;text-transform:uppercase;">Dug the Coolest Ever</div>
     </div>
   </div>
   <div class="header">
     <div>
       <div class="date-label" id="date-label"></div>
       <div class="day-label" id="day-label"></div>
+      <div class="wx-inline" id="wx-inline" style="display:none;">
+        <span id="wx-icon-inline"></span>
+        <span id="wx-summary-inline"></span>
+      </div>
     </div>
     <div>
       <div class="remaining-label">tasks left</div>
@@ -276,13 +286,6 @@
       <button class="btn-ghost" onclick="doRefresh()">↻ refresh</button>
       <button class="btn-ghost" onclick="signOut()">sign out</button>
     </div>
-  </div>
-
-  <!-- Weather strip -->
-  <div class="weather-strip" id="weather-strip" style="display:none;">
-    <span class="weather-icon" id="wx-icon">—</span>
-    <span id="wx-summary">Loading weather…</span>
-    <span class="weather-detail" id="wx-detail"></span>
   </div>
 
   <!-- AI Panel -->
@@ -362,6 +365,30 @@
       <span class="section-arrow" id="history-arrow">›</span>
     </div>
     <div id="history-content" style="display:none;margin-top:12px;"></div>
+  </div>
+
+  <!-- Edit task modal -->
+  <div class="edit-modal-backdrop" id="edit-modal" style="display:none;" onclick="closeEditIfBackdrop(event)">
+    <div class="edit-modal">
+      <div class="edit-modal-title">Edit task</div>
+      <input type="text" id="edit-title" placeholder="Task name…"/>
+      <input type="text" id="edit-location" placeholder="Location (optional)"/>
+      <div class="edit-row">
+        <input type="time" id="edit-start"/>
+        <span class="edit-sep">to</span>
+        <input type="time" id="edit-end"/>
+        <select id="edit-tag">
+          <option value="errands">errands</option>
+          <option value="home">home</option>
+          <option value="health">health</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <div class="edit-actions">
+        <button class="btn btn-outline" onclick="closeEdit()">cancel</button>
+        <button class="btn btn-green" onclick="saveEdit()">save</button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -555,7 +582,7 @@
     document.getElementById('sheets-setup').style.display='none';
     document.getElementById('ai-key-setup').style.display='none';
     document.getElementById('ai-panel').style.display='none';
-    document.getElementById('weather-strip').style.display='none';
+    document.getElementById('wx-inline').style.display='none';
     document.getElementById('history-section').style.display='none';
     document.getElementById('profile-section').style.display='none';
     renderAll();
@@ -567,7 +594,6 @@
     document.getElementById('sheets-setup').style.display='block';
     document.getElementById('ai-key-setup').style.display='block';
     document.getElementById('ai-panel').style.display='block';
-    document.getElementById('weather-strip').style.display='flex';
     document.getElementById('profile-section').style.display='block';
     updateConnBar();
   }
@@ -611,7 +637,7 @@
       weatherData={date:todayStr(),temp:Math.round(c.temperature_2m),precip:c.precipitation,code:c.weathercode,wind:Math.round(c.windspeed_10m)};
       try{localStorage.setItem(KEYS.weather,JSON.stringify(weatherData));}catch(e){}
       renderWeather();
-    }catch(e){document.getElementById('wx-summary').textContent='Weather unavailable';}
+    }catch(e){const wx=document.getElementById('wx-summary-inline');if(wx)wx.textContent='Weather unavailable';}
   }
   function wxCodeToText(code){
     if(code===0)return{icon:'☀️',text:'Clear skies'};
@@ -625,9 +651,12 @@
   function renderWeather(){
     if(!weatherData)return;
     const{icon,text}=wxCodeToText(weatherData.code);
-    document.getElementById('wx-icon').textContent=icon;
-    document.getElementById('wx-summary').textContent=`${text} · ${weatherData.temp}°F`;
-    document.getElementById('wx-detail').textContent=`Wind ${weatherData.wind} mph · Precip ${weatherData.precip}mm`;
+    const el=document.getElementById('wx-inline');
+    if(el){
+      document.getElementById('wx-icon-inline').textContent=icon;
+      document.getElementById('wx-summary-inline').textContent=`${text} · ${weatherData.temp}°F`;
+      el.style.display='flex';
+    }
   }
   function weatherSummary(){
     if(!weatherData)return'Weather unavailable.';
@@ -837,7 +866,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function addPlanItem(idx){
     const plan=window._lastPlan;if(!plan||!plan.items[idx])return;
     const item=plan.items[idx];
-    tasks.push({id:Date.now(),title:item.title,start:item.start||'',end:item.end||'',tag:item.tag||'admin',done:false});
+    tasks.push({id:Date.now(),title:item.title,start:item.start||'',end:item.end||'',tag:item.tag||'admin',done:false,location:item.location||''});
     saveTasks();renderAll();
     // Remove just this card from the plan output instead of re-rendering everything
     const card=document.querySelector(`.plan-item[data-plan-idx="${idx}"]`);
@@ -1155,7 +1184,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       html+=`<div class="task-card ${t.isCalEvent?'cal-event':''} ${t.done?'done':''}" data-idx="${taskIdx}">
         ${leftEl}
         <div class="task-body">
-          <div class="task-title">${escHtml(t.title)}</div>
+          ${t.isCalEvent?`<div class="task-title">${escHtml(t.title)}</div>`:`<div class="task-title" style="cursor:pointer;" onclick="openEdit(${t.id})">${escHtml(t.title)} <span style="font-size:10px;color:var(--text-tertiary);">&#9998;</span></div>`}
           <div class="task-meta">
             ${timeStr?`<span class="task-time">${timeStr}</span>`:''}
             <span class="tag tag-${t.tag}">${t.tag}</span>
@@ -1218,6 +1247,39 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function timeDiffMin(s,e){const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return(eh*60+em)-(sh*60+sm);}
   function fmtDateTime(d){const dt=new Date(d);return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+fmt12(`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`);}
   function setHeader(){const now=new Date();document.getElementById('date-label').textContent=now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});document.getElementById('day-label').textContent=now.toLocaleDateString('en-US',{weekday:'long'});}
+
+  // ── Task editing ───────────────────────────────────────────────────────────
+  let editingTaskId = null;
+
+  function openEdit(id){
+    const t=tasks.find(t=>t.id===id);if(!t)return;
+    editingTaskId=id;
+    document.getElementById('edit-title').value    = t.title;
+    document.getElementById('edit-location').value = t.location||'';
+    document.getElementById('edit-start').value    = t.start||'';
+    document.getElementById('edit-end').value      = t.end||'';
+    document.getElementById('edit-tag').value      = t.tag||'errands';
+    document.getElementById('edit-modal').style.display='flex';
+  }
+
+  function closeEdit(){
+    document.getElementById('edit-modal').style.display='none';
+    editingTaskId=null;
+  }
+
+  function closeEditIfBackdrop(e){
+    if(e.target===document.getElementById('edit-modal'))closeEdit();
+  }
+
+  function saveEdit(){
+    const t=tasks.find(t=>t.id===editingTaskId);if(!t)return;
+    t.title    = document.getElementById('edit-title').value.trim()||t.title;
+    t.location = document.getElementById('edit-location').value.trim();
+    t.start    = document.getElementById('edit-start').value;
+    t.end      = document.getElementById('edit-end').value;
+    t.tag      = document.getElementById('edit-tag').value;
+    saveTasks();closeEdit();renderAll();
+  }
 
   boot();
 </script>
