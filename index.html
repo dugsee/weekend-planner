@@ -612,8 +612,8 @@
   }
 
   // ── AI planning ───────────────────────────────────────────────────────────────
-  function buildSystemPrompt(){
-    return`You are a smart personal weekend day planner for someone in Seattle, WA.
+  function buildSystemPrompt(isJson=false){
+    const base=`You are a smart personal weekend day planner for someone in Seattle, WA.
 
 ABOUT THIS PERSON:
 - Home: ${profile.address||DEFAULT_PROFILE.address}
@@ -628,16 +628,23 @@ PLANNING RULES:
 - Group errands geographically to minimize Seattle travel time
 - Schedule outdoor/physical tasks when weather is best
 - Warn if list is too ambitious
-- Review existing task times and locations — flag conflicts or improvements
-- Respond ONLY in this exact JSON format, no other text:
+- Review existing task times and locations — flag conflicts or improvements`;
+
+    if(isJson) return base+`
+
+Respond ONLY in this exact JSON format, no other text, no markdown fences:
 {
   "warning": "string or null",
   "items": [
-    {"time":"9:00 am – 10:00 am","title":"Task name","reason":"Why this time/order","tag":"home|errands|health|admin","start":"09:00","end":"10:00"},
-    ...
+    {"time":"9:00 am - 10:00 am","title":"Task name","reason":"Why this time/order","tag":"home|errands|health|admin","start":"09:00","end":"10:00"}
   ],
-  "suggestions": ["task you haven't done recently that might be worth adding", ...]
+  "suggestions": ["recurring task worth adding"]
 }`;
+
+    return base+`
+
+Respond in plain conversational text — no JSON, no markdown. Be warm and concise.
+When the user asks to add tasks, tell them the suggested task names and times clearly. Do not output any JSON under any circumstances.`;
   }
 
   async function planMyDay(){
@@ -722,7 +729,7 @@ Create an optimal ordered plan. Review existing task times and flag any that sho
       const res=await fetch(ANTHROPIC_URL,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:AI_MODEL,max_tokens:1500,system:buildSystemPrompt(),messages})
+        body:JSON.stringify({model:AI_MODEL,max_tokens:1500,system:buildSystemPrompt(isJson),messages})
       });
       const data=await res.json();
       thinking.remove();
