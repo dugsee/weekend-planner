@@ -300,7 +300,7 @@
     </div>
     <div id="plan-output"></div>
     <div class="chat-messages" id="chat-messages">
-      <div class="chat-msg ai" id="ai-placeholder">Paste a brain dump above to build your day, or hit Re-optimize to re-order your existing open tasks.</div>
+
     </div>
     <div class="chat-input-row">
       <input type="text" id="chat-input" placeholder="Ask your concierge anything&#8230;" onkeydown="if(event.key==='Enter')sendChat()"/>
@@ -694,14 +694,16 @@ ABOUT THIS PERSON:
 ${KNOWN_LOCATIONS}
 
 CONCIERGE RULES:
-- The current local time is provided in each request — ALWAYS use it as your scheduling anchor
-- Only suggest start times that are in the future relative to the current time — never schedule tasks in the past
-- If it is already past noon, skip the morning entirely and plan from the current time forward
-- Always include a 45-60 min lunch break if the remaining day spans noon-1pm and lunch hasn't passed
+- The current LOCAL time is provided in each request in both 12h and 24h format — use it as your anchor
+- ALL task times MUST fall between 10:00 am and 6:00 pm local time — never outside this window
+- The "start" and "end" fields in JSON must be in HH:MM 24-hour format (e.g. "10:00", "14:30") — no AM/PM, no UTC, no offsets
+- Only suggest start times AFTER the current local time — never in the past
+- If it is already past noon, plan from the current time forward — earliest slot is now, not 10am
+- Always include a 45-60 min lunch break around noon-1pm if the day spans that window
 - Group tasks geographically to cut Seattle travel time
 - Schedule outdoor/physical tasks when weather is best
-- Focus planning energy on OPEN (uncompleted) tasks only — completed tasks are context, never re-schedule them
-- Warn clearly if the remaining open task list is too ambitious for the hours left today
+- Focus planning energy on OPEN (uncompleted) tasks only — completed tasks are context only
+- Warn clearly if the remaining task list is too ambitious for the hours left today
 - When you know a location for a task, include it`;
 
     if(mode==='json') return base + `
@@ -760,11 +762,16 @@ Keep responses short and actionable.`;
 
   function currentTimeContext(){
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+    const h = now.getHours(), m = now.getMinutes();
+    const hh = String(h).padStart(2,'0'), mm = String(m).padStart(2,'0');
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const h12 = h % 12 || 12;
+    const timeStr12 = `${h12}:${mm} ${ampm}`;
+    const time24 = `${hh}:${mm}`;
     const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const tzShort = now.toLocaleTimeString('en-US',{timeZoneName:'short'}).split(' ').pop();
     const dateStr = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-    return `${dateStr}, current time is ${timeStr} ${tzShort} (timezone: ${tzName})`;
+    return `${dateStr}. Local time: ${timeStr12} (24h: ${time24}) ${tzShort}, timezone: ${tzName}`;
   }
 
     async function organizeDump(){
@@ -779,7 +786,7 @@ Keep responses short and actionable.`;
     const hoursLeft = Math.max(0, (22 - now.getHours() - now.getMinutes()/60)).toFixed(1);
     const userMsg = `${currentTimeContext()}.
 WEATHER: ${weatherSummary()}
-HOURS REMAINING IN DAY: approximately ${hoursLeft} hours (do not schedule anything before right now)
+HOURS REMAINING IN DAY: approximately ${hoursLeft} hours. ALL times must be between 10:00 am and 6:00 pm local time. Start/end fields must be 24h format HH:MM (e.g. 10:00, 14:30). Do not schedule anything before the current time.
 ALREADY ON MY LIST (open): ${openTasks.length ? openTasks.map(t=>`${t.title}${t.start?' at '+fmt12(t.start):''}`).join(', ') : 'none'}
 CALENDAR EVENTS TODAY:\n${calList}
 
@@ -811,7 +818,7 @@ ${raw}`;
     const pastList = pastTasks.map(t=>`- ${t.title}`).join(', ')||'none';
     const userMsg = `${currentTimeContext()}.
 WEATHER: ${weatherSummary()}
-HOURS REMAINING IN DAY: approximately ${hoursLeft2} hours
+HOURS REMAINING IN DAY: approximately ${hoursLeft2} hours. ALL times must be between 10:00 am and 6:00 pm local time. Start/end fields must be 24h format HH:MM (e.g. 10:00, 14:30). Never schedule before the current time.
 OPEN TASKS TO SCHEDULE (future only):\n${futureList}
 OPEN TASKS WHOSE TIME HAS PASSED (do NOT re-schedule these — just flag if still open): ${pastList}
 ALREADY COMPLETED TODAY: ${doneList}
@@ -866,7 +873,6 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     }
     out.innerHTML=html;
     window._lastPlan=plan;
-    document.getElementById('ai-placeholder')?.remove();
   }
 
   function updatePlanItem(idx){
@@ -931,7 +937,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       chatHistory.push({role:'user',content:userMessage},{role:'assistant',content:reply});
       if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
       try{localStorage.setItem(KEYS.chatHistory,JSON.stringify(chatHistory));}catch(e){}
-      if(mode==='chat') document.getElementById('ai-placeholder')?.remove();
+
       return reply;
     }catch(e){
       thinking.remove();
@@ -942,7 +948,6 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
 
   function addChatMessage(role,text,hidden=false,isThinking=false){
     const container=document.getElementById('chat-messages');
-    document.getElementById('ai-placeholder')?.remove();
     const div=document.createElement('div');
     div.className=`chat-msg ${role}${isThinking?' thinking':''}`;
     div.textContent=text;
