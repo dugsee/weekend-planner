@@ -364,6 +364,8 @@
 
   const SHEET_NAME    = 'Tasks';
   const SHEET_HEADERS = ['Date','Task','Tag','Sched Start','Sched End','Duration (min)','Completed At','Source','Status','Notes'];
+  const SYNC_NAME     = 'Sync';
+  const SYNC_HEADERS  = ['id','title','tag','start','end','done','date'];
 
   // ── State ────────────────────────────────────────────────────────────────────
   let tasks=[], calEvents=[], rolledTasks=[], activeFilter='all';
@@ -418,17 +420,12 @@
     const cid=localStorage.getItem(KEYS.calId);
     if(cid) document.getElementById('cal-id-input').value=cid;
     loadProfileFields();
-    if(!tasks.length){
-      tasks=[
-        {id:1,title:'Grocery run',start:'09:00',end:'10:00',tag:'errands',done:false},
-        {id:2,title:'Mow the lawn',start:'10:30',end:'11:30',tag:'home',done:false},
-        {id:3,title:'Morning walk',start:'07:30',end:'08:15',tag:'health',done:false},
-      ];
-      saveTasks();
-    }
   }
 
-  function saveTasks()   { try{localStorage.setItem(KEYS.tasks,   JSON.stringify(tasks));}catch(e){} }
+  function saveTasks()  {
+    try{localStorage.setItem(KEYS.tasks, JSON.stringify(tasks));}catch(e){}
+    if(sheetReady) syncTasksToSheet();
+  }
   function saveRolled()  { try{localStorage.setItem(KEYS.rolled,  JSON.stringify(rolledTasks));}catch(e){} }
   function saveProfile() {
     profile = {
@@ -557,6 +554,7 @@
       calEvents=(data.items||[]).map(e=>({id:'cal_'+e.id,title:e.summary||'(no title)',start:isoToTime(e.start?.dateTime||e.start?.date),end:isoToTime(e.end?.dateTime||e.end?.date),location:e.location||'',tag:'calendar',done:false,isCalEvent:true}));
       try{localStorage.setItem(KEYS.events,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
       showCalStatus(`${calEvents.length} event${calEvents.length!==1?'s':''} loaded`,true);
+      if(sheetReady) await loadTasksFromSheet();
       renderAll();
     }catch(err){showCalStatus('Network error.',false);}
   }
@@ -727,6 +725,7 @@ Please create a realistic, ordered plan for my day. Group tasks smartly, account
     if(!accessToken||!sheetId)return;
     showSheetsStatus('Connecting…',null);
     try{
+      // Ensure Tasks history tab has headers
       const res=await sheetsGet(`${sheetId}/values/${SHEET_NAME}!A1:J1`);
       const data=await res.json();
       if(data.error&&data.error.code===404){
@@ -735,12 +734,61 @@ Please create a realistic, ordered plan for my day. Group tasks smartly, account
       } else if(!data.values||!data.values[0]||data.values[0][0]!=='Date'){
         await writeHeaders();
       }
+      // Ensure Sync tab exists
+      const res2=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A1:G1`);
+      const data2=await res2.json();
+      if(data2.error&&data2.error.code===404){
+        await sheetsPost(`${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:SYNC_NAME}}}]});
+        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:G1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
+      } else if(!data2.values||!data2.values[0]||data2.values[0][0]!=='id'){
+        await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A:G`);
+        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:G1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
+      }
       sheetReady=true;
-      showSheetsStatus('Connected — logging task completions ✓',true);
+      showSheetsStatus('Connected — syncing tasks across devices ✓',true);
       document.getElementById('history-section').style.display='block';
+      await loadTasksFromSheet();
       loadHistory();
     }catch(e){showSheetsStatus('Could not connect. Check the Sheet ID.',false);}
   }
+
+  async function syncTasksToSheet(){
+    if(!sheetReady||!accessToken)return;
+    try{
+      await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:G1000`);
+      if(!tasks.length)return;
+      const rows=tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',todayStr()]);
+      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:G${rows.length+1}?valueInputOption=RAW`,{values:rows});
+    }catch(e){console.warn('Sync write failed',e);}
+  }
+
+  async function loadTasksFromSheet(){
+    if(!sheetReady||!accessToken)return;
+    try{
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:G1000`);
+      const data=await res.json();
+      const rows=data.values||[];
+      if(!rows.length)return;
+      // Only load if the sync data is from today
+      const firstDate=rows[0][6]||'';
+      if(firstDate!==todayStr())return;
+      const loaded=rows.map(r=>({
+        id:     parseFloat(r[0])||Date.now(),
+        title:  r[1]||'',
+        tag:    r[2]||'errands',
+        start:  r[3]||'',
+        end:    r[4]||'',
+        done:   r[5]==='TRUE',
+      }));
+      if(loaded.length){
+        tasks=loaded;
+        try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}
+        renderAll();
+      }
+    }catch(e){console.warn('Sync read failed',e);}
+  }
+
+  function sheetsClear(path){return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}:clear`,{method:'POST',headers:{Authorization:'Bearer '+accessToken}});}
 
   async function writeHeaders(){
     await sheetsPost(`${sheetId}/values/${SHEET_NAME}!A1:J1:append?valueInputOption=RAW`,{values:[SHEET_HEADERS]});
