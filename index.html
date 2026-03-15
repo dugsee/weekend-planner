@@ -560,8 +560,7 @@
       client_id:CLIENT_ID,
       redirect_uri:redirectUri,
       response_type:'token',
-      scope:SCOPES,
-      prompt:'consent'
+      scope:SCOPES
     });
     // Redirect the whole page — works on iOS Safari where popups are blocked
     window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
@@ -574,7 +573,7 @@
     const exp=parseInt(hash.get('expires_in')||'3600');
     if(token){
       accessToken=token;
-      tokenExpiry=Date.now()+exp*1000;
+      tokenExpiry=Date.now()+Math.max(exp,82800)*1000; // cache up to 23hrs
       try{localStorage.setItem(KEYS.token,JSON.stringify({token:accessToken,expiry:tokenExpiry}));}catch(e){}
       // Clean the token from the URL so it's not visible or accidentally re-processed
       history.replaceState(null,'',window.location.pathname);
@@ -600,6 +599,8 @@
 
   function showConnected(){
     document.getElementById('setup-banner').style.display='none';
+    const bar=document.getElementById('reconnect-bar');
+    if(bar) bar.style.display='none';
     document.getElementById('filter-row').style.display='flex';
     document.getElementById('sheets-setup').style.display='block';
     document.getElementById('ai-key-setup').style.display='block';
@@ -1336,7 +1337,33 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     if(!open&&name==='history')loadHistory();
   }
 
-  function expiredSession(){showCalStatus('Session expired — please sign in again.',false);document.getElementById('connections-panel').style.display='block';document.getElementById('setup-banner').style.display='block';accessToken=null;sheetReady=false;}
+  function expiredSession(){
+    accessToken=null; sheetReady=false;
+    // Show a quiet reconnect bar instead of the full sign-in screen
+    let bar=document.getElementById('reconnect-bar');
+    if(!bar){
+      bar=document.createElement('div');
+      bar.id='reconnect-bar';
+      bar.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:var(--amber-bg);border:0.5px solid var(--amber);border-radius:var(--radius-md);margin-bottom:8px;font-size:12px;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;color:var(--amber);text-transform:uppercase;';
+      bar.innerHTML='<span>Session expired</span><button onclick="quickReconnect()" style="background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);padding:5px 12px;font-size:12px;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;cursor:pointer;text-transform:uppercase;">Tap to reconnect</button>';
+      const filterRow=document.getElementById('filter-row');
+      filterRow.parentNode.insertBefore(bar,filterRow);
+    }
+    bar.style.display='flex';
+  }
+
+  function quickReconnect(){
+    // Silent redirect — Google won't show consent screen if already authorized
+    const calId=localStorage.getItem(KEYS.calId)||'';
+    const redirectUri=window.location.origin+window.location.pathname;
+    const params=new URLSearchParams({
+      client_id:CLIENT_ID,
+      redirect_uri:redirectUri,
+      response_type:'token',
+      scope:SCOPES
+    });
+    window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
   function todayStr(){return new Date().toISOString().slice(0,10);}
