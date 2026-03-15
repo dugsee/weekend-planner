@@ -757,22 +757,75 @@
     showCalStatus('Loading events…',null);
     const now=new Date();
     const start=new Date(now.getFullYear(),now.getMonth(),now.getDate()).toISOString();
-    const end=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).toISOString();
+    const end=new Date(now.getFullYear(),now.getMonth(),now.getDate()+14).toISOString();
     try{
-      const res=await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${start}&timeMax=${end}&singleEvents=true&orderBy=startTime&maxResults=50`,{headers:{Authorization:'Bearer '+accessToken}});
+      const res=await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${start}&timeMax=${end}&singleEvents=true&orderBy=startTime&maxResults=100`,{headers:{Authorization:'Bearer '+accessToken}});
       const data=await res.json();
       if(data.error){showCalStatus('Error: '+data.error.message,false);return;}
-      calEvents=(data.items||[]).map(e=>({
-        id:'cal_'+e.id, title:e.summary||'(no title)',
-        start:isoToTime(e.start?.dateTime||e.start?.date),
-        end:isoToTime(e.end?.dateTime||e.end?.date),
-        location:e.location||'', tag:'calendar', done:false, isCalEvent:true,
-      }));
-      try{localStorage.setItem(KEYS.events,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
-      showCalStatus(`${calEvents.length} event${calEvents.length!==1?'s':''} loaded`,true);
-      if(sheetReady) await loadTasksFromSheet();
+
+      // Map all events, tagging with their actual date
+      const allEvents=(data.items||[]).map(e=>{
+        const eventDate=(e.start?.dateTime||e.start?.date||'').slice(0,10);
+        return {
+          id:'cal_'+e.id, title:e.summary||'(no title)',
+          start:isoToTime(e.start?.dateTime||e.start?.date),
+          end:isoToTime(e.end?.dateTime||e.end?.date),
+          location:e.location||'', tag:'calendar', done:false, isCalEvent:true,
+          date:eventDate,
+        };
+      });
+
+      // Split today's events for immediate display
+      const today=todayStr();
+      calEvents=allEvents.filter(e=>e.date===today);
+
+      // Cache all events by date for upcoming section
+      const byDate={};
+      allEvents.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
+      try{localStorage.setItem('wknd_cal_all',JSON.stringify({fetched:today,events:allEvents}));}catch(err){}
+      try{localStorage.setItem(KEYS.events,JSON.stringify({date:today,events:calEvents}));}catch(err){}
+
+      const total=allEvents.length;
+      showCalStatus(`${total} event${total!==1?'s':''} loaded (next 14 days)`,true);
+
+      // Write future cal events into Sync sheet so they show in upcoming
+      if(sheetReady){
+        const futureEvents=allEvents.filter(e=>e.date>today);
+        if(futureEvents.length) await syncCalEventsToSheet(futureEvents);
+        await loadTasksFromSheet();
+      }
       renderAll();
     }catch(err){showCalStatus('Network error.',false);}
+  }
+
+  // Write future calendar events into Sync sheet (won't overwrite existing rows for those dates)
+  async function syncCalEventsToSheet(events){
+    if(!sheetReady||!accessToken||!events.length)return;
+    try{
+      // Read existing Sync rows
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
+      const data=await res.json();
+      const existingRows=data.values||[];
+      const ts=new Date().toISOString();
+
+      // For each future event, add if not already in sheet
+      const existingIds=new Set(existingRows.map(r=>r[0]));
+      const newRows=events
+        .filter(e=>!existingIds.has(e.id))
+        .map(e=>[e.id,e.title,e.tag,e.start||'',e.end||'','FALSE',e.date,'TRUE',e.location||'',ts]);
+
+      if(!newRows.length)return;
+      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:J:append?valueInputOption=RAW`,{values:newRows});
+    }catch(err){console.warn('syncCalEventsToSheet failed',err);}
+  }
+
+  // Get all cached calendar events for a given date
+  function getCalEventsForDate(dateStr){
+    try{
+      const cached=JSON.parse(localStorage.getItem('wknd_cal_all')||'null');
+      if(!cached)return[];
+      return cached.events.filter(e=>e.date===dateStr);
+    }catch(e){return[];}
   }
 
   async function doRefresh(){
@@ -1085,7 +1138,10 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       return;
     }
     let html='';
-    if(plan.warning) html+=`<div class="plan-warning">&#9888; ${escHtml(plan.warning)}</div>`;
+    const allAdded=plan.items.length>0&&plan.items.every(item=>item._added);
+    if(plan.warning&&!plan._warningDismissed&&!allAdded){
+      html+=`<div class="plan-warning" style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><span>&#9888; ${escHtml(plan.warning)}</span><button onclick="dismissPlanWarning()" style="background:none;border:none;cursor:pointer;color:#A32D2D;font-size:16px;line-height:1;flex-shrink:0;padding:0 2px;">&#10005;</button></div>`;
+    }
     if(plan.items&&plan.items.length){
       html+=`<div class="plan-list">`;
       plan.items.forEach((item,i)=>{
@@ -1118,6 +1174,13 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     }
     out.innerHTML=html;
     window._lastPlan=plan;
+  }
+
+  function dismissPlanWarning(){
+    if(window._lastPlan) window._lastPlan._warningDismissed=true;
+    const out=document.getElementById('plan-output');
+    const warn=out.querySelector('.plan-warning');
+    if(warn){warn.style.transition='opacity 0.2s';warn.style.opacity='0';setTimeout(()=>warn.remove(),200);}
   }
 
   function updatePlanItem(idx){
@@ -1233,14 +1296,14 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         await writeHeaders();
       }
       // Sync tab
-      const res2=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A1:G1`);
+      const res2=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A1:J1`);
       const data2=await res2.json();
       if(data2.error&&data2.error.code===404){
         await sheetsPost(`${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:SYNC_NAME}}}]});
-        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:G1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
-      } else if(!data2.values||!data2.values[0]||data2.values[0][0]!=='id'){
-        await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A:I`);
-        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:G1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
+        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:J1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
+      } else if(!data2.values||!data2.values[0]||data2.values[0][0]!=='id'||data2.values[0].length<10){
+        // Headers missing or incomplete — rewrite them but preserve data rows
+        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:J1?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
       }
       sheetReady=true;
       showSheetsStatus('Connected — syncing tasks across devices ✓',true);
@@ -1337,7 +1400,14 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         if(r[7]==='TRUE'){item.isCalEvent=true;loadedCal.push(item);}
         else{loadedTasks.push({...item,id:parseFloat(r[0])||Date.now()});}
       });
-      tasks=loadedTasks; calEvents=loadedCal;
+      tasks=loadedTasks;
+      // Merge with cached Google Calendar events for this date
+      const cachedCal=getCalEventsForDate(dateStr);
+      cachedCal.forEach(ce=>{
+        const existing=loadedCal.find(lc=>lc.id===ce.id);
+        if(existing){ce.done=existing.done;} // preserve done state from sheet
+      });
+      calEvents=cachedCal.length?cachedCal:loadedCal;
     }catch(e){console.warn('loadDateFromSheet failed',e);}
   }
 
@@ -1443,7 +1513,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     try{
       const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
       const data=await res.json();
-      const rows=(data.values||[]).filter(r=>r[6]&&r[6]>todayStr()&&r[7]!=='TRUE'&&r[5]!=='TRUE');
+      const rows=(data.values||[]).filter(r=>r[6]&&r[6]>todayStr()&&r[5]!=='TRUE');
       if(!rows.length){el.style.display='none';return;}
       // Group by date
       const byDate={};
