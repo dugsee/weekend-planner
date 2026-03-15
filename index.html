@@ -1460,8 +1460,15 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         await sheetsPost(`${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:SYNC_NAME}}}]});
         await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:J1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
       } else {
-        // Always rewrite headers to ensure all columns are labelled correctly
-        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:J1?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
+        // Rewrite headers using clear+append (compatible with CORS policy)
+        try{
+          await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A1:A1`);
+          // Use batchUpdate to write header row in-place
+          await sheetsPost(`${sheetId}/values:batchUpdate`,{
+            valueInputOption:'RAW',
+            data:[{range:`${SYNC_NAME}!A1:J1`,values:[SYNC_HEADERS]}]
+          });
+        }catch(headerErr){console.warn('Header rewrite failed (non-fatal):',headerErr);}
       }
       sheetReady=true;
       showSheetsStatus('Connected — syncing tasks across devices ✓',true);
@@ -1605,6 +1612,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
 
   function sheetsGet(path){return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`,{headers:{Authorization:'Bearer '+accessToken}});}
   function sheetsPost(path,body){return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify(body)});}
+  function sheetsPut(path,body){return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`,{method:'PUT',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify(body)});}
   function sheetsClear(path){return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}:clear`,{method:'POST',headers:{Authorization:'Bearer '+accessToken}});}
   function showCalStatus(m,ok){const el=document.getElementById('cal-status');el.textContent=m;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
   function showSheetsStatus(m,ok){const el=document.getElementById('sheets-status');el.textContent=m;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
