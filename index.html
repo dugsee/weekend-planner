@@ -198,6 +198,22 @@
       .btn-add-plan:hover{background:#FFC200;color:#004225;}
     }
     @media(max-width:480px){body{padding:0.5rem;}.app{padding:1rem 0 3rem;}}
+    .settings-btn{background:none;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-secondary);font-size:16px;transition:background 0.15s;flex-shrink:0;position:relative;}
+    .settings-btn:hover{background:var(--bg-secondary);}
+    .settings-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;border:1.5px solid var(--bg);}
+    .settings-dot.ok{background:#1D9E75;}
+    .settings-dot.err{background:#E24B4A;}
+    .settings-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:900;display:flex;align-items:flex-end;justify-content:center;}
+    .settings-modal{background:var(--bg);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px 36px;width:100%;max-width:600px;max-height:85vh;overflow-y:auto;}
+    .settings-modal-title{font-size:16px;font-weight:700;font-family:var(--font-condensed);letter-spacing:0.06em;color:var(--sonics-green);text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;}
+    .conn-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border);}
+    .conn-row:last-child{border-bottom:none;}
+    .conn-row-dot{width:10px;height:10px;border-radius:50%;background:var(--border-mid);flex-shrink:0;}
+    .conn-row-dot.ok{background:#1D9E75;}
+    .conn-row-dot.err{background:#E24B4A;}
+    .conn-row-label{font-size:13px;font-weight:600;font-family:var(--font-condensed);letter-spacing:0.04em;text-transform:uppercase;color:var(--text);min-width:70px;}
+    .conn-row-detail{font-size:12px;color:var(--text-secondary);flex:1;}
+    .conn-row-action{font-size:12px;color:var(--sonics-green);cursor:pointer;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;white-space:nowrap;}
     .edit-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:flex-end;justify-content:center;}
     .edit-modal{background:var(--bg);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px 32px;width:100%;max-width:600px;display:flex;flex-direction:column;gap:11px;}
     .edit-modal-title{font-size:15px;font-weight:600;font-family:var(--font-condensed);letter-spacing:0.05em;color:var(--sonics-green);text-transform:uppercase;margin-bottom:2px;}
@@ -216,9 +232,31 @@
     <div style="background:var(--sonics-green);border-radius:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#FFC200" stroke-width="1.5"/><path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4" stroke="#FFC200" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FFC200"/></svg>
     </div>
-    <div>
+    <div style="flex:1;">
       <div style="font-family:var(--font-display);font-size:26px;font-weight:400;color:var(--sonics-green);letter-spacing:0.06em;line-height:1;">WEEKEND PLANNER</div>
       <div style="font-size:10px;color:var(--sonics-gold);font-weight:500;letter-spacing:0.12em;text-transform:uppercase;">Dug the Coolest Ever</div>
+    </div>
+    <button class="settings-btn" id="settings-btn" onclick="openSettings()" title="Settings &amp; connections">
+      &#9881;
+      <span class="settings-dot err" id="settings-dot"></span>
+    </button>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="settings-modal-backdrop" id="settings-modal" style="display:none;" onclick="closeSettingsIfBackdrop(event)">
+    <div class="settings-modal">
+      <div class="settings-modal-title">
+        <span>Settings</span>
+        <button onclick="closeSettings()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-tertiary);line-height:1;">&#10005;</button>
+      </div>
+      <div id="settings-conn-rows"></div>
+      <div style="margin-top:16px;border-top:0.5px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;font-weight:700;font-family:var(--font-condensed);letter-spacing:0.06em;color:var(--text-secondary);text-transform:uppercase;margin-bottom:10px;">Account</div>
+        <div class="conn-row">
+          <div class="conn-row-label" style="min-width:unset;flex:1;font-size:13px;color:var(--text-secondary);font-family:var(--font);text-transform:none;font-weight:400;">Sign out of all Google services</div>
+          <span class="conn-row-action" onclick="signOut();closeSettings();">Sign out</span>
+        </div>
+      </div>
     </div>
   </div>
   <div class="header">
@@ -244,15 +282,7 @@
   <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
   <div class="progress-text" id="prog-text">0 of 0 complete</div>
 
-  <!-- Connection status bar (collapsed when connected) -->
-  <div id="conn-bar" class="conn-bar" onclick="toggleConnections()" style="display:none;">
-    <span class="conn-dot" id="dot-google"></span><span id="label-google">Google</span>
-    <span class="conn-dot" id="dot-sheets"></span><span id="label-sheets">Sheets</span>
-    <span class="conn-dot" id="dot-ai"></span><span id="label-ai">AI</span>
-    <span class="conn-expand">tap to manage ›</span>
-  </div>
-
-  <!-- Connections panel (expanded) -->
+  <!-- Connections panel (sign-in flow, hidden when connected) -->
   <div id="connections-panel">
     <!-- Google sign-in -->
     <div class="card" id="setup-banner">
@@ -508,6 +538,83 @@
   }
 
   // ── Connection bar ────────────────────────────────────────────────────────────
+  function openSettings(){
+    renderSettingsRows();
+    document.getElementById('settings-modal').style.display='flex';
+  }
+  function closeSettings(){
+    document.getElementById('settings-modal').style.display='none';
+  }
+  function closeSettingsIfBackdrop(e){
+    if(e.target===document.getElementById('settings-modal')) closeSettings();
+  }
+  function renderSettingsRows(){
+    const gOk=!!(accessToken&&Date.now()<tokenExpiry);
+    const sOk=sheetReady;
+    const aOk=!!anthropicKey;
+    const calId=localStorage.getItem(KEYS.calId)||'';
+    const rows=[
+      {label:'Google',ok:gOk,detail:gOk?calId:'Not signed in',
+       action:gOk?null:{text:'Sign in',fn:'startOAuthFromSettings()'}},
+      {label:'Sheets',ok:sOk,detail:sOk?'Task history connected':'Paste Sheet ID to connect',
+       action:sOk?null:{text:'Connect',fn:'connectSheetFromSettings()'}},
+      {label:'AI',ok:aOk,detail:aOk?'Anthropic key saved':'Add API key to enable planning',
+       action:aOk?{text:'Update key',fn:'updateAIKeyFromSettings()'}:{text:'Add key',fn:'updateAIKeyFromSettings()'}},
+    ];
+    let html='';
+    rows.forEach(r=>{
+      html+=`<div class="conn-row">
+        <div class="conn-row-dot ${r.ok?'ok':'err'}"></div>
+        <div class="conn-row-label">${r.label}</div>
+        <div class="conn-row-detail">${r.detail}</div>
+        ${r.action?`<span class="conn-row-action" onclick="${r.action.fn}">${r.action.text}</span>`:''}
+      </div>`;
+    });
+    // Sheet ID input if not connected
+    if(!sOk){
+      html+=`<div style="padding:8px 0 4px;display:flex;gap:8px;">
+        <input type="text" id="settings-sheet-id" placeholder="Sheet ID" style="flex:1;font-size:12px;padding:6px 9px;"/>
+        <button onclick="connectSheetFromSettings()" style="background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;">Connect</button>
+      </div>`;
+    }
+    // AI key input
+    html+=`<div style="padding:8px 0 4px;display:flex;gap:8px;">
+      <input type="password" id="settings-ai-key" placeholder="sk-ant-… (Anthropic API key)" style="flex:1;font-size:12px;padding:6px 9px;" value="${anthropicKey?'••••••••••••':''}"/>
+      <button onclick="updateAIKeyFromSettings()" style="background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;">Save</button>
+    </div>`;
+    // Cal ID input if not connected
+    if(!gOk){
+      html+=`<div style="padding:8px 0 4px;display:flex;gap:8px;">
+        <input type="text" id="settings-cal-id" placeholder="Calendar ID (your Gmail address)" style="flex:1;font-size:12px;padding:6px 9px;"/>
+        <button onclick="startOAuthFromSettings()" style="background:var(--blue);color:white;border:none;border-radius:var(--radius-md);padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;">Sign in</button>
+      </div>`;
+    }
+    document.getElementById('settings-conn-rows').innerHTML=html;
+  }
+  function startOAuthFromSettings(){
+    const el=document.getElementById('settings-cal-id');
+    if(el&&el.value.trim()) document.getElementById('cal-id-input').value=el.value.trim();
+    closeSettings();startOAuth();
+  }
+  function connectSheetFromSettings(){
+    const el=document.getElementById('settings-sheet-id');
+    if(el&&el.value.trim()) document.getElementById('sheet-id-input').value=el.value.trim();
+    closeSettings();connectSheet();
+  }
+  function updateAIKeyFromSettings(){
+    const el=document.getElementById('settings-ai-key');
+    if(el&&el.value.trim()&&!el.value.includes('•')){
+      document.getElementById('anthropic-key-input').value=el.value.trim();
+      connectAnthropicKey();
+    }
+    closeSettings();
+  }
+  function updateSettingsDot(){
+    const allOk=!!(accessToken&&Date.now()<tokenExpiry)&&sheetReady&&!!anthropicKey;
+    const dot=document.getElementById('settings-dot');
+    if(dot){dot.className='settings-dot '+(allOk?'ok':'err');}
+  }
+
   function toggleConnections() {
     const panel=document.getElementById('connections-panel');
     const hidden=panel.style.display==='none';
@@ -516,35 +623,27 @@
   }
 
   function updateConnBar() {
-    const bar=document.getElementById('conn-bar');
+    updateSettingsDot();
+    // Auto-hide connections panel when all connected
     const gOk=!!(accessToken&&Date.now()<tokenExpiry);
     const sOk=sheetReady;
     const aOk=!!anthropicKey;
-    document.getElementById('dot-google').className='conn-dot'+(gOk?' ok':'');
-    document.getElementById('dot-sheets').className='conn-dot'+(sOk?' ok':'');
-    document.getElementById('dot-ai').className='conn-dot'+(aOk?' ok':'');
-    document.getElementById('label-google').textContent=gOk?'Google ✓':'Google';
-    document.getElementById('label-sheets').textContent=sOk?'Sheets ✓':'Sheets';
-    document.getElementById('label-ai').textContent=aOk?'AI ✓':'AI';
-    bar.style.display='flex';
-    // Auto-collapse panel if all connected
     const allOk=gOk&&sOk&&aOk;
-    const savedHidden=localStorage.getItem(KEYS.connHidden);
     const panel=document.getElementById('connections-panel');
-    if(allOk&&savedHidden!=='0') panel.style.display='none';
+    if(panel&&allOk) panel.style.display='none';
   }
 
   // ── Day rollover ──────────────────────────────────────────────────────────────
   function checkDayRollover() {
     const last=localStorage.getItem(KEYS.lastDay), today=todayStr();
-    if(last&&last!==today) {
-      const incomplete=tasks.filter(t=>!t.done);
-      if(incomplete.length) {
-        const nr=incomplete.map(t=>({...t,id:Date.now()+Math.random(),rolledFrom:last,status:'rolled-over'}));
-        rolledTasks=[...rolledTasks,...nr]; saveRolled();
-        if(sheetReady) nr.forEach(t=>logToSheet(t,'rolled-over',null));
+    if(last&&last!==today&&last) {
+      const incomplete=tasks.filter(t=>!t.done&&!t.isCalEvent);
+      if(incomplete.length){
+        // Move to backlog so they appear on the new day
+        incomplete.forEach(t=>{t.date='backlog';t.rolledFrom=last;});
+        try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}
+        if(sheetReady) incomplete.forEach(t=>logToSheet(t,'rolled-over',null));
       }
-      tasks=[]; try{localStorage.setItem(KEYS.tasks,JSON.stringify([]));}catch(e){}
       chatHistory=[]; try{localStorage.setItem(KEYS.chatHistory,JSON.stringify([]));}catch(e){}
     }
     localStorage.setItem(KEYS.lastDay,today);
@@ -552,7 +651,30 @@
   function scheduleMidnight(){
     const now=new Date();
     const next=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,5);
-    setTimeout(()=>{checkDayRollover();renderAll();scheduleMidnight();},next-now);
+    setTimeout(async ()=>{
+      await midnightRollover();
+      setHeader();
+      if(sheetReady) await loadTasksFromSheet();
+      renderAll();
+      scheduleMidnight();
+    },next-now);
+  }
+  async function midnightRollover(){
+    const yesterday=new Date();
+    yesterday.setDate(yesterday.getDate()-1);
+    const yesterdayStr=yesterday.toISOString().slice(0,10);
+    const today=todayStr();
+    // Move any incomplete tasks from yesterday to today's backlog
+    const incomplete=tasks.filter(t=>!t.done&&!t.isCalEvent);
+    if(incomplete.length){
+      // Update their date to today in backlog
+      incomplete.forEach(t=>{t.date='backlog';t.rolledFrom=yesterdayStr;});
+      saveTasks();
+      if(sheetReady) incomplete.forEach(t=>logToSheet(t,'rolled-over',null));
+    }
+    localStorage.setItem(KEYS.lastDay,today);
+    chatHistory=[];
+    try{localStorage.setItem(KEYS.chatHistory,JSON.stringify([]));}catch(e){}
   }
   function manualRollover(id){
     const idx=tasks.findIndex(t=>t.id===id);if(idx===-1)return;
@@ -604,7 +726,6 @@
     accessToken=null;calEvents=[];sheetReady=false;
     try{localStorage.removeItem(KEYS.token);localStorage.removeItem(KEYS.events);}catch(e){}
     document.getElementById('connections-panel').style.display='block';
-    document.getElementById('conn-bar').style.display='none';
     document.getElementById('setup-banner').style.display='block';
     document.getElementById('filter-row').style.display='none';
     document.getElementById('sheets-setup').style.display='none';
@@ -618,6 +739,7 @@
 
   function showConnected(){
     document.getElementById('setup-banner').style.display='none';
+    document.getElementById('connections-panel').style.display='none';
     const bar=document.getElementById('reconnect-bar');
     if(bar) bar.style.display='none';
     document.getElementById('filter-row').style.display='flex';
