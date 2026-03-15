@@ -846,8 +846,7 @@ Keep responses short and actionable.`;
           if(!parts)return;
           for(const p of parts){
             if(p.mimeType==='text/plain'&&p.body?.data){
-              body+=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'))+'
-';
+              body+=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'))+'\n';
             } else if(p.parts) extractBody(p.parts);
           }
         };
