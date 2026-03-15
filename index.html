@@ -295,6 +295,7 @@
       <textarea id="brain-dump-input" placeholder="e.g. mow lawn, pick up meds, hardware store, grocery run..." style="width:100%;height:38px;min-height:38px;max-height:160px;resize:vertical;font-size:13px;padding:8px 10px;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text);font-family:var(--font);outline:none;margin-bottom:8px;line-height:1.4;overflow:hidden;" oninput="this.style.height='38px';this.style.height=Math.min(this.scrollHeight,160)+'px';"></textarea>
       <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
         <button class="btn btn-ai" id="dump-btn" onclick="organizeDump()" style="flex:1;margin:0;padding:10px;">&#9998; Organize my day</button>
+        <button id="inbox-btn" onclick="fetchInboxTasks()" title="Read Weekend Planner Gmail label" style="flex-shrink:0;width:38px;height:38px;background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" onmouseover="this.style.background='var(--sonics-dark)'" onmouseout="this.style.background='var(--sonics-green)'">&#9993;</button>
         <button id="plan-btn" onclick="planMyDay()" title="Re-optimize open tasks" style="flex-shrink:0;width:38px;height:38px;background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" onmouseover="this.style.background='var(--sonics-dark)'" onmouseout="this.style.background='var(--sonics-green)'">&#8635;</button>
       </div>
     </div>
@@ -396,7 +397,7 @@
 <script>
   // ── Config ────────────────────────────────────────────────────────────────────
   const CLIENT_ID     = '451013372558-r77l7knno1pgob7vkbi9hv3jdr19qobi.apps.googleusercontent.com';
-  const SCOPES        = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
+  const SCOPES        = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.modify';
   const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
   const AI_MODEL      = 'claude-sonnet-4-20250514';
   const KEYS = {
@@ -751,6 +752,31 @@ Respond ONLY in this exact JSON format — no other text, no markdown:
   "suggestions": []
 }`;
 
+    if(mode==='email') return base + `
+
+You are extracting tasks from forwarded email content. For EACH email, identify every actionable task.
+Appointment confirmations, event invites, bills, pickups, deadlines — all become tasks.
+Use the subject and body to infer: task name, due date/time, location, and category tag.
+If no specific time is mentioned, suggest a reasonable slot between 10am-6pm for the task type.
+All start/end fields must be HH:MM 24-hour format. Note the source date in the reason field.
+
+Respond ONLY in this exact JSON format — no other text, no markdown fences:
+{
+  "warning": null,
+  "items": [
+    {
+      "time": "10:00 am - 11:00 am",
+      "title": "Concise task name from email",
+      "location": "Address or place if mentioned, else empty string",
+      "reason": "From: [subject]. Due: [date if mentioned]. [Key detail].",
+      "tag": "home|errands|health|admin",
+      "start": "10:00",
+      "end": "11:00"
+    }
+  ],
+  "suggestions": []
+}`;
+
     // chat mode
     return base + `
 
@@ -772,6 +798,80 @@ Keep responses short and actionable.`;
     const tzShort = now.toLocaleTimeString('en-US',{timeZoneName:'short'}).split(' ').pop();
     const dateStr = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
     return `${dateStr}. Local time: ${timeStr12} (24h: ${time24}) ${tzShort}, timezone: ${tzName}`;
+  }
+
+  async function fetchInboxTasks(){
+    if(!accessToken||Date.now()>tokenExpiry){expiredSession();return;}
+    const btn=document.getElementById('inbox-btn');
+    btn.disabled=true;btn.innerHTML='&#8987;';
+    try{
+      // Find the "Weekend Planner" label ID
+      const labelsRes=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels',{headers:{Authorization:'Bearer '+accessToken}});
+      const labelsData=await labelsRes.json();
+      if(labelsData.error){addChatMessage('ai','Gmail error: '+labelsData.error.message);btn.disabled=false;btn.innerHTML='&#9993;';return;}
+      const label=labelsData.labels.find(l=>l.name==='Weekend Planner');
+      if(!label){
+        addChatMessage('ai','No "Weekend Planner" label found in Gmail. Create it first, then forward emails to yourself and apply that label.');
+        btn.disabled=false;btn.innerHTML='&#9993;';return;
+      }
+      // Fetch emails with that label
+      const listRes=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=${label.id}&maxResults=10`,{headers:{Authorization:'Bearer '+accessToken}});
+      const listData=await listRes.json();
+      const messages=listData.messages||[];
+      if(!messages.length){
+        addChatMessage('ai','No emails found with the "Weekend Planner" label. Forward an email to yourself and apply that label.');
+        btn.disabled=false;btn.innerHTML='&#9993;';return;
+      }
+      // Fetch each email's content
+      const emailTexts=[];
+      for(const msg of messages.slice(0,5)){
+        const msgRes=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,{headers:{Authorization:'Bearer '+accessToken}});
+        const msgData=await msgRes.json();
+        const headers=msgData.payload?.headers||[];
+        const subject=headers.find(h=>h.name==='Subject')?.value||'(no subject)';
+        const from=headers.find(h=>h.name==='From')?.value||'';
+        const date=headers.find(h=>h.name==='Date')?.value||'';
+        // Extract body text
+        let body='';
+        const extractBody=(parts)=>{
+          if(!parts)return;
+          for(const p of parts){
+            if(p.mimeType==='text/plain'&&p.body?.data){
+              body+=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'))+'
+';
+            } else if(p.parts) extractBody(p.parts);
+          }
+        };
+        if(msgData.payload?.body?.data){
+          body=atob(msgData.payload.body.data.replace(/-/g,'+').replace(/_/g,'/'));
+        } else { extractBody(msgData.payload?.parts); }
+        emailTexts.push(`--- EMAIL ---
+From: ${from}
+Date: ${date}
+Subject: ${subject}
+
+${body.slice(0,1500)}`);
+        // Remove the Weekend Planner label so it won't be re-read
+        await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`,{
+          method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+          body:JSON.stringify({removeLabelIds:[label.id]})
+        });
+      }
+      // Send to AI for extraction
+      const userMsg=`Today is ${currentTimeContext()}.
+I have forwarded ${emailTexts.length} email(s) to extract tasks from. Please identify every actionable task from each email.
+
+${emailTexts.join('
+
+')}`;
+      addChatMessage('ai',`Reading ${emailTexts.length} email${emailTexts.length>1?'s':''}…`);
+      const reply=await callAI(userMsg,'email');
+      if(reply) renderPlanOutput(reply);
+    }catch(e){
+      addChatMessage('ai','Could not read Gmail. Make sure the Gmail API is enabled in Google Cloud Console.');
+      console.error(e);
+    }
+    btn.disabled=false;btn.innerHTML='&#9993;';
   }
 
     async function organizeDump(){
