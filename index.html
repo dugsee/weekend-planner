@@ -251,6 +251,14 @@
       </div>
       <div id="settings-conn-rows"></div>
       <div style="margin-top:16px;border-top:0.5px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;font-weight:700;font-family:var(--font-condensed);letter-spacing:0.06em;color:var(--text-secondary);text-transform:uppercase;margin-bottom:10px;">Preferences</div>
+        <div class="conn-row">
+          <div class="conn-row-label" style="min-width:unset;flex:1;">Sound effects</div>
+          <div class="conn-row-detail" id="sound-status-label" style="flex:0;"></div>
+          <span class="conn-row-action" id="sound-toggle-btn" onclick="toggleSound()">Mute</span>
+        </div>
+      </div>
+      <div style="margin-top:12px;border-top:0.5px solid var(--border);padding-top:14px;">
         <div style="font-size:12px;font-weight:700;font-family:var(--font-condensed);letter-spacing:0.06em;color:var(--text-secondary);text-transform:uppercase;margin-bottom:10px;">Account</div>
         <div class="conn-row">
           <div class="conn-row-label" style="min-width:unset;flex:1;font-size:13px;color:var(--text-secondary);font-family:var(--font);text-transform:none;font-weight:400;">Sign out of all Google services</div>
@@ -451,7 +459,7 @@
     calId:'wknd_cal_id', sheetId:'wknd_sheet_id', rolled:'wknd_rolled_v3',
     lastDay:'wknd_last_day', profile:'wknd_profile_v1', weather:'wknd_weather',
     chatHistory:'wknd_chat_v1', anthropicKey:'wknd_anthropic_key',
-    connHidden:'wknd_conn_hidden',
+    connHidden:'wknd_conn_hidden', soundEnabled:'wknd_sound_enabled',
   };
   const SHEET_NAME    = 'Tasks';
   const SHEET_HEADERS = ['Date','Task','Tag','Sched Start','Sched End','Duration (min)','Completed At','Source','Status','Notes'];
@@ -460,6 +468,7 @@
 
   // ── State ─────────────────────────────────────────────────────────────────────
   let tasks=[], calEvents=[], rolledTasks=[], activeFilter='all';
+  let soundEnabled=true;
   let viewDate=null; // null means today
   let accessToken=null, tokenExpiry=0, sheetId='', sheetReady=false;
   let weatherData=null, chatHistory=[], profile={}, anthropicKey='';
@@ -476,6 +485,127 @@
   };
 
   // ── Boot ──────────────────────────────────────────────────────────────────────
+  // ── Sound engine ─────────────────────────────────────────────────────────────
+  let _audioCtx=null;
+  function getAudioCtx(){
+    if(!_audioCtx) _audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    return _audioCtx;
+  }
+
+  function playSound(tag){
+    if(!soundEnabled)return;
+    try{
+      const ctx=getAudioCtx();
+      if(ctx.state==='suspended') ctx.resume();
+      const sounds={
+        errands: ()=>playCashRegister(ctx),
+        home:    ()=>playHammer(ctx),
+        health:  ()=>playAhhh(ctx),
+        admin:   ()=>playTypewriter(ctx),
+        calendar:()=>playChime(ctx),
+      };
+      (sounds[tag]||sounds.calendar)();
+    }catch(e){console.warn('Sound failed',e);}
+  }
+
+  function playCashRegister(ctx){
+    // Cha-ching: rising coin tones then register bell
+    const t=ctx.currentTime;
+    [[523,0],[659,0.08],[784,0.16],[1047,0.25]].forEach(([freq,when])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sine';o.frequency.value=freq;
+      g.gain.setValueAtTime(0,t+when);
+      g.gain.linearRampToValueAtTime(0.3,t+when+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t+when+0.18);
+      o.start(t+when);o.stop(t+when+0.2);
+    });
+    // Bell ding
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='sine';o.frequency.setValueAtTime(1800,t+0.4);
+    o.frequency.exponentialRampToValueAtTime(1400,t+0.7);
+    g.gain.setValueAtTime(0,t+0.4);g.gain.linearRampToValueAtTime(0.4,t+0.42);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.9);
+    o.start(t+0.4);o.stop(t+1.0);
+  }
+
+  function playHammer(ctx){
+    // Thud + wood resonance
+    const t=ctx.currentTime;
+    const buf=ctx.createBuffer(1,ctx.sampleRate*0.3,ctx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3);
+    const src=ctx.createBufferSource(),g=ctx.createGain();
+    const filt=ctx.createBiquadFilter();
+    filt.type='lowpass';filt.frequency.value=300;
+    src.buffer=buf;src.connect(filt);filt.connect(g);g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.8,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+    src.start(t);
+    // Wood resonance tone
+    const o=ctx.createOscillator(),g2=ctx.createGain();
+    o.connect(g2);g2.connect(ctx.destination);
+    o.type='sine';o.frequency.value=180;
+    g2.gain.setValueAtTime(0.2,t+0.05);g2.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+    o.start(t+0.05);o.stop(t+0.5);
+  }
+
+  function playAhhh(ctx){
+    // Warm ascending chord — "ahhh" relaxing resolution
+    const t=ctx.currentTime;
+    [[261,0],[329,0.12],[392,0.24],[523,0.36]].forEach(([freq,when],i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      const vib=ctx.createOscillator(),vg=ctx.createGain();
+      vib.frequency.value=5;vg.gain.value=3;
+      vib.connect(vg);vg.connect(o.frequency);
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sine';o.frequency.value=freq;
+      g.gain.setValueAtTime(0,t+when);
+      g.gain.linearRampToValueAtTime(0.18,t+when+0.15);
+      g.gain.setValueAtTime(0.18,t+when+0.5);
+      g.gain.linearRampToValueAtTime(0,t+when+0.9);
+      o.start(t+when);vib.start(t+when);
+      o.stop(t+when+1.0);vib.stop(t+when+1.0);
+    });
+  }
+
+  function playTypewriter(ctx){
+    // Clack clack clack then bell
+    const t=ctx.currentTime;
+    for(let i=0;i<4;i++){
+      const when=t+i*0.1;
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.06,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let j=0;j<d.length;j++) d[j]=(Math.random()*2-1)*Math.pow(1-j/d.length,2);
+      const src=ctx.createBufferSource(),g=ctx.createGain();
+      const filt=ctx.createBiquadFilter();
+      filt.type='highpass';filt.frequency.value=1500;
+      src.buffer=buf;src.connect(filt);filt.connect(g);g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.35,when);
+      src.start(when);
+    }
+    // Typewriter bell ding
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='sine';o.frequency.value=1200;
+    g.gain.setValueAtTime(0,t+0.5);g.gain.linearRampToValueAtTime(0.45,t+0.52);
+    g.gain.exponentialRampToValueAtTime(0.001,t+1.1);
+    o.start(t+0.5);o.stop(t+1.2);
+  }
+
+  function playChime(ctx){
+    // Soft notification chime — two pure tones
+    const t=ctx.currentTime;
+    [[880,0],[1108,0.18]].forEach(([freq,when])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sine';o.frequency.value=freq;
+      g.gain.setValueAtTime(0,t+when);g.gain.linearRampToValueAtTime(0.25,t+when+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t+when+0.6);
+      o.start(t+when);o.stop(t+when+0.7);
+    });
+  }
+
   function boot() {
     setHeader();
     handleOAuthRedirect();  // Check if returning from Google OAuth redirect
@@ -493,6 +623,8 @@
   function loadState() {
     try { const r=localStorage.getItem(KEYS.tasks);   if(r) tasks=JSON.parse(r); } catch(e){}
     try { const r=localStorage.getItem(KEYS.rolled);  if(r) rolledTasks=JSON.parse(r); } catch(e){}
+    const savedSound=localStorage.getItem(KEYS.soundEnabled);
+    soundEnabled=savedSound===null?true:savedSound==='1';
     try { const r=localStorage.getItem(KEYS.profile); if(r) profile=JSON.parse(r); else profile={...DEFAULT_PROFILE}; } catch(e){ profile={...DEFAULT_PROFILE}; }
     try { const r=localStorage.getItem(KEYS.chatHistory); if(r) chatHistory=JSON.parse(r); } catch(e){}
     try { const t=JSON.parse(localStorage.getItem(KEYS.token)||'null'); if(t&&t.expiry>Date.now()){accessToken=t.token;tokenExpiry=t.expiry;} } catch(e){}
@@ -541,6 +673,21 @@
   function openSettings(){
     renderSettingsRows();
     document.getElementById('settings-modal').style.display='flex';
+    const lbl=document.getElementById('sound-status-label');
+    const btn=document.getElementById('sound-toggle-btn');
+    if(lbl) lbl.textContent=soundEnabled?'On':'Off';
+    if(btn) btn.textContent=soundEnabled?'Mute':'Unmute';
+  }
+
+  function toggleSound(){
+    soundEnabled=!soundEnabled;
+    try{localStorage.setItem(KEYS.soundEnabled,soundEnabled?'1':'0');}catch(e){}
+    const lbl=document.getElementById('sound-status-label');
+    const btn=document.getElementById('sound-toggle-btn');
+    if(lbl) lbl.textContent=soundEnabled?'On':'Off';
+    if(btn) btn.textContent=soundEnabled?'Mute':'Unmute';
+    // Play a preview when unmuting
+    if(soundEnabled) playChime(getAudioCtx());
   }
   function closeSettings(){
     document.getElementById('settings-modal').style.display='none';
@@ -1654,7 +1801,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function toggleTask(id){
     const t=tasks.find(t=>t.id===id);if(!t)return;
     t.done=!t.done;saveTasks();
-    if(t.done&&sheetReady)logToSheet(t,'completed',new Date());
+    if(t.done){playSound(t.tag||'admin');if(sheetReady)logToSheet(t,'completed',new Date());}
     renderAll();
     if(t.done&&sheetReady)setTimeout(loadHistory,1500);
   }
@@ -1664,7 +1811,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     t.done=!t.done;
     try{localStorage.setItem(KEYS.events,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
     if(sheetReady) syncTasksToSheet();
-    if(t.done&&sheetReady)logToSheet(t,'completed',new Date());
+    if(t.done){playSound('calendar');if(sheetReady)logToSheet(t,'completed',new Date());}
     renderAll();
     if(t.done&&sheetReady)setTimeout(loadHistory,1500);
   }
