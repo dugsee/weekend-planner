@@ -866,13 +866,8 @@ ${body.slice(0,1500)}`);
         });
       }
       // Send to AI for extraction
-      const userMsg=`Today is ${currentTimeContext()}.
-I have forwarded ${emailTexts.length} email(s) to extract tasks from. Please identify every actionable task from each email.
-
-${emailTexts.join('
-
-')}`;
-      addChatMessage('ai',`Reading ${emailTexts.length} email${emailTexts.length>1?'s':''}…`);
+      const userMsg='Today is '+currentTimeContext()+'.\nI have forwarded '+emailTexts.length+' email(s) to extract tasks from. Please identify every actionable task from each email.\n\n'+emailTexts.join('\n\n');
+            addChatMessage('ai',`Reading ${emailTexts.length} email${emailTexts.length>1?'s':''}…`);
       const reply=await callAI(userMsg,'email');
       if(reply) renderPlanOutput(reply);
     }catch(e){
