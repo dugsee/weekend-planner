@@ -45,6 +45,7 @@
     .nav-btn.today-btn{font-size:9px;width:auto;padding:0 6px;font-family:var(--font-condensed);letter-spacing:0.06em;text-transform:uppercase;}
     .future-badge{font-size:10px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;}
     .upcoming-section{margin-top:14px;border-top:0.5px solid var(--border);padding-top:10px;}
+    .backlog-section{margin-top:10px;}
     .upcoming-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;}
     .remaining-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;text-align:right;}
     .remaining-count{font-size:28px;font-weight:400;font-family:var(--font-display);text-align:right;color:var(--sonics-green);line-height:1;}
@@ -425,7 +426,7 @@
   const SHEET_NAME    = 'Tasks';
   const SHEET_HEADERS = ['Date','Task','Tag','Sched Start','Sched End','Duration (min)','Completed At','Source','Status','Notes'];
   const SYNC_NAME     = 'Sync';
-  const SYNC_HEADERS  = ['id','title','tag','start','end','done','date','isCalEvent','location'];
+  const SYNC_HEADERS  = ['id','title','tag','start','end','done','date','isCalEvent','location','lastModified'];
 
   // ── State ─────────────────────────────────────────────────────────────────────
   let tasks=[], calEvents=[], rolledTasks=[], activeFilter='all';
@@ -477,7 +478,9 @@
   }
 
   function saveTasks() {
+    const ts=new Date().toISOString();
     try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}
+    try{localStorage.setItem('wknd_last_write',ts);}catch(e){}
     if(sheetReady) syncTasksToSheet();
   }
   function saveRolled() { try{localStorage.setItem(KEYS.rolled,JSON.stringify(rolledTasks));}catch(e){} }
@@ -1133,40 +1136,65 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   async function syncTasksToSheet(){
     if(!sheetReady||!accessToken)return;
     try{
-      await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      // Read all existing rows from sheet
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
+      const data=await res.json();
+      const existingRows=data.values||[];
+
+      // Build a map of existing rows by id, keyed to non-current-date rows we want to preserve
       const syncDate=viewDateStr();
-      const allItems=[
-        ...tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',syncDate,'FALSE',t.location||'']),
-        ...calEvents.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',syncDate,'TRUE',t.location||''])
+      const ts=new Date().toISOString();
+
+      // Keep rows from OTHER dates (we only rewrite current date's rows)
+      const otherRows=existingRows.filter(r=>r[6]&&r[6]!==syncDate);
+
+      // Build current date rows
+      const currentRows=[
+        ...tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',syncDate,'FALSE',t.location||'',ts]),
+        ...calEvents.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',syncDate,'TRUE',t.location||'',ts])
       ];
-      if(!allItems.length)return;
-      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:I:append?valueInputOption=RAW`,{values:allItems});
+
+      // Write everything back
+      await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
+      const allRows=[...otherRows,...currentRows];
+      if(!allRows.length)return;
+      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:J:append?valueInputOption=RAW`,{values:allRows});
     }catch(e){console.warn('Sync write failed',e);}
   }
 
   async function loadTasksFromSheet(){
     if(!sheetReady||!accessToken)return;
     try{
-      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
       const data=await res.json();
-      const rows=data.values||[];
-      if(!rows.length)return;
-      if((rows[0][6]||'')!==todayStr())return;
+      const allRows=data.values||[];
+      const today=todayStr();
+
+      // Last-write-wins: compare sheet timestamp vs local lastModified
+      const sheetRows=allRows.filter(r=>r[6]===today);
+      if(!sheetRows.length)return;
+
+      const sheetTs=sheetRows.reduce((latest,r)=>r[9]>latest?r[9]:latest,'');
+      const localTs=localStorage.getItem('wknd_last_write')||'';
+
+      // If local is newer, skip — our data is fresher
+      if(localTs&&localTs>=sheetTs) return;
+
       const loadedTasks=[], loadedCal=[];
-      rows.forEach(r=>{
-        const isCalEvent=r[7]==='TRUE';
-        const item={id:r[0],title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',done:r[5]==='TRUE',location:r[8]||''};
-        if(isCalEvent){item.isCalEvent=true;loadedCal.push(item);}
+      sheetRows.forEach(r=>{
+        const item={id:r[0],title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',
+          done:r[5]==='TRUE',date:r[6]||today,location:r[8]||''};
+        if(r[7]==='TRUE'){item.isCalEvent=true;loadedCal.push(item);}
         else{loadedTasks.push({...item,id:parseFloat(r[0])||Date.now()});}
       });
-      if(loadedTasks.length){tasks=loadedTasks;try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}}
+      tasks=loadedTasks;
+      try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}
       if(loadedCal.length){
-        // Merge done status back into calEvents — preserve existing cal event data, just update done flag
         loadedCal.forEach(lc=>{
           const existing=calEvents.find(e=>e.id===lc.id);
           if(existing) existing.done=lc.done;
         });
-        try{localStorage.setItem(KEYS.events,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
+        try{localStorage.setItem(KEYS.events,JSON.stringify({date:today,events:calEvents}));}catch(e){}
       }
       renderAll();
     }catch(e){console.warn('Sync read failed',e);}
@@ -1175,13 +1203,15 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   async function loadDateFromSheet(dateStr){
     if(!sheetReady||!accessToken)return;
     try{
-      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
       const data=await res.json();
-      const rows=(data.values||[]).filter(r=>r[6]===dateStr);
-      if(!rows.length){tasks=[];calEvents=[];return;}
+      const allRows=data.values||[];
+      // Include tasks for this date AND backlog tasks (no date or 'backlog')
+      const rows=allRows.filter(r=>r[6]===dateStr||!r[6]||r[6]==='backlog');
       const loadedTasks=[], loadedCal=[];
       rows.forEach(r=>{
-        const item={id:r[0],title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',done:r[5]==='TRUE',location:r[8]||''};
+        const item={id:r[0],title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',
+          done:r[5]==='TRUE',date:r[6]||'',location:r[8]||''};
         if(r[7]==='TRUE'){item.isCalEvent=true;loadedCal.push(item);}
         else{loadedTasks.push({...item,id:parseFloat(r[0])||Date.now()});}
       });
@@ -1230,6 +1260,60 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function showSheetsStatus(m,ok){const el=document.getElementById('sheets-status');el.textContent=m;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
 
   // ── Drag to reorder ───────────────────────────────────────────────────────────
+  function renderBacklog(backlogItems){
+    // Find or create backlog container — insert before upcoming-section
+    let el=document.getElementById('backlog-container');
+    if(!el){
+      el=document.createElement('div');
+      el.id='backlog-container';
+      const upcoming=document.getElementById('upcoming-section');
+      upcoming.parentNode.insertBefore(el,upcoming);
+    }
+    // Only show on today and future days
+    const isPast=viewDate&&viewDate<todayStr();
+    if(isPast||!backlogItems.length){el.innerHTML='';return;}
+
+    const count=backlogItems.length;
+    let html=`<div class="backlog-section">
+      <div class="divider-label" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleBacklog()">
+        <span>unscheduled (${count})</span>
+        <span style="font-size:14px;transition:transform 0.2s;display:inline-block;transform:${backlogCollapsed?'rotate(-90deg)':'rotate(0deg)'};">&#9660;</span>
+      </div>`;
+    if(!backlogCollapsed){
+      backlogItems.forEach(t=>{
+        const taskIdx=tasks.indexOf(t);
+        html+=`<div class="task-card" data-idx="${taskIdx}" style="margin-top:5px;border-left:2.5px solid var(--border-mid);">
+          <div class="reorder-btns">
+            <button class="reorder-btn" onclick="moveTask(${taskIdx},-1)" ${taskIdx===0?'disabled':''}>&#9650;</button>
+            <button class="reorder-btn" onclick="moveTask(${taskIdx},1)" ${taskIdx===tasks.length-1?'disabled':''}>&#9660;</button>
+          </div>
+          <div class="check-wrap"><input type="checkbox" onchange="toggleTask(${t.id})"/></div>
+          <div class="task-body">
+            <div class="task-title" style="cursor:pointer;" onclick="openEdit(${t.id})">${escHtml(t.title)} <span style="font-size:10px;color:var(--text-tertiary);">&#9998;</span></div>
+            <div class="task-meta"><span class="tag tag-${t.tag}">${t.tag}</span>
+              <button onclick="assignToday(${t.id})" style="font-size:10px;padding:1px 8px;border:0.5px solid var(--sonics-green);border-radius:99px;background:none;color:var(--sonics-green);cursor:pointer;font-family:var(--font);">assign today</button>
+            </div>
+          </div>
+          <button class="delete-btn" onclick="deleteTask(${t.id})">&#10005;</button>
+        </div>`;
+      });
+    }
+    html+='</div>';
+    el.innerHTML=html;
+  }
+
+  function toggleBacklog(){
+    backlogCollapsed=!backlogCollapsed;
+    renderAll();
+  }
+
+  function assignToday(id){
+    const t=tasks.find(t=>t.id===id);
+    if(!t)return;
+    t.date=todayStr();
+    saveTasks();renderAll();
+  }
+
   async function renderUpcoming(){
     const el=document.getElementById('upcoming-section');
     if(!el)return;
@@ -1315,9 +1399,11 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     else if(activeFilter==='location') sorted=[...sortedManual,...sortedCal].filter(t=>t.location);
     else sorted=[...sortedManual,...sortedCal];
 
-    // Active items: open manual tasks + open cal events
-    const activeSorted=sorted.filter(t=>!t.done);
-    // Done items: both manual and cal events that are checked off
+    // Split: backlog (no date / 'backlog'), active (dated/today), done
+    const viewingToday=isViewingToday();
+    const currentDate=viewDateStr();
+    const backlogItems=sorted.filter(t=>!t.done&&!t.isCalEvent&&(!t.date||t.date==='backlog'));
+    const activeSorted=sorted.filter(t=>!t.done&&!((!t.date||t.date==='backlog')&&!t.isCalEvent));
     const doneSorted=sorted.filter(t=>t.done);
     const finalSorted=[...activeSorted,...doneSorted];
 
@@ -1362,8 +1448,11 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         <div class="task-actions">${rollBtn}${delBtn}</div>
       </div>`;
     });
-    if(!html)html=`<div style="font-size:14px;color:var(--text-tertiary);padding:1rem 0;">nothing here for this filter</div>`;
+    if(!html&&!backlogItems.length)html=`<div style="font-size:14px;color:var(--text-tertiary);padding:1rem 0;">nothing here for this filter</div>`;
     document.getElementById('task-list').innerHTML=html;
+
+    // Backlog section — undone tasks with no assigned date
+    renderBacklog(backlogItems);
 
     // Upcoming tasks section (only when viewing today)
     renderUpcoming();
@@ -1393,7 +1482,9 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function hideForm(){document.getElementById('add-form').style.display='none';document.getElementById('add-btn').style.display='block';['new-title','new-start','new-end'].forEach(id=>document.getElementById(id).value='');}
   function saveTask(){
     const title=document.getElementById('new-title').value.trim();if(!title)return;
-    tasks.push({id:Date.now(),title,start:document.getElementById('new-start').value,end:document.getElementById('new-end').value,tag:document.getElementById('new-tag').value,done:false,date:viewDateStr()});
+    const newStart=document.getElementById('new-start').value;
+    const newDate=newStart?viewDateStr():'backlog'; // no time = backlog
+    tasks.push({id:Date.now(),title,start:newStart,end:document.getElementById('new-end').value,tag:document.getElementById('new-tag').value,done:false,date:newDate});
     saveTasks();hideForm();renderAll();
   }
   function setFilter(f){activeFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.filter===f));renderAll();}
@@ -1501,6 +1592,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   // ── Task editing ───────────────────────────────────────────────────────────
   let editingTaskId = null;
   let completedCollapsed = false;
+  let backlogCollapsed = false;
 
   function openEdit(id){
     const t=tasks.find(t=>t.id===id);if(!t)return;
