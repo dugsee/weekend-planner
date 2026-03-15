@@ -629,6 +629,16 @@
     try { const r=localStorage.getItem(KEYS.chatHistory); if(r) chatHistory=JSON.parse(r); } catch(e){}
     try { const t=JSON.parse(localStorage.getItem(KEYS.token)||'null'); if(t&&t.expiry>Date.now()){accessToken=t.token;tokenExpiry=t.expiry;} } catch(e){}
     try { const ev=JSON.parse(localStorage.getItem(KEYS.events)||'null'); if(ev&&ev.date===todayStr()) calEvents=ev.events; } catch(e){}
+    // Restore full multi-day calendar cache if available and recent
+    try {
+      const allCal=JSON.parse(localStorage.getItem('wknd_cal_all')||'null');
+      if(allCal&&allCal.fetched===todayStr()) {
+        // Cache is from today — good to use
+      } else {
+        // Stale or missing — will refetch on connect
+        localStorage.removeItem('wknd_cal_all');
+      }
+    } catch(e){}
     try { const wx=JSON.parse(localStorage.getItem(KEYS.weather)||'null'); if(wx&&wx.date===todayStr()) weatherData=wx; } catch(e){}
     sheetId=localStorage.getItem(KEYS.sheetId)||'';
     if(sheetId){document.getElementById('sheet-id-input').value=sheetId;updateSheetLink();}
@@ -913,12 +923,13 @@
       // Map all events, tagging with their actual date
       const allEvents=(data.items||[]).map(e=>{
         const eventDate=(e.start?.dateTime||e.start?.date||'').slice(0,10);
+        const isAllDay=!e.start?.dateTime; // all-day events only have date, no dateTime
         return {
           id:'cal_'+e.id, title:e.summary||'(no title)',
-          start:isoToTime(e.start?.dateTime||e.start?.date),
-          end:isoToTime(e.end?.dateTime||e.end?.date),
+          start:isAllDay?'':isoToTime(e.start.dateTime),
+          end:isAllDay?'':isoToTime(e.end?.dateTime||''),
           location:e.location||'', tag:'calendar', done:false, isCalEvent:true,
-          date:eventDate,
+          date:eventDate, isAllDay:isAllDay,
         };
       });
 
@@ -1448,8 +1459,8 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       if(data2.error&&data2.error.code===404){
         await sheetsPost(`${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:SYNC_NAME}}}]});
         await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:J1:append?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
-      } else if(!data2.values||!data2.values[0]||data2.values[0][0]!=='id'||data2.values[0].length<10){
-        // Headers missing or incomplete — rewrite them but preserve data rows
+      } else {
+        // Always rewrite headers to ensure all columns are labelled correctly
         await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A1:J1?valueInputOption=RAW`,{values:[SYNC_HEADERS]});
       }
       sheetReady=true;
@@ -1673,7 +1684,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         html+=`<div style="margin-bottom:10px;">
           <div style="font-size:11px;font-family:var(--font-condensed);font-weight:600;color:var(--text-secondary);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:5px;cursor:pointer;" onclick="viewDate='${date}';setHeader();loadDayView();">${label} &#8594;</div>`;
         byDate[date].forEach(r=>{
-          const timeStr=r[3]?fmt12(r[3])+(r[4]?' – '+fmt12(r[4]):''):'';
+          const timeStr=(!r[3]&&r[7]==='TRUE')?'all day':r[3]?fmt12(r[3])+(r[4]?' – '+fmt12(r[4]):''):'';
           html+=`<div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:8px 12px;display:flex;align-items:center;gap:10px;margin-bottom:5px;">
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:500;color:var(--text);">${escHtml(r[1]||'')}</div>
@@ -1759,7 +1770,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       }
       if(t.done&&completedCollapsed) return;
       const taskIdx=t._origIdx!==undefined?t._origIdx:renderIdx;
-      const timeStr=t.start?fmt12(t.start)+(t.end?' – '+fmt12(t.end):''):'';
+      const timeStr=t.isAllDay?'all day':t.start?fmt12(t.start)+(t.end?' – '+fmt12(t.end):''):'';
       const locHtml=t.location?`<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.location)}" target="_blank" class="task-location" style="text-decoration:none;"><svg width="9" height="12" viewBox="0 0 12 16" fill="currentColor"><path d="M6 0C3.24 0 1 2.24 1 5c0 3.75 5 11 5 11s5-7.25 5-11c0-2.76-2.24-5-5-5zm0 7.5A2.5 2.5 0 1 1 6 2.5a2.5 2.5 0 0 1 0 5z"/></svg>${escHtml(t.location)}</a>`:'';
 
       // Calendar events get a checkbox now
