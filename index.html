@@ -431,6 +431,7 @@
   // ── Boot ──────────────────────────────────────────────────────────────────────
   function boot() {
     setHeader();
+    handleOAuthRedirect();  // Check if returning from Google OAuth redirect
     loadState();
     checkDayRollover();
     scheduleMidnight();
@@ -554,24 +555,31 @@
     const calId=document.getElementById('cal-id-input').value.trim();
     if(!calId){showCalStatus('Enter your Calendar ID first.',false);return;}
     localStorage.setItem(KEYS.calId,calId);
-    const params=new URLSearchParams({client_id:CLIENT_ID,redirect_uri:window.location.origin+window.location.pathname,response_type:'token',scope:SCOPES,prompt:'consent'});
-    const popup=window.open('https://accounts.google.com/o/oauth2/v2/auth?'+params,'google_oauth','width=520,height=620,left=200,top=80');
-    const poll=setInterval(()=>{
-      try{
-        if(!popup||popup.closed){clearInterval(poll);return;}
-        const url=popup.location.href;
-        if(url.includes('access_token')){
-          clearInterval(poll);popup.close();
-          const hash=new URLSearchParams(url.split('#')[1]||'');
-          const token=hash.get('access_token'),exp=parseInt(hash.get('expires_in')||'3600');
-          if(token){
-            accessToken=token;tokenExpiry=Date.now()+exp*1000;
-            try{localStorage.setItem(KEYS.token,JSON.stringify({token:accessToken,expiry:tokenExpiry}));}catch(e){}
-            showConnected();fetchCalendar();fetchWeather();if(sheetId)initSheet();
-          }
-        }
-      }catch(e){}
-    },600);
+    const redirectUri=window.location.origin+window.location.pathname;
+    const params=new URLSearchParams({
+      client_id:CLIENT_ID,
+      redirect_uri:redirectUri,
+      response_type:'token',
+      scope:SCOPES,
+      prompt:'consent'
+    });
+    // Redirect the whole page — works on iOS Safari where popups are blocked
+    window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
+  }
+
+  function handleOAuthRedirect(){
+    // Called on page load — check if Google redirected back with a token in the URL fragment
+    const hash=new URLSearchParams(window.location.hash.slice(1));
+    const token=hash.get('access_token');
+    const exp=parseInt(hash.get('expires_in')||'3600');
+    if(token){
+      accessToken=token;
+      tokenExpiry=Date.now()+exp*1000;
+      try{localStorage.setItem(KEYS.token,JSON.stringify({token:accessToken,expiry:tokenExpiry}));}catch(e){}
+      // Clean the token from the URL so it's not visible or accidentally re-processed
+      history.replaceState(null,'',window.location.pathname);
+      showConnected();fetchCalendar();fetchWeather();if(sheetId)initSheet();
+    }
   }
 
   function signOut(){
