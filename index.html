@@ -39,6 +39,13 @@
     .header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;}
     .date-label{font-size:12px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;}
     .day-label{font-size:28px;font-weight:400;font-family:var(--font-display);color:var(--sonics-green);letter-spacing:0.05em;line-height:1;}
+    .day-nav{display:flex;align-items:center;gap:10px;}
+    .nav-btn{background:none;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sonics-green);font-size:15px;font-weight:600;transition:background 0.15s;flex-shrink:0;}
+    .nav-btn:hover{background:var(--sonics-green);color:white;border-color:var(--sonics-green);}
+    .nav-btn.today-btn{font-size:9px;width:auto;padding:0 6px;font-family:var(--font-condensed);letter-spacing:0.06em;text-transform:uppercase;}
+    .future-badge{font-size:10px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;}
+    .upcoming-section{margin-top:14px;border-top:0.5px solid var(--border);padding-top:10px;}
+    .upcoming-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;}
     .remaining-label{font-size:11px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;text-align:right;}
     .remaining-count{font-size:28px;font-weight:400;font-family:var(--font-display);text-align:right;color:var(--sonics-green);line-height:1;}
     .progress-bar{height:4px;background:var(--border);border-radius:2px;margin-bottom:4px;overflow:hidden;}
@@ -216,11 +223,17 @@
   <div class="header">
     <div>
       <div class="date-label" id="date-label"></div>
-      <div class="day-label" id="day-label"></div>
+      <div class="day-nav">
+        <button class="nav-btn" onclick="navigateDay(-1)" title="Previous day">&#8592;</button>
+        <div class="day-label" id="day-label"></div>
+        <button class="nav-btn" onclick="navigateDay(1)" title="Next day">&#8594;</button>
+        <button class="nav-btn today-btn" id="today-btn" onclick="navigateToToday()" style="display:none;">today</button>
+      </div>
       <div class="wx-inline" id="wx-inline" style="display:none;">
         <span id="wx-icon-inline"></span>
         <span id="wx-summary-inline"></span>
       </div>
+      <div class="future-badge" id="future-badge" style="display:none;"></div>
     </div>
     <div>
       <div class="remaining-label">tasks left</div>
@@ -316,6 +329,7 @@
   <div class="task-list" id="task-list"></div>
 
   <!-- Add task -->
+  <div id="upcoming-section" style="display:none;"></div>
   <button class="add-btn" id="add-btn" onclick="showForm()">+ add task</button>
   <div class="add-form" id="add-form" style="display:none;">
     <div class="form-row">
@@ -374,6 +388,7 @@
     <div class="edit-modal">
       <div class="edit-modal-title">Edit task</div>
       <input type="text" id="edit-title" placeholder="Task name…"/>
+      <input type="date" id="edit-date" style="width:100%;font-size:13px;padding:8px 10px;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text);font-family:var(--font);outline:none;"/>
       <input type="text" id="edit-location" placeholder="Location (optional)"/>
       <div class="edit-row">
         <input type="time" id="edit-start"/>
@@ -414,6 +429,7 @@
 
   // ── State ─────────────────────────────────────────────────────────────────────
   let tasks=[], calEvents=[], rolledTasks=[], activeFilter='all';
+  let viewDate=null; // null means today
   let accessToken=null, tokenExpiry=0, sheetId='', sheetReady=false;
   let weatherData=null, chatHistory=[], profile={}, anthropicKey='';
 
@@ -705,7 +721,7 @@ ${KNOWN_LOCATIONS}
 
 CONCIERGE RULES:
 - The current LOCAL time is provided in each request in both 12h and 24h format — use it as your anchor
-- ALL task times MUST fall between 10:00 am and 6:00 pm local time — never outside this window
+- Schedule tasks during reasonable waking hours — use judgment based on task type (errands/outdoor: daytime; admin/calls: any reasonable hour up to 10pm)
 - The "start" and "end" fields in JSON must be in HH:MM 24-hour format (e.g. "10:00", "14:30") — no AM/PM, no UTC, no offsets
 - Only suggest start times AFTER the current local time — never in the past
 - If it is already past noon, plan from the current time forward — earliest slot is now, not 10am
@@ -766,7 +782,7 @@ Respond ONLY in this exact JSON format — no other text, no markdown:
 You are extracting tasks from forwarded email content. For EACH email, identify every actionable task.
 Appointment confirmations, event invites, bills, pickups, deadlines — all become tasks.
 Use the subject and body to infer: task name, due date/time, location, and category tag.
-If no specific time is mentioned, suggest a reasonable slot between 10am-6pm for the task type.
+If no specific time is mentioned, suggest a reasonable slot based on task type (outdoor tasks: daytime, calls/admin: flexible up to 9pm).
 All start/end fields must be HH:MM 24-hour format. Note the source date in the reason field.
 
 Respond ONLY in this exact JSON format — no other text, no markdown fences:
@@ -889,7 +905,7 @@ ${body.slice(0,1500)}`);
     const hoursLeft = Math.max(0, (22 - now.getHours() - now.getMinutes()/60)).toFixed(1);
     const userMsg = `${currentTimeContext()}.
 WEATHER: ${weatherSummary()}
-HOURS REMAINING IN DAY: approximately ${hoursLeft} hours. ALL times must be between 10:00 am and 6:00 pm local time. Start/end fields must be 24h format HH:MM (e.g. 10:00, 14:30). Do not schedule anything before the current time.
+HOURS REMAINING IN DAY: approximately ${hoursLeft} hours. Use reasonable waking hours. Start/end fields must be 24h format HH:MM (e.g. 10:00, 21:30). Do not schedule before the current local time.
 CURRENT OPEN TASKS (already on my list — do NOT duplicate these, just schedule around them):\n${openTasks.length ? openTasks.map(t=>`- ${t.title}${t.start?' at '+fmt12(t.start)+(t.end?' – '+fmt12(t.end):''):''}${t.location?' @ '+t.location:''}`).join('\n') : 'none'}
 CALENDAR EVENTS TODAY:\n${calList}
 
@@ -921,7 +937,7 @@ ${raw}`;
     const pastList = pastTasks.map(t=>`- ${t.title}`).join(', ')||'none';
     const userMsg = `${currentTimeContext()}.
 WEATHER: ${weatherSummary()}
-HOURS REMAINING IN DAY: approximately ${hoursLeft2} hours. ALL times must be between 10:00 am and 6:00 pm local time. Start/end fields must be 24h format HH:MM (e.g. 10:00, 14:30). Never schedule before the current time.
+HOURS REMAINING IN DAY: approximately ${hoursLeft2} hours. Use reasonable waking hours. Start/end fields must be 24h format HH:MM (e.g. 10:00, 21:30). Never schedule before the current local time.
 OPEN TASKS TO SCHEDULE (future only):\n${futureList}
 OPEN TASKS WHOSE TIME HAS PASSED (do NOT re-schedule these — just flag if still open): ${pastList}
 ALREADY COMPLETED TODAY: ${doneList}
@@ -1118,9 +1134,10 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     if(!sheetReady||!accessToken)return;
     try{
       await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      const syncDate=viewDateStr();
       const allItems=[
-        ...tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',todayStr(),'FALSE',t.location||'']),
-        ...calEvents.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',todayStr(),'TRUE',t.location||''])
+        ...tasks.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',syncDate,'FALSE',t.location||'']),
+        ...calEvents.map(t=>[t.id,t.title,t.tag,t.start||'',t.end||'',t.done?'TRUE':'FALSE',syncDate,'TRUE',t.location||''])
       ];
       if(!allItems.length)return;
       await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:I:append?valueInputOption=RAW`,{values:allItems});
@@ -1153,6 +1170,23 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       }
       renderAll();
     }catch(e){console.warn('Sync read failed',e);}
+  }
+
+  async function loadDateFromSheet(dateStr){
+    if(!sheetReady||!accessToken)return;
+    try{
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      const data=await res.json();
+      const rows=(data.values||[]).filter(r=>r[6]===dateStr);
+      if(!rows.length){tasks=[];calEvents=[];return;}
+      const loadedTasks=[], loadedCal=[];
+      rows.forEach(r=>{
+        const item={id:r[0],title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',done:r[5]==='TRUE',location:r[8]||''};
+        if(r[7]==='TRUE'){item.isCalEvent=true;loadedCal.push(item);}
+        else{loadedTasks.push({...item,id:parseFloat(r[0])||Date.now()});}
+      });
+      tasks=loadedTasks; calEvents=loadedCal;
+    }catch(e){console.warn('loadDateFromSheet failed',e);}
   }
 
   async function logToSheet(task,status,completedAt){
@@ -1196,6 +1230,45 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function showSheetsStatus(m,ok){const el=document.getElementById('sheets-status');el.textContent=m;el.className='status-line'+(ok===true?' ok':ok===false?' err':'');}
 
   // ── Drag to reorder ───────────────────────────────────────────────────────────
+  async function renderUpcoming(){
+    const el=document.getElementById('upcoming-section');
+    if(!el)return;
+    if(!isViewingToday()||!sheetReady||!accessToken){el.style.display='none';return;}
+    try{
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      const data=await res.json();
+      const rows=(data.values||[]).filter(r=>r[6]&&r[6]>todayStr()&&r[7]!=='TRUE'&&r[5]!=='TRUE');
+      if(!rows.length){el.style.display='none';return;}
+      // Group by date
+      const byDate={};
+      rows.forEach(r=>{const d=r[6];if(!byDate[d])byDate[d]=[];byDate[d].push(r);});
+      const sortedDates=Object.keys(byDate).sort();
+      let html='<div class="upcoming-section"><div class="upcoming-label">upcoming</div>';
+      sortedDates.forEach(date=>{
+        const d=dateFromStr(date);
+        const label=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+        html+=`<div style="margin-bottom:10px;">
+          <div style="font-size:11px;font-family:var(--font-condensed);font-weight:600;color:var(--text-secondary);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:5px;cursor:pointer;" onclick="viewDate='${date}';setHeader();loadDayView();">${label} &#8594;</div>`;
+        byDate[date].forEach(r=>{
+          const timeStr=r[3]?fmt12(r[3])+(r[4]?' – '+fmt12(r[4]):''):'';
+          html+=`<div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:8px 12px;display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:500;color:var(--text);">${escHtml(r[1]||'')}</div>
+              <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;">
+                ${timeStr?`<span style="font-size:11px;color:var(--text-secondary);">${timeStr}</span>`:''}
+                <span class="tag tag-${r[2]||'admin'}">${r[2]||''}</span>
+              </div>
+            </div>
+          </div>`;
+        });
+        html+='</div>';
+      });
+      html+='</div>';
+      el.innerHTML=html;
+      el.style.display='block';
+    }catch(e){el.style.display='none';}
+  }
+
   function toggleCompleted(){
     completedCollapsed=!completedCollapsed;
     renderAll();
@@ -1291,6 +1364,9 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     });
     if(!html)html=`<div style="font-size:14px;color:var(--text-tertiary);padding:1rem 0;">nothing here for this filter</div>`;
     document.getElementById('task-list').innerHTML=html;
+
+    // Upcoming tasks section (only when viewing today)
+    renderUpcoming();
   }
 
   // ── Task actions ──────────────────────────────────────────────────────────────
@@ -1317,7 +1393,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function hideForm(){document.getElementById('add-form').style.display='none';document.getElementById('add-btn').style.display='block';['new-title','new-start','new-end'].forEach(id=>document.getElementById(id).value='');}
   function saveTask(){
     const title=document.getElementById('new-title').value.trim();if(!title)return;
-    tasks.push({id:Date.now(),title,start:document.getElementById('new-start').value,end:document.getElementById('new-end').value,tag:document.getElementById('new-tag').value,done:false});
+    tasks.push({id:Date.now(),title,start:document.getElementById('new-start').value,end:document.getElementById('new-end').value,tag:document.getElementById('new-tag').value,done:false,date:viewDateStr()});
     saveTasks();hideForm();renderAll();
   }
   function setFilter(f){activeFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.filter===f));renderAll();}
@@ -1361,13 +1437,66 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
   function todayStr(){return new Date().toISOString().slice(0,10);}
+  function viewDateStr(){
+    if(!viewDate) return todayStr();
+    return viewDate;
+  }
+  function isViewingToday(){return !viewDate || viewDate===todayStr();}
+  function dateFromStr(s){
+    const [y,m,d]=s.split('-').map(Number);
+    return new Date(y,m-1,d);
+  }
+  function navigateDay(dir){
+    const base = viewDate ? dateFromStr(viewDate) : new Date();
+    base.setDate(base.getDate()+dir);
+    const newDate = base.toISOString().slice(0,10);
+    viewDate = newDate===todayStr() ? null : newDate;
+    setHeader();
+    loadDayView();
+  }
+  function navigateToToday(){
+    viewDate=null;
+    setHeader();
+    loadDayView();
+  }
+  async function loadDayView(){
+    if(isViewingToday()){
+      // Reload today's tasks from sheet and cal
+      if(sheetReady) await loadTasksFromSheet();
+      if(accessToken) await fetchCalendar();
+    } else {
+      // Load tasks for the viewed date from Sync sheet
+      await loadDateFromSheet(viewDateStr());
+    }
+    renderAll();
+  }
   function timeToMinutes(t){if(!t)return 9999;const[h,m]=t.split(':').map(Number);return h*60+m;}
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function isoToTime(iso){if(!iso||iso.length===10)return'';const d=new Date(iso);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
   function fmt12(t){if(!t)return'';const[h,m]=t.split(':').map(Number);return`${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'pm':'am'}`;}
   function timeDiffMin(s,e){const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return(eh*60+em)-(sh*60+sm);}
   function fmtDateTime(d){const dt=new Date(d);return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+fmt12(`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`);}
-  function setHeader(){const now=new Date();document.getElementById('date-label').textContent=now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});document.getElementById('day-label').textContent=now.toLocaleDateString('en-US',{weekday:'long'});}
+  function setHeader(){
+    const d = viewDate ? dateFromStr(viewDate) : new Date();
+    // Adjust for timezone when constructing from string
+    const displayDate = viewDate ? new Date(d.getTime() + d.getTimezoneOffset()*-60000) : d;
+    document.getElementById('date-label').textContent = displayDate.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    document.getElementById('day-label').textContent  = displayDate.toLocaleDateString('en-US',{weekday:'long'});
+    const todayBtnEl = document.getElementById('today-btn');
+    const badgeEl    = document.getElementById('future-badge');
+    const wxEl       = document.getElementById('wx-inline');
+    if(isViewingToday()){
+      todayBtnEl.style.display='none';
+      badgeEl.style.display='none';
+      if(wxEl&&wxEl.querySelector('#wx-summary-inline')?.textContent) wxEl.style.display='flex';
+    } else {
+      todayBtnEl.style.display='flex';
+      const isPast = viewDate < todayStr();
+      badgeEl.style.display='block';
+      badgeEl.textContent = isPast ? 'viewing past day' : 'viewing future day';
+      wxEl.style.display='none';
+    }
+  }
 
   // ── Task editing ───────────────────────────────────────────────────────────
   let editingTaskId = null;
@@ -1377,6 +1506,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const t=tasks.find(t=>t.id===id);if(!t)return;
     editingTaskId=id;
     document.getElementById('edit-title').value    = t.title;
+    document.getElementById('edit-date').value      = t.date||viewDateStr();
     document.getElementById('edit-location').value = t.location||'';
     document.getElementById('edit-start').value    = t.start||'';
     document.getElementById('edit-end').value      = t.end||'';
@@ -1396,6 +1526,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function saveEdit(){
     const t=tasks.find(t=>t.id===editingTaskId);if(!t)return;
     t.title    = document.getElementById('edit-title').value.trim()||t.title;
+    t.date     = document.getElementById('edit-date').value||viewDateStr();
     t.location = document.getElementById('edit-location').value.trim();
     t.start    = document.getElementById('edit-start').value;
     t.end      = document.getElementById('edit-end').value;
