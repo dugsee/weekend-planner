@@ -492,17 +492,26 @@
     return _audioCtx;
   }
 
-  function playSound(tag){
+  async function playSound(tag){
     if(!soundEnabled)return;
     try{
       const ctx=getAudioCtx();
-      if(ctx.state==='suspended') ctx.resume();
+      // Must await resume — it's async and sounds won't play until context is running
+      if(ctx.state==='suspended') await ctx.resume();
+      if(ctx.state!=='running'){
+        // Still not running — try creating a fresh context
+        _audioCtx=null;
+        const ctx2=getAudioCtx();
+        await ctx2.resume();
+        if(ctx2.state!=='running') return; // Give up gracefully
+      }
+      const activeCtx=_audioCtx;
       const sounds={
-        errands: ()=>playCashRegister(ctx),
-        home:    ()=>playHammer(ctx),
-        health:  ()=>playAhhh(ctx),
-        admin:   ()=>playTypewriter(ctx),
-        calendar:()=>playChime(ctx),
+        errands: ()=>playCashRegister(activeCtx),
+        home:    ()=>playHammer(activeCtx),
+        health:  ()=>playAhhh(activeCtx),
+        admin:   ()=>playTypewriter(activeCtx),
+        calendar:()=>playChime(activeCtx),
       };
       (sounds[tag]||sounds.calendar)();
     }catch(e){console.warn('Sound failed',e);}
@@ -605,6 +614,20 @@
       o.start(t+when);o.stop(t+when+0.7);
     });
   }
+
+  // Prime AudioContext on first user gesture — required by browser autoplay policy
+  function primeAudio(){
+    if(!soundEnabled)return;
+    try{
+      const ctx=getAudioCtx();
+      if(ctx.state==='suspended') ctx.resume();
+    }catch(e){}
+    // Only need to do this once
+    document.removeEventListener('touchstart',primeAudio);
+    document.removeEventListener('mousedown',primeAudio);
+  }
+  document.addEventListener('touchstart',primeAudio,{once:true});
+  document.addEventListener('mousedown',primeAudio,{once:true});
 
   function boot() {
     setHeader();
@@ -1884,7 +1907,12 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   function toggleTask(id){
     const t=tasks.find(t=>t.id===id);if(!t)return;
     t.done=!t.done;saveTasks();
-    if(t.done){playSound(t.tag||'admin');if(sheetReady)logToSheet(t,'completed',new Date());}
+    if(t.done){
+      // Prime then play — checkbox tap IS the user gesture
+      primeAudio();
+      playSound(t.tag||'admin');
+      if(sheetReady)logToSheet(t,'completed',new Date());
+    }
     renderAll();
     if(t.done&&sheetReady)setTimeout(loadHistory,1500);
   }
@@ -1894,7 +1922,11 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     t.done=!t.done;
     try{localStorage.setItem(KEYS.events,JSON.stringify({date:todayStr(),events:calEvents}));}catch(e){}
     if(sheetReady) syncTasksToSheet();
-    if(t.done){playSound('calendar');if(sheetReady)logToSheet(t,'completed',new Date());}
+    if(t.done){
+      primeAudio();
+      playSound('calendar');
+      if(sheetReady)logToSheet(t,'completed',new Date());
+    }
     renderAll();
     if(t.done&&sheetReady)setTimeout(loadHistory,1500);
   }
