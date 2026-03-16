@@ -987,8 +987,14 @@
   }
 
   async function doRefresh(){
+    // Clear local write timestamp so sheet is always authoritative on refresh
+    try{localStorage.removeItem('wknd_last_write');}catch(e){}
+    showCalStatus('Refreshing…',null);
     await fetchCalendar();
+    if(sheetReady && isViewingToday()) await loadTasksFromSheet(true);
+    else if(sheetReady) await loadDateFromSheet(viewDateStr());
     fetchWeather();
+    renderAll();
   }
 
   // ── Weather ───────────────────────────────────────────────────────────────────
@@ -1512,26 +1518,42 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     }catch(e){console.warn('Sync write failed',e);}
   }
 
-  async function loadTasksFromSheet(){
+  async function loadTasksFromSheet(force=false){
     if(!sheetReady||!accessToken)return;
     try{
       const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
       const data=await res.json();
+      if(data.error){console.warn('Sheet read error:',data.error.message);return;}
       const allRows=data.values||[];
       const today=todayStr();
 
-      // Last-write-wins: compare sheet timestamp vs local lastModified
       const sheetRows=allRows.filter(r=>r[6]===today);
-      if(!sheetRows.length)return;
 
-      const sheetTs=sheetRows.reduce((latest,r)=>r[9]>latest?r[9]:latest,'');
-      const localTs=localStorage.getItem('wknd_last_write')||'';
+      // Only skip if NOT forced AND local write is definitively newer
+      if(!force && sheetRows.length){
+        const sheetTs=sheetRows.reduce((latest,r)=>r[9]&&r[9]>latest?r[9]:latest,'');
+        const localTs=localStorage.getItem('wknd_last_write')||'';
+        // Skip only if local is strictly newer by more than 2 seconds (avoids race on same device)
+        if(localTs && sheetTs && new Date(localTs)-new Date(sheetTs) > 2000) return;
+      }
 
-      // If local is newer, skip — our data is fresher
-      if(localTs&&localTs>=sheetTs) return;
+      if(!sheetRows.length){
+        // No rows for today — also load backlog items
+        const backlogRows=allRows.filter(r=>!r[6]||r[6]==='backlog');
+        if(backlogRows.length){
+          tasks=backlogRows.filter(r=>r[7]!=='TRUE').map(r=>({
+            id:parseFloat(r[0])||Date.now(),title:r[1]||'',tag:r[2]||'errands',
+            start:r[3]||'',end:r[4]||'',done:r[5]==='TRUE',date:r[6]||'backlog',location:r[8]||''
+          }));
+          try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}
+        }
+        return;
+      }
 
       const loadedTasks=[], loadedCal=[];
-      sheetRows.forEach(r=>{
+      // Include today's rows AND backlog
+      const relevantRows=allRows.filter(r=>r[6]===today||!r[6]||r[6]==='backlog');
+      relevantRows.forEach(r=>{
         const item={id:r[0],title:r[1]||'',tag:r[2]||'errands',start:r[3]||'',end:r[4]||'',
           done:r[5]==='TRUE',date:r[6]||today,location:r[8]||''};
         if(r[7]==='TRUE'){item.isCalEvent=true;loadedCal.push(item);}
@@ -1546,7 +1568,6 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         });
         try{localStorage.setItem(KEYS.events,JSON.stringify({date:today,events:calEvents}));}catch(e){}
       }
-      renderAll();
     }catch(e){console.warn('Sync read failed',e);}
   }
 
@@ -1895,26 +1916,32 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const [y,m,d]=s.split('-').map(Number);
     return new Date(y,m-1,d);
   }
-  function navigateDay(dir){
+  async function navigateDay(dir){
     const base = viewDate ? dateFromStr(viewDate) : new Date();
     base.setDate(base.getDate()+dir);
     const newDate = base.toISOString().slice(0,10);
     viewDate = newDate===todayStr() ? null : newDate;
     setHeader();
-    loadDayView();
+    await loadDayView();
   }
-  function navigateToToday(){
+  async function navigateToToday(){
     viewDate=null;
     setHeader();
-    loadDayView();
+    await loadDayView();
   }
   async function loadDayView(){
+    // Always save current state before switching dates
+    if(sheetReady) await syncTasksToSheet();
+
     if(isViewingToday()){
-      // Reload today's tasks from sheet and cal
-      if(sheetReady) await loadTasksFromSheet();
-      if(accessToken) await fetchCalendar();
+      // Force load from sheet (bypass timestamp check)
+      if(sheetReady) await loadTasksFromSheet(true);
+      // Restore cal events for today
+      try{
+        const ev=JSON.parse(localStorage.getItem(KEYS.events)||'null');
+        if(ev&&ev.date===todayStr()) calEvents=ev.events||[];
+      }catch(e){}
     } else {
-      // Load tasks for the viewed date from Sync sheet
       await loadDateFromSheet(viewDateStr());
     }
     renderAll();
