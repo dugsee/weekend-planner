@@ -1147,10 +1147,14 @@ Respond ONLY in this exact JSON format — no other text, no markdown fences:
     // chat mode
     return base + `
 
-You are their concierge — respond in warm, conversational plain text. No JSON ever.
-You know their open tasks, calendar, and locations. Help them think through their day.
-If they ask what to do next, look at their open tasks and the time of day and give a direct recommendation.
-Keep responses short and actionable.`;
+You are their concierge. Respond using short bullet points (• ) — never long paragraphs. No JSON ever.
+Each bullet should be a distinct, copy-pasteable task or suggestion — written so the user can drop it straight into the brain dump box.
+Lead with the most important item. Keep each bullet to one line where possible.
+If asked what to do next, give 3-5 prioritized bullet suggestions based on open tasks and current time.
+Example format:
+• Pick up mom's meds — Parkshore, Madison Park
+• Grocery run — QFC on 65th
+• Mow lawn — do before rain hits at 4pm`;
   }
 
   function currentTimeContext(){
@@ -1415,11 +1419,50 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const container=document.getElementById('chat-messages');
     const div=document.createElement('div');
     div.className=`chat-msg ${role}${isThinking?' thinking':''}`;
-    div.textContent=text;
+    if(role==='ai'&&!isThinking){
+      // Render bullet points as styled list items
+      const lines=text.split('\n').filter(l=>l.trim());
+      const hasBullets=lines.some(l=>l.trim().startsWith('•')||l.trim().startsWith('-'));
+      if(hasBullets){
+        div.innerHTML=lines.map(l=>{
+          const trimmed=l.trim();
+          if(trimmed.startsWith('•')||trimmed.startsWith('-')){
+            const itemText=escHtml(trimmed.replace(/^[•\-]\s*/,''));
+            return `<div style="display:flex;gap:7px;padding:3px 0;align-items:flex-start;">
+              <span style="color:var(--sonics-gold);font-weight:700;flex-shrink:0;margin-top:1px;">•</span>
+              <span style="cursor:pointer;" onclick="copyBullet(this)" title="Copy to brain dump">${itemText}</span>
+            </div>`;
+          }
+          return `<div style="padding:2px 0;font-weight:500;">${escHtml(trimmed)}</div>`;
+        }).join('');
+      } else {
+        div.textContent=text;
+      }
+    } else {
+      div.textContent=text;
+    }
     if(hidden)div.style.display='none';
     container.appendChild(div);
     container.scrollTop=container.scrollHeight;
     return div;
+  }
+
+  function copyBullet(el){
+    const text=el.textContent;
+    const input=document.getElementById('brain-dump-input');
+    if(!input)return;
+    // Append to existing brain dump text
+    const current=input.value.trim();
+    input.value=current?(current+'\n'+text):text;
+    input.style.height='38px';
+    input.style.height=Math.min(input.scrollHeight,160)+'px';
+    // Flash the element to confirm
+    el.style.background='var(--sonics-gold)';
+    el.style.borderRadius='3px';
+    el.style.padding='0 3px';
+    setTimeout(()=>{el.style.background='';el.style.borderRadius='';el.style.padding='';},600);
+    // Focus the textarea
+    input.focus();
   }
 
   // ── Google Sheets ─────────────────────────────────────────────────────────────
@@ -1976,7 +2019,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
 
   // ── Task editing ───────────────────────────────────────────────────────────
   let editingTaskId = null;
-  let completedCollapsed = false;
+  let completedCollapsed = true;
   let backlogCollapsed = false;
 
   function openEdit(id){
