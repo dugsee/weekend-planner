@@ -960,20 +960,17 @@
       const today=todayStr();
       calEvents=allEvents.filter(e=>e.date===today);
 
-      // Cache all events by date for upcoming section
-      const byDate={};
-      allEvents.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
+      // Cache all events locally
       try{localStorage.setItem('wknd_cal_all',JSON.stringify({fetched:today,events:allEvents}));}catch(err){}
       try{localStorage.setItem(KEYS.events,JSON.stringify({date:today,events:calEvents}));}catch(err){}
 
       const total=allEvents.length;
       showCalStatus(`${total} event${total!==1?'s':''} loaded (next 14 days)`,true);
 
-      // Write future cal events into Sync sheet so they show in upcoming
+      // Write ALL cal events (today + future) to Sync sheet as first-class rows
       if(sheetReady){
-        const futureEvents=allEvents.filter(e=>e.date>today);
-        if(futureEvents.length) await syncCalEventsToSheet(futureEvents);
-        await loadTasksFromSheet();
+        if(allEvents.length) await syncCalEventsToSheet(allEvents);
+        await loadTasksFromSheet(true); // force reload so today's cal events come back from sheet
       }
       renderAll();
     }catch(err){showCalStatus('Network error.',false);}
@@ -983,20 +980,38 @@
   async function syncCalEventsToSheet(events){
     if(!sheetReady||!accessToken||!events.length)return;
     try{
-      // Read existing Sync rows
       const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
       const data=await res.json();
       const existingRows=data.values||[];
       const ts=new Date().toISOString();
 
-      // For each future event, add if not already in sheet
-      const existingIds=new Set(existingRows.map(r=>r[0]));
-      const newRows=events
-        .filter(e=>!existingIds.has(e.id))
-        .map(e=>[e.id,e.title,e.tag,e.start||'',e.end||'','FALSE',e.date,'TRUE',e.location||'',ts]);
+      // Build a map of incoming event IDs
+      const incomingIds=new Set(events.map(e=>e.id));
 
-      if(!newRows.length)return;
-      await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:J:append?valueInputOption=RAW`,{values:newRows});
+      // Keep non-cal rows and cal rows NOT in this batch (different dates)
+      // Replace cal rows for dates covered by this batch
+      const incomingDates=new Set(events.map(e=>e.date));
+      const keepRows=existingRows.filter(r=>{
+        if(r[7]!=='TRUE') return true; // keep manual tasks always
+        if(incomingDates.has(r[6])) return false; // drop old cal rows for these dates (will rewrite)
+        return true; // keep cal rows for other dates
+      });
+
+      // Preserve done state from existing rows
+      const doneMap={};
+      existingRows.filter(r=>r[7]==='TRUE'&&r[5]==='TRUE').forEach(r=>{doneMap[r[0]]=true;});
+
+      const newCalRows=events.map(e=>[
+        e.id,e.title,e.tag||'calendar',e.start||'',e.end||'',
+        doneMap[e.id]?'TRUE':'FALSE',
+        e.date,'TRUE',e.location||'',ts
+      ]);
+
+      const allRows=[...keepRows,...newCalRows];
+      await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
+      if(allRows.length){
+        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:J:append?valueInputOption=RAW`,{values:allRows});
+      }
     }catch(err){console.warn('syncCalEventsToSheet failed',err);}
   }
 
@@ -1627,13 +1642,16 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       });
       tasks=loadedTasks;
       try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}
+      // Replace calEvents fully from sheet — sheet is authoritative
       if(loadedCal.length){
-        loadedCal.forEach(lc=>{
-          const existing=calEvents.find(e=>e.id===lc.id);
-          if(existing) existing.done=lc.done;
-        });
-        try{localStorage.setItem(KEYS.events,JSON.stringify({date:today,events:calEvents}));}catch(e){}
+        // Merge any live Google Calendar data not yet in sheet (e.g. just fetched)
+        const liveOnly=calEvents.filter(ce=>!loadedCal.find(lc=>lc.id===ce.id));
+        calEvents=[...loadedCal,...liveOnly];
+      } else {
+        // No cal rows in sheet for today — keep live fetched events if we have them
+        // but merge their done state from any prior sheet data
       }
+      try{localStorage.setItem(KEYS.events,JSON.stringify({date:today,events:calEvents}));}catch(e){}
     }catch(e){console.warn('Sync read failed',e);}
   }
 
@@ -1653,13 +1671,14 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         else{loadedTasks.push({...item,id:parseFloat(r[0])||Date.now()});}
       });
       tasks=loadedTasks;
-      // Merge with cached Google Calendar events for this date
-      const cachedCal=getCalEventsForDate(dateStr);
-      cachedCal.forEach(ce=>{
-        const existing=loadedCal.find(lc=>lc.id===ce.id);
-        if(existing){ce.done=existing.done;} // preserve done state from sheet
-      });
-      calEvents=cachedCal.length?cachedCal:loadedCal;
+      // Sheet is authoritative for cal events — use loadedCal directly
+      if(loadedCal.length){
+        calEvents=loadedCal;
+      } else {
+        // Nothing in sheet for this date — try local cache as fallback
+        const cachedCal=getCalEventsForDate(dateStr);
+        calEvents=cachedCal;
+      }
     }catch(e){console.warn('loadDateFromSheet failed',e);}
   }
 
@@ -2009,14 +2028,17 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     if(sheetReady) await syncTasksToSheet();
 
     if(isViewingToday()){
-      // Force load from sheet (bypass timestamp check)
+      // Force load from sheet — cal events come back from sheet as first-class rows
       if(sheetReady) await loadTasksFromSheet(true);
-      // Restore cal events for today
-      try{
-        const ev=JSON.parse(localStorage.getItem(KEYS.events)||'null');
-        if(ev&&ev.date===todayStr()) calEvents=ev.events||[];
-      }catch(e){}
+      else {
+        // Offline fallback — restore from localStorage
+        try{
+          const ev=JSON.parse(localStorage.getItem(KEYS.events)||'null');
+          if(ev&&ev.date===todayStr()) calEvents=ev.events||[];
+        }catch(e){}
+      }
     } else {
+      // For other dates, sheet has cal events written by syncCalEventsToSheet
       await loadDateFromSheet(viewDateStr());
     }
     renderAll();
