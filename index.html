@@ -1968,8 +1968,13 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       rows.forEach(r=>{const d=r[6];if(!byDate[d])byDate[d]=[];byDate[d].push(r);});
       const sortedDates=Object.keys(byDate).sort();
 
-      let html='<div class="upcoming-section"><div class="upcoming-label">upcoming</div>';
-      sortedDates.forEach(date=>{
+      const count=rows.length;
+      let html=`<div class="upcoming-section">
+        <div class="divider-label" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleUpcoming()">
+          <span>upcoming (${count})</span>
+          <span style="font-size:14px;transition:transform 0.2s;display:inline-block;transform:${upcomingCollapsed?'rotate(-90deg)':'rotate(0deg)'};">&#9660;</span>
+        </div>`;
+      if(!upcomingCollapsed) { sortedDates.forEach(date=>{
         const d=dateFromStr(date);
         const label=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
         html+=`<div style="margin-bottom:10px;">
@@ -1991,7 +1996,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
           </div>`;
         });
         html+='</div>';
-      });
+      }); }
       html+='</div>';
       el.innerHTML=html;
       el.style.display='block';
@@ -2022,6 +2027,11 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     document.getElementById('edit-tag').value      = tag||'errands';
     editingTaskId = '__upcoming__'+id; // special sentinel
     document.getElementById('edit-modal').style.display='flex';
+  }
+
+  function toggleUpcoming(){
+    upcomingCollapsed=!upcomingCollapsed;
+    renderAll();
   }
 
   function toggleCompleted(){
@@ -2295,6 +2305,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   let editingTaskId = null;
   let completedCollapsed = true;
   let backlogCollapsed = false;
+  let upcomingCollapsed = false;
 
   function openEdit(id){
     const t=tasks.find(t=>t.id===id);if(!t)return;
@@ -2335,7 +2346,6 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   }
 
   async function saveUpcomingEdit(id){
-    // Update the task directly in the Sync sheet
     if(!sheetReady||!accessToken){closeEdit();return;}
     try{
       const newTitle    = document.getElementById('edit-title').value.trim();
@@ -2350,7 +2360,6 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       const data=await res.json();
       const allRows=data.values||[];
 
-      // Update the matching row
       let updated=false;
       const newRows=allRows.map(r=>{
         if(String(r[0])===String(id)){
@@ -2364,8 +2373,25 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
         await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:J:append?valueInputOption=RAW`,{values:newRows});
       }
+
       closeEdit();
-      renderAll(); // triggers renderUpcoming
+
+      // If moved to today — add to in-memory tasks and full re-render
+      if(newDate===todayStr()){
+        const numId=parseFloat(id)||Date.now();
+        // Remove if already exists (avoid duplicate)
+        tasks=tasks.filter(t=>String(t.id)!==String(id));
+        tasks.push({
+          id:numId, title:newTitle, tag:newTag,
+          start:newStart, end:newEnd, done:false,
+          date:newDate, location:newLocation
+        });
+        try{localStorage.setItem(KEYS.tasks,JSON.stringify(tasks));}catch(e){}
+        renderAll(); // shows it in today's list, hides from upcoming
+      } else {
+        // Moved to a different future date — just re-render upcoming
+        renderAll();
+      }
     }catch(e){console.warn('saveUpcomingEdit failed',e);closeEdit();}
   }
 
