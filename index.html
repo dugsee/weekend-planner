@@ -1015,17 +1015,29 @@
     if(!calId){showCalStatus('Enter your Calendar ID first.',false);return;}
     localStorage.setItem(KEYS.calId,calId);
     const redirectUri=window.location.origin+window.location.pathname;
+    const needsConsent = localStorage.getItem('wknd_scope_ver') !== SCOPE_VERSION;
     const params=new URLSearchParams({
       client_id:CLIENT_ID,
       redirect_uri:redirectUri,
       response_type:'token',
-      scope:SCOPES
+      scope:SCOPES,
+      ...(needsConsent ? {prompt:'consent'} : {})
     });
     // Redirect the whole page — works on iOS Safari where popups are blocked
     window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
   }
 
+  const SCOPE_VERSION = 'v3'; // bump this whenever SCOPES changes to force re-auth
+
   function handleOAuthRedirect(){
+    // Check if scope version has changed — if so, wipe token and force re-auth
+    const storedScopeVer = localStorage.getItem('wknd_scope_ver')||'';
+    if(storedScopeVer !== SCOPE_VERSION){
+      // Scopes changed — clear old token so user gets fresh consent
+      try{localStorage.removeItem(KEYS.token);}catch(e){}
+      localStorage.setItem('wknd_scope_ver', SCOPE_VERSION);
+    }
+
     // Called on page load — check if Google redirected back with a token in the URL fragment
     const hash=new URLSearchParams(window.location.hash.slice(1));
     const token=hash.get('access_token');
@@ -1034,6 +1046,7 @@
       accessToken=token;
       tokenExpiry=Date.now()+Math.max(exp,82800)*1000; // cache up to 23hrs
       try{localStorage.setItem(KEYS.token,JSON.stringify({token:accessToken,expiry:tokenExpiry}));}catch(e){}
+      localStorage.setItem('wknd_scope_ver', SCOPE_VERSION);
       // Clean the token from the URL so it's not visible or accidentally re-processed
       history.replaceState(null,'',window.location.pathname);
       showConnected();fetchCalendar();fetchWeather();if(sheetId)initSheet();
