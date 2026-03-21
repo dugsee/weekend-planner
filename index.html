@@ -215,6 +215,17 @@
     .conn-row-detail{font-size:12px;color:var(--text-secondary);flex:1;}
     .conn-row-action{font-size:12px;color:var(--sonics-green);cursor:pointer;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;white-space:nowrap;}
     .edit-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:flex-end;justify-content:center;}
+    .cal-event-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:flex-end;justify-content:center;}
+    .cal-event-modal{background:var(--bg);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px 36px;width:100%;max-width:600px;display:flex;flex-direction:column;gap:11px;}
+    .cal-event-modal input{width:100%;font-size:14px;padding:9px 11px;}
+    .cal-modal-title{font-size:15px;font-weight:600;font-family:var(--font-condensed);letter-spacing:0.05em;color:var(--sonics-green);text-transform:uppercase;margin-bottom:2px;display:flex;align-items:center;gap:8px;}
+    .cal-modal-status{font-size:12px;padding:8px 11px;border-radius:var(--radius-md);margin-top:4px;display:none;}
+    .cal-modal-status.ok{background:#EAF3DE;color:#3B6D11;display:block;}
+    .cal-modal-status.err{background:#FCEBEB;color:#791F1F;display:block;}
+    .btn-cal{background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);padding:10px 18px;font-size:13px;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.05em;cursor:pointer;text-transform:uppercase;}
+    .btn-cal:disabled{opacity:0.5;cursor:not-allowed;}
+    .btn-cal-icon{background:none;border:0.5px solid var(--border-mid);border-radius:4px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sonics-green);font-size:12px;transition:background 0.15s;}
+    .btn-cal-icon:hover{background:var(--sonics-green);color:white;border-color:var(--sonics-green);}
     .edit-modal{background:var(--bg);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px 16px 32px;width:100%;max-width:600px;display:flex;flex-direction:column;gap:11px;}
     .edit-modal-title{font-size:15px;font-weight:600;font-family:var(--font-condensed);letter-spacing:0.05em;color:var(--sonics-green);text-transform:uppercase;margin-bottom:2px;}
     .edit-modal input,.edit-modal select{width:100%;font-size:14px;padding:9px 11px;}
@@ -423,7 +434,31 @@
   </div>
 
   <!-- Edit task modal -->
-  <div class="edit-modal-backdrop" id="edit-modal" style="display:none;" onclick="closeEditIfBackdrop(event)">
+  <!-- Add to Google Calendar modal -->
+  <div class="cal-event-modal-backdrop" id="cal-event-modal" style="display:none;" onclick="closeCalModalIfBackdrop(event)">
+    <div class="cal-event-modal">
+      <div class="cal-modal-title">
+        <span>&#128197;</span>
+        <span>Add to Google Calendar</span>
+      </div>
+      <input type="text" id="cal-modal-title" placeholder="Event title"/>
+      <input type="date" id="cal-modal-date"/>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="time" id="cal-modal-start" style="flex:1;"/>
+        <span style="font-size:13px;color:var(--text-tertiary);">to</span>
+        <input type="time" id="cal-modal-end" style="flex:1;"/>
+      </div>
+      <input type="text" id="cal-modal-location" placeholder="Location (optional)"/>
+      <input type="email" id="cal-modal-invite" placeholder="Invite someone — their email (optional)"/>
+      <div id="cal-modal-status" class="cal-modal-status"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+        <button class="btn btn-outline" onclick="closeCalModal()">cancel</button>
+        <button class="btn-cal" id="cal-modal-submit" onclick="submitCalEvent()">&#128197; Create event</button>
+      </div>
+    </div>
+  </div>
+
+    <div class="edit-modal-backdrop" id="edit-modal" style="display:none;" onclick="closeEditIfBackdrop(event)">
     <div class="edit-modal">
       <div class="edit-modal-title">Edit task</div>
       <input type="text" id="edit-title" placeholder="Task name…"/>
@@ -451,7 +486,7 @@
 <script>
   // ── Config ────────────────────────────────────────────────────────────────────
   const CLIENT_ID     = '451013372558-r77l7knno1pgob7vkbi9hv3jdr19qobi.apps.googleusercontent.com';
-  const SCOPES        = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.modify';
+  const SCOPES        = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.modify';
   const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
   const AI_MODEL      = 'claude-sonnet-4-20250514';
   const KEYS = {
@@ -628,6 +663,103 @@
   }
   document.addEventListener('touchstart',primeAudio,{once:true});
   document.addEventListener('mousedown',primeAudio,{once:true});
+
+  // ── Google Calendar event creation ───────────────────────────────────────────
+  let calModalTaskId = null;
+
+  function openCalModal(taskId){
+    const t=tasks.find(t=>t.id===taskId);
+    if(!t)return;
+    calModalTaskId=taskId;
+    document.getElementById('cal-modal-title').value   = t.title;
+    document.getElementById('cal-modal-date').value    = t.date&&t.date!=='backlog'?t.date:viewDateStr();
+    document.getElementById('cal-modal-start').value   = t.start||'';
+    document.getElementById('cal-modal-end').value     = t.end||'';
+    document.getElementById('cal-modal-location').value= t.location||'';
+    document.getElementById('cal-modal-invite').value  = '';
+    const statusEl=document.getElementById('cal-modal-status');
+    statusEl.className='cal-modal-status';statusEl.textContent='';
+    document.getElementById('cal-modal-submit').disabled=false;
+    document.getElementById('cal-modal-submit').textContent='📅 Create event';
+    document.getElementById('cal-event-modal').style.display='flex';
+  }
+
+  function closeCalModal(){
+    document.getElementById('cal-event-modal').style.display='none';
+    calModalTaskId=null;
+  }
+
+  function closeCalModalIfBackdrop(e){
+    if(e.target===document.getElementById('cal-event-modal')) closeCalModal();
+  }
+
+  async function submitCalEvent(){
+    if(!accessToken||Date.now()>tokenExpiry){expiredSession();return;}
+    const calId=localStorage.getItem(KEYS.calId)||'';
+    if(!calId){alert('Sign in with Google first.');return;}
+
+    const title   = document.getElementById('cal-modal-title').value.trim();
+    const date    = document.getElementById('cal-modal-date').value;
+    const start   = document.getElementById('cal-modal-start').value;
+    const end     = document.getElementById('cal-modal-end').value;
+    const location= document.getElementById('cal-modal-location').value.trim();
+    const invite  = document.getElementById('cal-modal-invite').value.trim();
+
+    if(!title||!date){alert('Title and date are required.');return;}
+
+    const btn=document.getElementById('cal-modal-submit');
+    btn.disabled=true;btn.textContent='Creating…';
+
+    // Build event object
+    const event={
+      summary: title,
+      location: location||undefined,
+      start: start
+        ? {dateTime:`${date}T${start}:00`,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone}
+        : {date},
+      end: end
+        ? {dateTime:`${date}T${end}:00`,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone}
+        : start
+          ? {dateTime:`${date}T${start.split(':')[0].padStart(2,'0')}:${String(parseInt(start.split(':')[1]||0)+60).padStart(2,'0')}:00`,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone}
+          : {date},
+      attendees: invite ? [{email:invite}] : undefined,
+      reminders: {useDefault:true},
+    };
+
+    // Remove undefined keys
+    Object.keys(event).forEach(k=>event[k]===undefined&&delete event[k]);
+    if(event.attendees===undefined) delete event.attendees;
+
+    try{
+      const res=await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?sendUpdates=${invite?'all':'none'}`,
+        {method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+         body:JSON.stringify(event)}
+      );
+      const data=await res.json();
+      if(data.error){
+        const statusEl=document.getElementById('cal-modal-status');
+        statusEl.className='cal-modal-status err';
+        statusEl.textContent='Error: '+data.error.message;
+        btn.disabled=false;btn.textContent='📅 Create event';
+        return;
+      }
+      // Success
+      const statusEl=document.getElementById('cal-modal-status');
+      statusEl.className='cal-modal-status ok';
+      statusEl.textContent=invite
+        ? `Event created and invite sent to ${invite}`
+        : 'Event added to your Google Calendar';
+      btn.textContent='✓ Done';
+      // Close after 2 seconds
+      setTimeout(()=>closeCalModal(),2000);
+    }catch(err){
+      const statusEl=document.getElementById('cal-modal-status');
+      statusEl.className='cal-modal-status err';
+      statusEl.textContent='Network error — please try again.';
+      btn.disabled=false;btn.textContent='📅 Create event';
+    }
+  }
 
   function boot() {
     setHeader();
@@ -1909,7 +2041,7 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
             ${locHtml}
           </div>
         </div>
-        <div class="task-actions">${rollBtn}${delBtn}</div>
+        <div class="task-actions">${rollBtn}${t.isCalEvent?'':`<button class="btn-cal-icon" onclick="openCalModal(${t.id})" title="Add to Google Calendar">&#128197;</button>`}${delBtn}</div>
       </div>`;
     });
     if(!html&&!backlogItems.length)html=`<div style="font-size:14px;color:var(--text-tertiary);padding:1rem 0;">nothing here for this filter</div>`;
