@@ -43,6 +43,12 @@
     .nav-btn{background:none;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sonics-green);font-size:15px;font-weight:600;transition:background 0.15s;flex-shrink:0;}
     .nav-btn:hover{background:var(--sonics-green);color:white;border-color:var(--sonics-green);}
     .nav-btn.today-btn{font-size:9px;width:auto;padding:0 6px;font-family:var(--font-condensed);letter-spacing:0.06em;text-transform:uppercase;}
+    .month-picker-wrap{position:relative;display:inline-block;}
+    .month-picker-wrap input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+    .nav-btn.cal-btn{font-size:14px;}
+    .refresh-btn{background:var(--sonics-green);color:white;border:none;border-radius:var(--radius-md);padding:9px 18px;font-size:14px;font-family:var(--font-condensed);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background 0.15s;width:100%;justify-content:center;margin-bottom:10px;}
+    .refresh-btn:hover{background:var(--sonics-dark);}
+    .refresh-btn:disabled{opacity:0.6;cursor:not-allowed;}
     .future-badge{font-size:10px;color:var(--sonics-gold);font-family:var(--font-condensed);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;}
     .upcoming-section{margin-top:14px;border-top:0.5px solid var(--border);padding-top:10px;}
     .backlog-section{margin-top:10px;}
@@ -198,6 +204,7 @@
       .btn-add-plan:hover{background:#FFC200;color:#004225;}
     }
     @media(max-width:480px){body{padding:0.5rem;}.app{padding:1rem 0 3rem;}}
+    @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
     .settings-btn{background:none;border:0.5px solid var(--border-mid);border-radius:var(--radius-md);width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-secondary);font-size:16px;transition:background 0.15s;flex-shrink:0;position:relative;}
     .settings-btn:hover{background:var(--bg-secondary);}
     .settings-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;border:1.5px solid var(--bg);}
@@ -285,6 +292,10 @@
         <button class="nav-btn" onclick="navigateDay(-1)" title="Previous day">&#8592;</button>
         <div class="day-label" id="day-label"></div>
         <button class="nav-btn" onclick="navigateDay(1)" title="Next day">&#8594;</button>
+        <div class="month-picker-wrap">
+          <button class="nav-btn cal-btn" title="Jump to date">&#128197;</button>
+          <input type="date" id="date-jump-input" onchange="jumpToDate(this.value)"/>
+        </div>
         <button class="nav-btn today-btn" id="today-btn" onclick="navigateToToday()" style="display:none;">today</button>
       </div>
       <div class="wx-inline" id="wx-inline" style="display:none;">
@@ -339,17 +350,12 @@
     </div>
   </div>
 
-  <!-- Filter row -->
-  <div class="filter-row" id="filter-row" style="display:none;">
-    <span class="filter-label">show:</span>
-    <button class="chip active" data-filter="all" onclick="setFilter('all')">all</button>
-    <button class="chip" data-filter="tasks" onclick="setFilter('tasks')">my tasks</button>
-    <button class="chip" data-filter="calendar" onclick="setFilter('calendar')">calendar</button>
-    <button class="chip" data-filter="location" onclick="setFilter('location')">has location</button>
-    <div class="filter-actions">
-      <button class="btn-ghost" onclick="doRefresh()">↻ refresh</button>
-      <button class="btn-ghost" onclick="signOut()">sign out</button>
-    </div>
+  <!-- Refresh bar (replaces filter row) -->
+  <div id="filter-row" style="display:none;margin-bottom:10px;">
+    <button class="refresh-btn" id="refresh-btn" onclick="doRefresh()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Refresh &amp; Sync
+    </button>
   </div>
 
   <!-- AI Panel -->
@@ -1157,14 +1163,23 @@
   }
 
   async function doRefresh(){
-    // Clear local write timestamp so sheet is always authoritative on refresh
+    const btn=document.getElementById('refresh-btn');
+    if(btn){btn.disabled=true;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refreshing…';}
     try{localStorage.removeItem('wknd_last_write');}catch(e){}
     showCalStatus('Refreshing…',null);
-    await fetchCalendar();
-    if(sheetReady && isViewingToday()) await loadTasksFromSheet(true);
-    else if(sheetReady) await loadDateFromSheet(viewDateStr());
-    fetchWeather();
-    renderAll();
+    // Silent re-auth: redirect to Google then come back with fresh token
+    if(accessToken&&Date.now()<tokenExpiry){
+      // Token still valid — just reload data
+      await fetchCalendar();
+      if(sheetReady && isViewingToday()) await loadTasksFromSheet(true);
+      else if(sheetReady) await loadDateFromSheet(viewDateStr());
+      fetchWeather();
+      renderAll();
+      if(btn){btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh &amp; Sync';}
+    } else {
+      // Token expired or missing — silent re-auth via redirect
+      quickReconnect();
+    }
   }
 
   // ── Weather ───────────────────────────────────────────────────────────────────
@@ -1990,16 +2005,19 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const sortedManual=[...manualTasks].map((t,i)=>({...t,_origIdx:i}));
     const sortedCal=[...calEvents].sort((a,b)=>(a.start||'').localeCompare(b.start||''));
     let sorted=[];
-    if(activeFilter==='tasks') sorted=sortedManual;
-    else if(activeFilter==='calendar') sorted=sortedCal;
-    else if(activeFilter==='location') sorted=[...sortedManual,...sortedCal].filter(t=>t.location);
-    else sorted=[...sortedManual,...sortedCal];
+    sorted=[...sortedManual,...sortedCal]; // filter chips removed
 
-    // Split: backlog (no date / 'backlog'), active (dated/today), done
+    // Split: backlog (no date / 'backlog'), active (for this view date), future (other dates), done
     const viewingToday=isViewingToday();
     const currentDate=viewDateStr();
     const backlogItems=sorted.filter(t=>!t.done&&!t.isCalEvent&&(!t.date||t.date==='backlog'));
-    const activeSorted=sorted.filter(t=>!t.done&&!((!t.date||t.date==='backlog')&&!t.isCalEvent));
+    // Future tasks (assigned to a date later than what we're viewing) stay hidden from active list
+    const activeSorted=sorted.filter(t=>{
+      if(t.done) return false;
+      if(!t.isCalEvent&&(!t.date||t.date==='backlog')) return false; // goes to backlog section
+      if(!t.isCalEvent&&t.date&&t.date!=='backlog'&&t.date!==currentDate) return false; // future/past date — hide
+      return true;
+    });
     const doneSorted=sorted.filter(t=>t.done);
     const finalSorted=[...activeSorted,...doneSorted];
 
@@ -2142,6 +2160,16 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     const [y,m,d]=s.split('-').map(Number);
     return new Date(y,m-1,d);
   }
+  function jumpToDate(dateStr){
+    if(!dateStr)return;
+    viewDate=dateStr===todayStr()?null:dateStr;
+    setHeader();
+    loadDayView();
+    // Reset the input so it can be re-used
+    const inp=document.getElementById('date-jump-input');
+    if(inp) setTimeout(()=>{inp.value='';},100);
+  }
+
   async function navigateDay(dir){
     const base = viewDate ? dateFromStr(viewDate) : new Date();
     base.setDate(base.getDate()+dir);
