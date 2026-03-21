@@ -1943,14 +1943,31 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     if(!el)return;
     if(!isViewingToday()||!sheetReady||!accessToken){el.style.display='none';return;}
     try{
-      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:I1000`);
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
       const data=await res.json();
-      const rows=(data.values||[]).filter(r=>r[6]&&r[6]>todayStr()&&r[5]!=='TRUE');
+      const today=todayStr();
+
+      // Only show rows that are:
+      // 1. Explicitly assigned to a real future date (not backlog/empty)
+      // 2. Not done
+      // 3. Deduplicated by id (sheet may have duplicate rows from multi-device writes)
+      const seen=new Set();
+      const rows=(data.values||[]).filter(r=>{
+        const date=r[6]||'';
+        if(!date||date==='backlog'||date<=today) return false; // must be a real future date
+        if(r[5]==='TRUE') return false; // skip done
+        if(seen.has(r[0])) return false; // deduplicate by id
+        seen.add(r[0]);
+        return true;
+      });
+
       if(!rows.length){el.style.display='none';return;}
+
       // Group by date
       const byDate={};
       rows.forEach(r=>{const d=r[6];if(!byDate[d])byDate[d]=[];byDate[d].push(r);});
       const sortedDates=Object.keys(byDate).sort();
+
       let html='<div class="upcoming-section"><div class="upcoming-label">upcoming</div>';
       sortedDates.forEach(date=>{
         const d=dateFromStr(date);
@@ -1958,15 +1975,19 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
         html+=`<div style="margin-bottom:10px;">
           <div style="font-size:11px;font-family:var(--font-condensed);font-weight:600;color:var(--text-secondary);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:5px;cursor:pointer;" onclick="viewDate='${date}';setHeader();loadDayView();">${label} &#8594;</div>`;
         byDate[date].forEach(r=>{
-          const timeStr=(!r[3]&&r[7]==='TRUE')?'all day':r[3]?fmt12(r[3])+(r[4]?' – '+fmt12(r[4]):''):'';
-          html+=`<div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:8px 12px;display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+          const isCalEvent=r[7]==='TRUE';
+          const timeStr=(!r[3]&&isCalEvent)?'all day':r[3]?fmt12(r[3])+(r[4]?' – '+fmt12(r[4]):''):'';
+          const taskId=r[0];
+          html+=`<div style="background:var(--bg);border:0.5px solid var(--border);${isCalEvent?'border-left:2.5px solid var(--sonics-gold);':''}border-radius:var(--radius-lg);padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:5px;">
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:500;color:var(--text);">${escHtml(r[1]||'')}</div>
-              <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;">
+              <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;align-items:center;">
                 ${timeStr?`<span style="font-size:11px;color:var(--text-secondary);">${timeStr}</span>`:''}
                 <span class="tag tag-${r[2]||'admin'}">${r[2]||''}</span>
+                ${r[8]?`<span style="font-size:10px;color:var(--sonics-green);">&#128205; ${escHtml(r[8])}</span>`:''}
               </div>
             </div>
+            ${!isCalEvent?`<button onclick="openUpcomingEdit('${taskId}','${escHtml(r[1]||'')}','${date}','${r[3]||''}','${r[4]||''}','${r[2]||'admin'}','${escHtml(r[8]||'')}')" style="background:none;border:0.5px solid var(--border-mid);border-radius:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-tertiary);font-size:11px;flex-shrink:0;" title="Edit">&#9998;</button>`:''}
           </div>`;
         });
         html+='</div>';
@@ -1974,7 +1995,33 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
       html+='</div>';
       el.innerHTML=html;
       el.style.display='block';
-    }catch(e){el.style.display='none';}
+    }catch(e){console.warn('renderUpcoming failed',e);el.style.display='none';}
+  }
+
+  // Edit an upcoming task directly from the upcoming section
+  function openUpcomingEdit(id, title, date, start, end, tag, location){
+    // Find the task in the tasks array if it's loaded, otherwise create a temp proxy
+    let t=tasks.find(t=>String(t.id)===String(id));
+    if(!t){
+      // Task is for a future date not currently loaded — edit via sheet directly
+      openUpcomingEditModal(id, title, date, start, end, tag, location);
+      return;
+    }
+    // Task is in memory — use standard edit modal
+    openEdit(t.id);
+  }
+
+  // Lightweight edit modal for upcoming tasks not in current day's memory
+  function openUpcomingEditModal(id, title, date, start, end, tag, location){
+    // Populate the standard edit modal fields and override save to write to sheet
+    document.getElementById('edit-title').value    = title;
+    document.getElementById('edit-date').value     = date;
+    document.getElementById('edit-location').value = location;
+    document.getElementById('edit-start').value    = start;
+    document.getElementById('edit-end').value      = end;
+    document.getElementById('edit-tag').value      = tag||'errands';
+    editingTaskId = '__upcoming__'+id; // special sentinel
+    document.getElementById('edit-modal').style.display='flex';
   }
 
   function toggleCompleted(){
@@ -2271,6 +2318,12 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
   }
 
   function saveEdit(){
+    // Handle upcoming task edits (task is on a future date, not in current memory)
+    if(String(editingTaskId).startsWith('__upcoming__')){
+      const realId=String(editingTaskId).replace('__upcoming__','');
+      saveUpcomingEdit(realId);
+      return;
+    }
     const t=tasks.find(t=>t.id===editingTaskId);if(!t)return;
     t.title    = document.getElementById('edit-title').value.trim()||t.title;
     t.date     = document.getElementById('edit-date').value||viewDateStr();
@@ -2279,6 +2332,41 @@ Re-optimize the schedule for my remaining open tasks starting from now. Do not s
     t.end      = document.getElementById('edit-end').value;
     t.tag      = document.getElementById('edit-tag').value;
     saveTasks();closeEdit();renderAll();
+  }
+
+  async function saveUpcomingEdit(id){
+    // Update the task directly in the Sync sheet
+    if(!sheetReady||!accessToken){closeEdit();return;}
+    try{
+      const newTitle    = document.getElementById('edit-title').value.trim();
+      const newDate     = document.getElementById('edit-date').value;
+      const newLocation = document.getElementById('edit-location').value.trim();
+      const newStart    = document.getElementById('edit-start').value;
+      const newEnd      = document.getElementById('edit-end').value;
+      const newTag      = document.getElementById('edit-tag').value;
+      const ts          = new Date().toISOString();
+
+      const res=await sheetsGet(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
+      const data=await res.json();
+      const allRows=data.values||[];
+
+      // Update the matching row
+      let updated=false;
+      const newRows=allRows.map(r=>{
+        if(String(r[0])===String(id)){
+          updated=true;
+          return [r[0],newTitle,newTag,newStart,newEnd,r[5],newDate,r[7],newLocation,ts];
+        }
+        return r;
+      });
+
+      if(updated){
+        await sheetsClear(`${sheetId}/values/${SYNC_NAME}!A2:J1000`);
+        await sheetsPost(`${sheetId}/values/${SYNC_NAME}!A2:J:append?valueInputOption=RAW`,{values:newRows});
+      }
+      closeEdit();
+      renderAll(); // triggers renderUpcoming
+    }catch(e){console.warn('saveUpcomingEdit failed',e);closeEdit();}
   }
 
   boot();
