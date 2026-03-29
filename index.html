@@ -10,8 +10,6 @@
   <title>Weekend Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
-  <!-- Supabase JS client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     :root{
@@ -46,7 +44,7 @@
     .topbar-tab.active{background:var(--gold);color:var(--green-dk);}
     .conn-dots{display:flex;gap:5px;align-items:center;margin-right:4px;}
     .conn-dot{width:7px;height:7px;border-radius:50%;}
-    .conn-dot.ok{background:#4AE88A;} .conn-dot.warn{background:var(--gold);} .conn-dot.off{background:rgba(255,255,255,0.25);}
+    .conn-dot.ok{background:#4AE88A;}.conn-dot.warn{background:var(--gold);}.conn-dot.off{background:rgba(255,255,255,0.25);}
     .topbar-btn{background:rgba(255,255,255,0.15);border:none;color:white;width:32px;height:32px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;transition:background 0.15s;flex-shrink:0;position:relative;}
     .topbar-btn:hover{background:rgba(255,255,255,0.27);}
     .topbar-badge{position:absolute;top:-4px;right:-4px;background:var(--gold);color:var(--green-dk);font-size:8px;font-family:var(--font-cond);font-weight:700;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
@@ -55,19 +53,24 @@
     .main{display:flex;flex:1;overflow:hidden;}
 
     /* ── Setup screen ── */
-    .setup-screen{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;}
-    .setup-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 24px;max-width:440px;width:100%;box-shadow:var(--shadow-md);}
-    .setup-title{font-family:var(--font-display);font-size:26px;letter-spacing:0.04em;color:var(--green);margin-bottom:6px;}
-    .setup-sub{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.55;}
+    .setup-screen{flex:1;overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:32px 20px 60px;background:var(--bg3);}
+    .setup-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 24px;max-width:460px;width:100%;box-shadow:var(--shadow-md);}
+    .setup-title{font-family:var(--font-display);font-size:28px;letter-spacing:0.04em;color:var(--green);margin-bottom:4px;}
+    .setup-sub{font-size:13px;color:var(--text2);margin-bottom:22px;line-height:1.55;}
     .setup-section{margin-bottom:18px;}
-    .setup-label{font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
-    .setup-input{width:100%;font-size:13px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-family:var(--font);outline:none;margin-bottom:6px;}
+    .setup-label{font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:7px;display:block;}
+    .setup-input{width:100%;font-size:13px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-family:var(--font);outline:none;margin-bottom:7px;display:block;}
     .setup-input:focus{border-color:var(--green);}
-    .setup-btn{width:100%;padding:11px;font-family:var(--font-cond);font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green);color:white;border:none;border-radius:var(--radius);cursor:pointer;transition:background 0.15s;margin-bottom:6px;}
+    .setup-input::placeholder{color:var(--text3);}
+    .setup-hint{font-size:11px;color:var(--text3);line-height:1.5;margin-top:-3px;margin-bottom:6px;}
+    .setup-btn{width:100%;padding:12px;font-family:var(--font-cond);font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green);color:white;border:none;border-radius:var(--radius);cursor:pointer;transition:background 0.15s;margin-bottom:8px;display:block;}
     .setup-btn:hover{background:var(--green-dk);}
-    .setup-btn.google{background:#4285F4;} .setup-btn.google:hover{background:#2a6de0;}
-    .setup-status{font-size:12px;margin-top:4px;}
-    .setup-status.ok{color:#3b6d11;} .setup-status.err{color:#a32d2d;}
+    .setup-btn.google{background:#4285F4;}.setup-btn.google:hover{background:#2a6de0;}
+    .setup-btn:disabled{opacity:0.5;cursor:not-allowed;}
+    .setup-status{font-size:13px;margin-top:6px;min-height:18px;line-height:1.4;}
+    .setup-status.ok{color:#3b6d11;font-weight:500;}
+    .setup-status.err{color:#a32d2d;font-weight:500;}
+    .setup-divider{border:none;border-top:1px solid var(--border);margin:18px 0;}
 
     /* ── My Day ── */
     .myday{flex:1;overflow-y:auto;padding:22px 22px 80px;}
@@ -90,7 +93,7 @@
     .ai-btns{display:flex;gap:6px;flex-shrink:0;align-items:flex-start;}
     .ai-btn{padding:7px 13px;font-family:var(--font-cond);font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;border:none;border-radius:var(--radius);cursor:pointer;transition:background 0.15s;white-space:nowrap;}
     .ai-btn-gold{background:var(--gold);color:var(--green-dk);}.ai-btn-gold:hover{background:#e6a800;}
-    .ai-btn-green{background:var(--green);color:white;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;position:relative;}.ai-btn-green:hover{background:var(--green-dk);}
+    .ai-btn-green{background:var(--green);color:white;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;}.ai-btn-green:hover{background:var(--green-dk);}
     .ai-btn:disabled{opacity:0.5;cursor:not-allowed;}
 
     /* Plan output */
@@ -98,7 +101,7 @@
     .plan-item{background:var(--bg2);border-radius:var(--radius);padding:10px 12px;margin-bottom:7px;}
     .plan-item-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
     .plan-item-title{font-size:14px;font-weight:500;color:var(--text);line-height:1.4;}
-    .plan-item-time{font-size:13px;color:var(--green);font-family:var(--font-cond);font-weight:600;letter-spacing:0.03em;white-space:nowrap;margin-top:1px;}
+    .plan-item-time{font-size:13px;color:var(--green);font-family:var(--font-cond);font-weight:600;white-space:nowrap;margin-top:1px;}
     .plan-item-reason{font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5;}
     .plan-item-actions{display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap;}
     .plan-warning{background:#fce4e4;border:1px solid #e24b4a;border-radius:var(--radius);padding:9px 12px;font-size:13px;color:#791f1f;margin-bottom:8px;line-height:1.5;display:flex;justify-content:space-between;gap:8px;}
@@ -124,10 +127,8 @@
     /* Task cards */
     .task-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;transition:border-color 0.15s,box-shadow 0.15s,opacity 0.25s;box-shadow:var(--shadow);}
     .task-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);}
-    .task-card.done{opacity:0.42;}
-    .task-card.done .task-title{text-decoration:line-through;color:var(--text3);}
-    .task-card.is-cal{border-left:3px solid var(--gold);}
-    .task-card.is-email{border-left:3px solid #4a90d9;}
+    .task-card.done{opacity:0.42;}.task-card.done .task-title{text-decoration:line-through;color:var(--text3);}
+    .task-card.is-cal{border-left:3px solid var(--gold);}.task-card.is-email{border-left:3px solid #4a90d9;}
     .task-check{width:18px;height:18px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;background:none;}
     .task-check:hover{border-color:var(--green);background:var(--bg2);}
     .task-check.done{background:var(--green);border-color:var(--green);}
@@ -135,17 +136,15 @@
     .task-body{flex:1;min-width:0;}
     .task-title{font-size:14px;font-weight:400;color:var(--text);line-height:1.4;}
     .task-meta{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;}
-    .task-time{font-size:12px;color:var(--text3);font-family:var(--font-cond);font-weight:500;letter-spacing:0.03em;}
+    .task-time{font-size:12px;color:var(--text3);font-family:var(--font-cond);font-weight:500;}
     .task-loc{font-size:12px;color:#3a7abf;}
     .tag{font-size:10px;padding:2px 7px;border-radius:99px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.05em;text-transform:uppercase;}
     .tag-errands{background:#e4effa;color:#1a5fa5;}.tag-home{background:#faeeda;color:#854f0b;}.tag-health{background:#e8f3de;color:#3b6d11;}.tag-admin{background:#eeedfe;color:#3c3489;}.tag-cal{background:#fff3cc;color:#7a5800;}.tag-email{background:#e4effa;color:#1a5fa5;}
-    @media(prefers-color-scheme:dark){.tag-errands{background:#0f2a4a;color:#7ab8f0;}.tag-home{background:#3d2800;color:#FFC200;}.tag-health{background:#0d2a0d;color:#7ad87a;}.tag-admin{background:#1a1a40;color:#b0aaff;}.tag-cal{background:#2a1e00;color:#FFC200;}}
+    @media(prefers-color-scheme:dark){.tag-errands,.tag-email{background:#0f2a4a;color:#7ab8f0;}.tag-home,.tag-cal{background:#3d2800;color:#FFC200;}.tag-health{background:#0d2a0d;color:#7ad87a;}.tag-admin{background:#1a1a40;color:#b0aaff;}}
     .task-star{background:none;border:none;color:var(--border2);font-size:16px;cursor:pointer;flex-shrink:0;padding:0 2px;transition:color 0.12s;}
     .task-star:hover,.task-star.starred{color:var(--gold-dk);}
     .task-edit-btn{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:background 0.12s;}
     .task-edit-btn:hover{background:var(--bg2);}
-    .task-del-btn{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:color 0.12s;}
-    .task-del-btn:hover{color:#a32d2d;}
 
     /* Cal strip */
     .cal-strip{background:var(--gold-bg);border:1px solid rgba(255,194,0,0.4);border-radius:var(--radius);padding:9px 13px;display:flex;align-items:center;gap:10px;margin-bottom:6px;box-shadow:var(--shadow);}
@@ -175,10 +174,10 @@
     .sugg-panel{width:265px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;padding:20px 14px 80px;}
     .sugg-title{font-family:var(--font-display);font-size:24px;letter-spacing:0.04em;color:var(--gold-dk);margin-bottom:2px;}
     .sugg-sub{font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.5;}
-    .sugg-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);transition:border-color 0.15s,opacity 0.25s,transform 0.2s;}
+    .sugg-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);transition:border-color 0.15s;}
     .sugg-card:hover{border-color:var(--border2);}
     .sugg-card-title{font-size:13px;font-weight:500;color:var(--text);line-height:1.4;}
-    .sugg-card-from{font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--font-cond);font-weight:500;letter-spacing:0.03em;}
+    .sugg-card-from{font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--font-cond);font-weight:500;}
     .sugg-card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:6px;}
     .rollover-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.05em;padding:2px 8px;border-radius:99px;}
     .rc-0{background:var(--bg2);color:var(--text3);}
@@ -268,136 +267,128 @@
   </nav>
   <div class="conn-dots" id="conn-dots" style="display:none;">
     <div class="conn-dot" id="dot-google" title="Google Calendar"></div>
-    <div class="conn-dot" id="dot-supa" title="Supabase"></div>
-    <div class="conn-dot" id="dot-ai" title="Anthropic AI"></div>
+    <div class="conn-dot" id="dot-supa"   title="Supabase"></div>
+    <div class="conn-dot" id="dot-ai"     title="Anthropic AI"></div>
   </div>
   <button class="topbar-btn" id="inbox-btn" title="Fetch emailed tasks" onclick="fetchInboxTasks()" style="display:none;">
     ✉<span class="topbar-badge" id="inbox-badge" style="display:none;">!</span>
   </button>
-  <button class="topbar-btn" title="Settings" onclick="openSettings()">⚙</button>
+  <!-- Always-visible reset button so you can re-enter credentials any time -->
+  <button class="topbar-btn" title="Reset credentials / Settings" onclick="openSettings()">⚙</button>
 </header>
 
 <div class="main" id="main-area">
 
-<!-- ══ SETUP SCREEN ══ -->
-<div class="setup-screen" id="setup-screen">
-  <div class="setup-card">
-    <div class="setup-title">Weekend Planner</div>
-    <div class="setup-sub">Connect your services to get started. All credentials are saved in your browser.</div>
+  <!-- ══ SETUP SCREEN ══ -->
+  <div class="setup-screen" id="setup-screen" style="display:none;">
+    <div class="setup-card">
+      <div class="setup-title">Weekend Planner</div>
+      <div class="setup-sub">Connect your services to get started. Credentials are saved in this browser only.</div>
 
-    <div class="setup-section">
-      <div class="setup-label">☁ Supabase</div>
-      <input class="setup-input" id="su-url" placeholder="Project URL  https://xxxx.supabase.co" type="text"/>
-      <input class="setup-input" id="su-key" placeholder="Anon public key  eyJhbGci…" type="text"/>
-      <div class="setup-status" id="su-status"></div>
-    </div>
+      <div class="setup-section">
+        <label class="setup-label">☁ Supabase</label>
+        <input class="setup-input" id="su-url" type="text" placeholder="Project URL — https://xxxx.supabase.co" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+        <input class="setup-input" id="su-key" type="text" placeholder="Anon public key — eyJhbGci…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+        <div class="setup-hint">Find both in Supabase → Project Settings → API</div>
+      </div>
 
-    <div class="setup-section">
-      <div class="setup-label">🤖 Anthropic API key</div>
-      <input class="setup-input" id="setup-ai-key" placeholder="sk-ant-…" type="password"/>
-      <div class="setup-status" id="ai-status"></div>
-    </div>
+      <div class="setup-section">
+        <label class="setup-label">🤖 Anthropic API key</label>
+        <input class="setup-input" id="setup-ai-key" type="password" placeholder="sk-ant-…" autocomplete="off"/>
+        <div class="setup-hint">Get one at console.anthropic.com — enables AI planning</div>
+      </div>
 
-    <div class="setup-section">
-      <div class="setup-label">📅 Google Calendar &amp; Gmail</div>
-      <input class="setup-input" id="setup-cal-id" placeholder="Your Gmail address (calendar ID)"/>
-    </div>
+      <div class="setup-section">
+        <label class="setup-label">📅 Google Calendar &amp; Gmail</label>
+        <input class="setup-input" id="setup-cal-id" type="email" placeholder="Your Gmail address (used as Calendar ID)" autocomplete="off"/>
+        <div class="setup-hint">You'll sign in with Google on the next step</div>
+      </div>
 
-    <button class="setup-btn" onclick="runSetup()">Connect &amp; Continue</button>
-    <button class="setup-btn google" onclick="startOAuth()">Sign in with Google</button>
-    <div class="setup-status" id="setup-status"></div>
-  </div>
-</div>
-
-<!-- ══ MY DAY ══ -->
-<main class="myday" id="view-myday" style="display:none;">
-
-  <div class="myday-header">
-    <div>
-      <div class="myday-title">MY DAY</div>
-      <div class="myday-date" id="today-date"></div>
-      <div class="myday-wx" id="wx-line"></div>
-    </div>
-    <div class="myday-stats">
-      <div class="myday-count" id="remaining-count">0</div>
-      <div class="myday-count-lbl">tasks left</div>
+      <hr class="setup-divider"/>
+      <button class="setup-btn" id="connect-btn" onclick="runSetup()">Connect &amp; Continue</button>
+      <button class="setup-btn google" id="google-btn" onclick="startOAuth()">Sign in with Google (Calendar &amp; Gmail)</button>
+      <div class="setup-status" id="setup-status"></div>
     </div>
   </div>
 
-  <div class="prog-row">
-    <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
-    <div class="prog-text" id="prog-text">0 of 0 done</div>
-  </div>
-
-  <!-- AI bar -->
-  <div class="ai-bar">
-    <textarea class="ai-textarea" id="brain-dump" placeholder="Brain dump: mow lawn, pick up meds, call plumber…" rows="1"
-      oninput="this.style.height='34px';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
-    <div class="ai-btns">
-      <button class="ai-btn ai-btn-gold" id="organize-btn" onclick="organizeDump()">✏ Organize</button>
-      <button class="ai-btn ai-btn-green" id="replan-btn" title="Re-optimize task order" onclick="planMyDay()">🔄</button>
+  <!-- ══ MY DAY ══ -->
+  <main class="myday" id="view-myday" style="display:none;">
+    <div class="myday-header">
+      <div>
+        <div class="myday-title">MY DAY</div>
+        <div class="myday-date" id="today-date"></div>
+        <div class="myday-wx"   id="wx-line"></div>
+      </div>
+      <div class="myday-stats">
+        <div class="myday-count"    id="remaining-count">0</div>
+        <div class="myday-count-lbl">tasks left</div>
+      </div>
     </div>
-  </div>
-  <div class="plan-output" id="plan-output"></div>
-  <div class="chat-msgs" id="chat-msgs"></div>
-  <div class="chat-row">
-    <input type="text" class="chat-input" id="chat-input" placeholder="Ask your concierge anything…" onkeydown="if(event.key==='Enter')sendChat()"/>
-    <button class="btn btn-ghost" onclick="sendChat()">Send</button>
-  </div>
-
-  <!-- Calendar pulls -->
-  <div class="sec-label" id="cal-section-label" style="display:none;">📅 From Google Calendar</div>
-  <div id="cal-strips"></div>
-
-  <!-- Tasks -->
-  <div class="sec-label">Today's Tasks</div>
-  <div id="task-list"></div>
-
-  <!-- Completed -->
-  <div class="completed-toggle" id="completed-toggle" onclick="toggleCompleted()">
-    <span class="c-caret">›</span> <span id="completed-label">Completed (0)</span>
-  </div>
-  <div id="completed-list" style="display:none;"></div>
-
-  <!-- Add task -->
-  <button class="add-bar" id="add-bar" onclick="showQuickAdd()">
-    <span style="font-size:18px;color:var(--green);font-weight:300;">+</span> Add a task
-  </button>
-  <div class="quick-add" id="quick-add">
-    <div class="qa-row">
-      <input type="text" class="qa-input" id="qa-title" placeholder="Task name…" onkeydown="if(event.key==='Enter')saveQuickAdd()"/>
+    <div class="prog-row">
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="prog-text" id="prog-text">0 of 0 done</div>
     </div>
-    <div class="qa-row">
-      <input type="time" class="qa-input qa-time" id="qa-start"/>
-      <span style="font-size:13px;color:var(--text3);">to</span>
-      <input type="time" class="qa-input qa-time" id="qa-end"/>
-      <select class="qa-sel" id="qa-tag">
-        <option>errands</option><option>home</option><option>health</option><option>admin</option>
-      </select>
-      <input type="date" class="qa-input" id="qa-date" style="flex:none;width:130px;" title="Schedule for a specific date (leave blank for today)"/>
+
+    <!-- AI bar -->
+    <div class="ai-bar">
+      <textarea class="ai-textarea" id="brain-dump" placeholder="Brain dump: mow lawn, pick up meds, call plumber…" rows="1"
+        oninput="this.style.height='34px';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
+      <div class="ai-btns">
+        <button class="ai-btn ai-btn-gold" id="organize-btn" onclick="organizeDump()">✏ Organize</button>
+        <button class="ai-btn ai-btn-green" id="replan-btn"  title="Re-optimize task order" onclick="planMyDay()">🔄</button>
+      </div>
     </div>
-    <div class="qa-row" style="justify-content:flex-end;gap:8px;">
-      <button class="btn btn-ghost" onclick="hideQuickAdd()">Cancel</button>
-      <button class="btn btn-green" onclick="saveQuickAdd()">Add</button>
+    <div class="plan-output" id="plan-output"></div>
+    <div class="chat-msgs" id="chat-msgs"></div>
+    <div class="chat-row">
+      <input type="text" class="chat-input" id="chat-input" placeholder="Ask your concierge anything…" onkeydown="if(event.key==='Enter')sendChat()"/>
+      <button class="btn btn-ghost" onclick="sendChat()">Send</button>
     </div>
-  </div>
 
-</main>
+    <div class="sec-label" id="cal-section-label" style="display:none;">📅 From Google Calendar</div>
+    <div id="cal-strips"></div>
+    <div class="sec-label">Today's Tasks</div>
+    <div id="task-list"></div>
+    <div class="completed-toggle" id="completed-toggle" onclick="toggleCompleted()">
+      <span class="c-caret">›</span> <span id="completed-label">Completed (0)</span>
+    </div>
+    <div id="completed-list" style="display:none;"></div>
 
-<!-- ══ PLANNED ══ -->
-<main class="planned" id="view-planned">
-  <div class="planned-title">PLANNED</div>
-  <div class="planned-sub" id="planned-sub">Loading…</div>
-  <div id="planned-list"></div>
-</main>
+    <button class="add-bar" id="add-bar" onclick="showQuickAdd()">
+      <span style="font-size:18px;color:var(--green);font-weight:300;">+</span> Add a task
+    </button>
+    <div class="quick-add" id="quick-add">
+      <div class="qa-row">
+        <input type="text" class="qa-input" id="qa-title" placeholder="Task name…" onkeydown="if(event.key==='Enter')saveQuickAdd()"/>
+      </div>
+      <div class="qa-row">
+        <input type="time" class="qa-input qa-time" id="qa-start"/>
+        <span style="font-size:13px;color:var(--text3);">to</span>
+        <input type="time" class="qa-input qa-time" id="qa-end"/>
+        <select class="qa-sel" id="qa-tag"><option>errands</option><option>home</option><option>health</option><option>admin</option></select>
+        <input type="date" class="qa-input" id="qa-date" style="flex:none;width:130px;" title="Leave blank for today"/>
+      </div>
+      <div class="qa-row" style="justify-content:flex-end;gap:8px;">
+        <button class="btn btn-ghost" onclick="hideQuickAdd()">Cancel</button>
+        <button class="btn btn-green" onclick="saveQuickAdd()">Add</button>
+      </div>
+    </div>
+  </main>
 
-<!-- ══ SUGGESTIONS ══ -->
-<aside class="sugg-panel" id="sugg-panel" style="display:none;">
-  <div class="sugg-title">SUGGESTIONS</div>
-  <div class="sugg-sub">Tasks not finished on previous days. Add any to today.</div>
-  <div id="sugg-list"></div>
-  <button class="sugg-clear" id="sugg-clear-btn" onclick="clearAllSugg()" style="display:none;">Clear all suggestions</button>
-</aside>
+  <!-- ══ PLANNED ══ -->
+  <main class="planned" id="view-planned">
+    <div class="planned-title">PLANNED</div>
+    <div class="planned-sub" id="planned-sub">Loading…</div>
+    <div id="planned-list"></div>
+  </main>
+
+  <!-- ══ SUGGESTIONS ══ -->
+  <aside class="sugg-panel" id="sugg-panel" style="display:none;">
+    <div class="sugg-title">SUGGESTIONS</div>
+    <div class="sugg-sub">Tasks not finished on previous days.</div>
+    <div id="sugg-list"></div>
+    <button class="sugg-clear" id="sugg-clear-btn" onclick="clearAllSugg()" style="display:none;">Clear all</button>
+  </aside>
 
 </div><!-- /main-area -->
 
@@ -406,21 +397,22 @@
   <div class="mob-nav-items">
     <div class="mob-item active" onclick="switchView('myday');setMobActive(this)"><span class="micon">☀</span>My Day</div>
     <div class="mob-item" onclick="switchView('planned');setMobActive(this)"><span class="micon">📅</span>Planned</div>
-    <div class="mob-item" onclick="showToast('Open on desktop to see Suggestions panel')"><span class="micon">💡</span>Suggest</div>
+    <div class="mob-item" onclick="showToast('Suggestions visible on desktop')"><span class="micon">💡</span>Suggest</div>
     <div class="mob-item" onclick="openSettings()"><span class="micon">⚙</span>Settings</div>
   </div>
 </nav>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <!-- Edit modal -->
 <div class="modal-bd" id="edit-modal" style="display:none;" onclick="if(event.target===this)closeEdit()">
   <div class="modal">
-    <div class="modal-title">Edit Task <button onclick="closeEdit()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);">✕</button></div>
-    <input type="text" id="edit-title" placeholder="Task name…"/>
-    <input type="date" id="edit-date"/>
-    <input type="text" id="edit-location" placeholder="Location (optional)"/>
+    <div class="modal-title">Edit Task
+      <button onclick="closeEdit()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);">✕</button>
+    </div>
+    <input type="text"  id="edit-title"    placeholder="Task name…"/>
+    <input type="date"  id="edit-date"/>
+    <input type="text"  id="edit-location" placeholder="Location (optional)"/>
     <div class="modal-row">
       <input type="time" id="edit-start"/>
       <span style="font-size:13px;color:var(--text3);">to</span>
@@ -442,22 +434,34 @@
     <div style="font-family:var(--font-cond);font-size:16px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--green);">Settings</div>
     <button onclick="closeSettings()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);">✕</button>
   </div>
+
   <div class="s-label" style="margin-top:0;">Connections</div>
   <div id="settings-conn-rows"></div>
+
+  <!-- Always-available credential reset -->
+  <div style="margin-top:12px;">
+    <button onclick="resetCredentials()" style="width:100%;padding:9px;font-family:var(--font-cond);font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:none;color:var(--text3);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='none'">
+      ↺ Reset all credentials &amp; reconnect
+    </button>
+  </div>
+
   <div class="s-label">Anthropic API Key</div>
   <div style="display:flex;gap:8px;margin-bottom:4px;">
     <input type="password" id="settings-ai-key" placeholder="sk-ant-…" style="flex:1;font-size:12px;padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-family:var(--font);outline:none;"/>
     <button onclick="saveAIKeyFromSettings()" style="background:var(--green);color:white;border:none;border-radius:var(--radius);padding:7px 12px;font-size:12px;cursor:pointer;font-family:var(--font-cond);font-weight:600;letter-spacing:0.04em;">Save</button>
   </div>
+
   <div class="s-label">Gmail → Tasks</div>
   <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;font-size:13px;color:var(--text2);line-height:1.6;">
-    In Gmail, create a label called <strong style="color:var(--green);">Weekend Planner</strong>.<br/>Apply it to any email you want converted into a task. Tap ✉ in the top bar to pull them in.
+    In Gmail, create a label called <strong style="color:var(--green);">Weekend Planner</strong>. Apply it to any email you want converted into a task. Tap ✉ in the top bar to pull them in.
   </div>
+
   <div class="s-label">Profile &amp; Preferences</div>
   <div id="profile-fields" style="display:flex;flex-direction:column;gap:8px;"></div>
   <div style="display:flex;justify-content:flex-end;margin-top:8px;">
     <button class="btn btn-green" onclick="saveProfile()">Save Profile</button>
   </div>
+
   <div class="s-label">Account</div>
   <div class="conn-row">
     <div class="conn-lbl">Sound effects</div>
@@ -470,32 +474,34 @@
 </aside>
 
 <script>
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // CONFIG
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 const CLIENT_ID     = '451013372558-r77l7knno1pgob7vkbi9hv3jdr19qobi.apps.googleusercontent.com';
 const SCOPES        = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.modify';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const AI_MODEL      = 'claude-sonnet-4-20250514';
 const SCOPE_VERSION = 'v4';
 const KEYS = {
-  token:'wp_token_v1', calId:'wp_cal_id', supaUrl:'wp_supa_url', supaKey:'wp_supa_key',
-  anthropicKey:'wp_ai_key', profile:'wp_profile_v1', weather:'wp_weather',
-  chatHistory:'wp_chat_v1', soundEnabled:'wp_sound', calCache:'wp_cal_all',
+  token:'wp_token_v1', calId:'wp_cal_id',
+  supaUrl:'wp_supa_url', supaKey:'wp_supa_key',
+  anthropicKey:'wp_ai_key', profile:'wp_profile_v1',
+  weather:'wp_weather', chatHistory:'wp_chat_v1',
+  soundEnabled:'wp_sound', calCache:'wp_cal_all',
 };
 const DEFAULT_PROFILE = {
-  address:'Bryant neighborhood, Seattle 98115 (near Ravenna and Wedgewood)',
-  destinations:"Home Depot Northgate (1335 N Northgate Way), Mom's house at Parkshore Retirement Center in Madison Park (1630 43rd Ave E, Seattle) for medication pickups, kids' sports fields",
-  family:'Tweens and teens at home, college-age kids sometimes around. Solo on most weekend tasks.',
-  routine:'Start around 10am. Always take a proper lunch break. Prefer outdoor tasks when weather is good. Done by early evening.',
-  energy:'Varies a lot weekend to weekend — some days full energy for heavy work, other days need lighter tasks.',
-  other:"Mom is at Parkshore Retirement Center, Madison Park (1630 43rd Ave E) — about 15 min from Bryant. Home Depot is at Northgate (1335 N Northgate Way) — 10 min from home. These two trips can be combined via the 520/Eastlake route."
+  address:      'Bryant neighborhood, Seattle 98115 (near Ravenna and Wedgewood)',
+  destinations: "Home Depot Northgate (1335 N Northgate Way), Mom's house at Parkshore Retirement Center in Madison Park (1630 43rd Ave E, Seattle) for medication pickups, kids' sports fields",
+  family:       'Tweens and teens at home, college-age kids sometimes around. Solo on most weekend tasks.',
+  routine:      'Start around 10am. Always take a proper lunch break. Prefer outdoor tasks when weather is good. Done by early evening.',
+  energy:       'Varies a lot weekend to weekend — some days full energy for heavy work, other days need lighter tasks.',
+  other:        "Mom is at Parkshore Retirement Center, Madison Park (1630 43rd Ave E) — about 15 min from Bryant. Home Depot is at Northgate (1335 N Northgate Way) — 10 min from home.",
 };
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════════════════════════
-let supabase       = null;
+// ═══════════════════════════════════════════════════════════
+let _supabase      = null;  // renamed to avoid collision with window.supabase
 let accessToken    = null, tokenExpiry = 0;
 let calEvents      = [];
 let weatherData    = null;
@@ -506,70 +512,56 @@ let soundEnabled   = true;
 let editingTaskId  = null;
 let _lastPlan      = null;
 
-// ═══════════════════════════════════════════════════════════════════
-// SUPABASE HELPERS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════════════════
 function initSupabase(url, key) {
-  supabase = window.supabase.createClient(url, key);
+  if (!window.supabase || !window.supabase.createClient) {
+    throw new Error('Supabase library not ready — please refresh the page.');
+  }
+  _supabase = window.supabase.createClient(url, key);
 }
 
 async function dbGetToday() {
-  const { data, error } = await supabase
-    .from('tasks').select('*')
-    .eq('date', todayStr())
-    .order('start_time', { ascending: true, nullsFirst: false });
+  const { data, error } = await _supabase.from('tasks').select('*')
+    .eq('date', todayStr()).order('start_time', { ascending: true, nullsFirst: false });
   if (error) { console.error('dbGetToday', error); return []; }
   return data || [];
 }
-
 async function dbGetSuggestions() {
-  // Tasks that are not done and have a date before today
-  const { data, error } = await supabase
-    .from('tasks').select('*')
-    .eq('done', false)
-    .lt('date', todayStr())
+  const { data, error } = await _supabase.from('tasks').select('*')
+    .eq('done', false).lt('date', todayStr())
     .order('rollover_count', { ascending: false });
   if (error) { console.error('dbGetSuggestions', error); return []; }
   return data || [];
 }
-
 async function dbGetPlanned() {
-  const { data, error } = await supabase
-    .from('tasks').select('*')
-    .gte('date', todayStr())
-    .order('date').order('start_time', { ascending: true, nullsFirst: false });
+  const { data, error } = await _supabase.from('tasks').select('*')
+    .gte('date', todayStr()).order('date').order('start_time', { ascending: true, nullsFirst: false });
   if (error) { console.error('dbGetPlanned', error); return []; }
   return data || [];
 }
-
 async function dbGetOverdue() {
-  const { data, error } = await supabase
-    .from('tasks').select('*')
-    .eq('done', false)
-    .lt('date', todayStr())
-    .order('date');
+  const { data, error } = await _supabase.from('tasks').select('*')
+    .eq('done', false).lt('date', todayStr()).order('date');
   if (error) return [];
   return data || [];
 }
-
 async function dbUpsert(task) {
-  const { error } = await supabase.from('tasks').upsert(task, { onConflict: 'id' });
-  if (error) console.error('dbUpsert', error);
+  const { error } = await _supabase.from('tasks').upsert(task, { onConflict: 'id' });
+  if (error) { console.error('dbUpsert', error); throw error; }
 }
-
 async function dbUpdate(id, fields) {
-  const { error } = await supabase.from('tasks').update(fields).eq('id', id);
-  if (error) console.error('dbUpdate', error);
+  const { error } = await _supabase.from('tasks').update(fields).eq('id', id);
+  if (error) { console.error('dbUpdate', error); throw error; }
 }
-
 async function dbDelete(id) {
-  const { error } = await supabase.from('tasks').delete().eq('id', id);
+  const { error } = await _supabase.from('tasks').delete().eq('id', id);
   if (error) console.error('dbDelete', error);
 }
-
 async function dbInsert(task) {
-  const { data, error } = await supabase.from('tasks').insert(task).select().single();
-  if (error) { console.error('dbInsert', error); return null; }
+  const { data, error } = await _supabase.from('tasks').insert(task).select().single();
+  if (error) { console.error('dbInsert', error); throw error; }
   return data;
 }
 
@@ -577,68 +569,54 @@ async function dbInsert(task) {
 async function runRollover() {
   const overdue = await dbGetSuggestions();
   for (const t of overdue) {
-    // Only roll if the date was before today (not already today)
     if (t.date < todayStr()) {
-      await dbUpdate(t.id, {
-        date: todayStr(),
-        rollover_count: (t.rollover_count || 0) + 1
-      });
+      await dbUpdate(t.id, { date: todayStr(), rollover_count: (t.rollover_count || 0) + 1 });
     }
   }
 }
-
-// Midnight rollover scheduler
 function scheduleMidnight() {
-  const now = new Date();
+  const now  = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 10);
-  setTimeout(async () => {
-    await runRollover();
-    await loadAll();
-    scheduleMidnight();
-  }, next - now);
+  setTimeout(async () => { await runRollover(); await loadAll(); scheduleMidnight(); }, next - now);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// BOOT
-// ═══════════════════════════════════════════════════════════════════
-async function boot() {
-  loadLocalState();
-  handleOAuthRedirect();
-
-  const supaUrl = localStorage.getItem(KEYS.supaUrl) || '';
-  const supaKey = localStorage.getItem(KEYS.supaKey) || '';
-
-  if (supaUrl && supaKey) {
-    initSupabase(supaUrl, supaKey);
-    showApp();
-    await loadAll();
-    if (accessToken && Date.now() < tokenExpiry) {
-      fetchCalendar();
-      fetchWeather();
-    }
-    scheduleMidnight();
-  } else {
-    document.getElementById('setup-screen').style.display = 'flex';
-  }
+// ═══════════════════════════════════════════════════════════
+// BOOT — dynamic CDN load, then start
+// ═══════════════════════════════════════════════════════════
+function setSetupStatus(msg, type) {
+  const el = document.getElementById('setup-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'setup-status' + (type ? ' ' + type : '');
 }
 
-function loadLocalState() {
-  try { const t = JSON.parse(localStorage.getItem(KEYS.token) || 'null'); if (t && t.expiry > Date.now()) { accessToken = t.token; tokenExpiry = t.expiry; } } catch(e) {}
-  try { const wx = JSON.parse(localStorage.getItem(KEYS.weather) || 'null'); if (wx && wx.date === todayStr()) weatherData = wx; } catch(e) {}
-  try { const p = localStorage.getItem(KEYS.profile); if (p) profile = JSON.parse(p); else profile = { ...DEFAULT_PROFILE }; } catch(e) { profile = { ...DEFAULT_PROFILE }; }
-  try { chatHistory = JSON.parse(localStorage.getItem(KEYS.chatHistory) || '[]'); } catch(e) {}
-  anthropicKey = localStorage.getItem(KEYS.anthropicKey) || '';
-  soundEnabled = localStorage.getItem(KEYS.soundEnabled) !== '0';
-  try { const cal = JSON.parse(localStorage.getItem(KEYS.calCache) || 'null'); if (cal && cal.fetched === todayStr()) calEvents = cal.events; } catch(e) {}
+function showSetupScreen(msg, type) {
+  document.getElementById('setup-screen').style.display  = 'flex';
+  document.getElementById('view-myday').style.display    = 'none';
+  document.getElementById('view-planned').style.display  = 'none';
+  document.getElementById('sugg-panel').style.display    = 'none';
+  document.getElementById('main-nav').style.display      = 'none';
+  document.getElementById('conn-dots').style.display     = 'none';
+  document.getElementById('inbox-btn').style.display     = 'none';
+  if (msg) setSetupStatus(msg, type);
+  // Pre-fill saved values so user doesn't have to retype
+  const url = localStorage.getItem(KEYS.supaUrl) || '';
+  const key = localStorage.getItem(KEYS.supaKey) || '';
+  const ai  = localStorage.getItem(KEYS.anthropicKey) || '';
+  const cal = localStorage.getItem(KEYS.calId) || '';
+  if (url) document.getElementById('su-url').value = url;
+  if (key) document.getElementById('su-key').value = key;
+  if (ai)  document.getElementById('setup-ai-key').value = ai;
+  if (cal) document.getElementById('setup-cal-id').value = cal;
 }
 
 function showApp() {
   document.getElementById('setup-screen').style.display = 'none';
-  document.getElementById('view-myday').style.display = 'block';
-  document.getElementById('sugg-panel').style.display = '';
-  document.getElementById('main-nav').style.display = 'flex';
-  document.getElementById('conn-dots').style.display = 'flex';
-  document.getElementById('inbox-btn').style.display = 'flex';
+  document.getElementById('view-myday').style.display   = 'block';
+  document.getElementById('sugg-panel').style.display   = '';
+  document.getElementById('main-nav').style.display     = 'flex';
+  document.getElementById('conn-dots').style.display    = 'flex';
+  document.getElementById('inbox-btn').style.display    = 'flex';
   setDateHeader();
   updateConnDots();
   buildProfileFields();
@@ -649,96 +627,149 @@ async function loadAll() {
   await Promise.all([renderTaskList(), renderSuggestions(), renderPlanned()]);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SETUP
-// ═══════════════════════════════════════════════════════════════════
+async function boot() {
+  loadLocalState();
+  handleOAuthRedirect();
+
+  const supaUrl = localStorage.getItem(KEYS.supaUrl) || '';
+  const supaKey = localStorage.getItem(KEYS.supaKey) || '';
+
+  if (!supaUrl || !supaKey) {
+    // No credentials yet — show setup
+    showSetupScreen();
+    return;
+  }
+
+  // Test the saved credentials before showing the app
+  try {
+    initSupabase(supaUrl, supaKey);
+    const { error } = await _supabase.from('tasks').select('id').limit(1);
+    if (error) throw error;
+    // Credentials valid — show app
+    showApp();
+    await loadAll();
+    if (accessToken && Date.now() < tokenExpiry) { fetchCalendar(); fetchWeather(); }
+    scheduleMidnight();
+  } catch (e) {
+    // Saved credentials are bad — show setup with error
+    _supabase = null;
+    showSetupScreen('Saved credentials failed: ' + (e.message || e) + ' — please re-enter them below.', 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETUP ACTIONS
+// ═══════════════════════════════════════════════════════════
 async function runSetup() {
-  const url = document.getElementById('su-url').value.trim();
-  const key = document.getElementById('su-key').value.trim();
+  const url   = document.getElementById('su-url').value.trim();
+  const key   = document.getElementById('su-key').value.trim();
   const aiKey = document.getElementById('setup-ai-key').value.trim();
   const calId = document.getElementById('setup-cal-id').value.trim();
 
-  const st = document.getElementById('setup-status');
-  st.textContent = 'Connecting…'; st.className = 'setup-status';
+  if (!url || !key) {
+    setSetupStatus('Enter your Supabase Project URL and anon key.', 'err');
+    return;
+  }
 
-  if (!url || !key) { st.textContent = 'Enter Supabase URL and key.'; st.className = 'setup-status err'; return; }
+  const btn = document.getElementById('connect-btn');
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  setSetupStatus('Testing connection…', '');
 
   try {
     initSupabase(url, key);
-    // Test connection
-    const { error } = await supabase.from('tasks').select('id').limit(1);
+    const { error } = await _supabase.from('tasks').select('id').limit(1);
     if (error) throw error;
+
+    // Save all credentials
     localStorage.setItem(KEYS.supaUrl, url);
     localStorage.setItem(KEYS.supaKey, key);
     if (aiKey) { anthropicKey = aiKey; localStorage.setItem(KEYS.anthropicKey, aiKey); }
     if (calId) localStorage.setItem(KEYS.calId, calId);
-    st.textContent = '✓ Supabase connected!'; st.className = 'setup-status ok';
+
+    setSetupStatus('✓ Supabase connected! Loading your planner…', 'ok');
     setTimeout(() => { showApp(); loadAll(); scheduleMidnight(); }, 800);
-  } catch(e) {
-    st.textContent = 'Could not connect: ' + (e.message || e); st.className = 'setup-status err';
+  } catch (e) {
+    _supabase = null;
+    setSetupStatus('Connection failed: ' + (e.message || JSON.stringify(e)), 'err');
+    btn.disabled = false;
+    btn.textContent = 'Connect & Continue';
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
+function resetCredentials() {
+  closeSettings();
+  localStorage.removeItem(KEYS.supaUrl);
+  localStorage.removeItem(KEYS.supaKey);
+  _supabase = null;
+  showSetupScreen('Credentials cleared — enter them again below.', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// LOCAL STATE
+// ═══════════════════════════════════════════════════════════
+function loadLocalState() {
+  try { const t = JSON.parse(localStorage.getItem(KEYS.token) || 'null'); if (t && t.expiry > Date.now()) { accessToken = t.token; tokenExpiry = t.expiry; } } catch(e) {}
+  try { const wx = JSON.parse(localStorage.getItem(KEYS.weather) || 'null'); if (wx && wx.date === todayStr()) weatherData = wx; } catch(e) {}
+  try { const p = localStorage.getItem(KEYS.profile); profile = p ? JSON.parse(p) : { ...DEFAULT_PROFILE }; } catch(e) { profile = { ...DEFAULT_PROFILE }; }
+  try { chatHistory = JSON.parse(localStorage.getItem(KEYS.chatHistory) || '[]'); } catch(e) {}
+  anthropicKey  = localStorage.getItem(KEYS.anthropicKey) || '';
+  soundEnabled  = localStorage.getItem(KEYS.soundEnabled) !== '0';
+  try { const cal = JSON.parse(localStorage.getItem(KEYS.calCache) || 'null'); if (cal && cal.fetched === todayStr()) calEvents = cal.events || []; } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
 // RENDER — MY DAY
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function renderTaskList() {
-  if (!supabase) return;
+  if (!_supabase) return;
   const tasks = await dbGetToday();
+  const open  = tasks.filter(t => !t.done);
+  const done  = tasks.filter(t =>  t.done);
+  const total = tasks.length, doneN = done.length;
 
-  const open = tasks.filter(t => !t.done);
-  const done = tasks.filter(t => t.done);
-
-  // Progress
-  const total = tasks.length;
-  const doneN = done.length;
-  const pct = total ? (doneN / total) * 100 : 0;
-  document.getElementById('prog-fill').style.width = pct + '%';
-  document.getElementById('prog-text').textContent = `${doneN} of ${total} done`;
+  document.getElementById('prog-fill').style.width       = (total ? doneN / total * 100 : 0) + '%';
+  document.getElementById('prog-text').textContent       = `${doneN} of ${total} done`;
   document.getElementById('remaining-count').textContent = open.length;
 
-  // Open tasks
   document.getElementById('task-list').innerHTML = open.length
-    ? open.map(t => taskCardHTML(t)).join('')
-    : '<div style="font-size:14px;color:var(--text3);padding:12px 0;">No tasks for today yet — add some below or use Organize.</div>';
+    ? open.map(taskCardHTML).join('')
+    : '<div style="font-size:14px;color:var(--text3);padding:12px 0;">No tasks yet — add below or use Organize.</div>';
 
-  // Completed
   document.getElementById('completed-label').textContent = `Completed (${doneN})`;
-  document.getElementById('completed-list').innerHTML = done.map(t => taskCardHTML(t)).join('');
+  document.getElementById('completed-list').innerHTML    = done.map(taskCardHTML).join('');
 }
 
 function taskCardHTML(t) {
-  const isDone = t.done;
-  const isCal  = t.is_cal_event;
-  const isEmail= t.source === 'email';
-  const cls    = ['task-card', isDone ? 'done' : '', isCal ? 'is-cal' : '', isEmail ? 'is-email' : ''].filter(Boolean).join(' ');
+  const isCal   = t.is_cal_event;
+  const isEmail = t.source === 'email';
+  const cls     = ['task-card', t.done ? 'done' : '', isCal ? 'is-cal' : '', isEmail ? 'is-email' : ''].filter(Boolean).join(' ');
   const timeStr = t.start_time ? fmt12(t.start_time) + (t.end_time ? ' – ' + fmt12(t.end_time) : '') : '';
-  const locStr  = t.location ? `<span class="task-loc">📍 ${escHtml(t.location)}</span>` : '';
-  const calTag  = isCal ? '<span class="tag tag-cal">cal</span>' : '';
-  const emailTag= isEmail ? '<span class="tag tag-email">email</span>' : '';
-  return `<div class="${cls}" data-id="${t.id}">
-    <button class="task-check ${isDone ? 'done' : ''}" onclick="toggleTask('${t.id}')"></button>
+  const safeId  = escAttr(t.id);
+  return `<div class="${cls}" data-id="${safeId}">
+    <button class="task-check ${t.done ? 'done' : ''}" onclick="toggleTask('${safeId}')"></button>
     <div class="task-body">
       <div class="task-title">${escHtml(t.title)}</div>
       <div class="task-meta">
-        ${timeStr ? `<span class="task-time">${timeStr}</span>` : ''}
-        ${locStr}
+        ${timeStr   ? `<span class="task-time">${timeStr}</span>` : ''}
+        ${t.location? `<span class="task-loc">📍 ${escHtml(t.location)}</span>` : ''}
         <span class="tag tag-${t.tag || 'admin'}">${t.tag || 'admin'}</span>
-        ${calTag}${emailTag}
+        ${isCal     ? '<span class="tag tag-cal">cal</span>'   : ''}
+        ${isEmail   ? '<span class="tag tag-email">email</span>' : ''}
       </div>
     </div>
-    <button class="task-edit-btn" onclick="openEdit('${t.id}')">✎</button>
-    <button class="task-star ${t.starred ? 'starred' : ''}" onclick="toggleStar('${t.id}',this)">${t.starred ? '★' : '☆'}</button>
+    <button class="task-edit-btn" onclick="openEdit('${safeId}')">✎</button>
+    <button class="task-star ${t.starred ? 'starred' : ''}" onclick="toggleStar('${safeId}',this)">${t.starred ? '★' : '☆'}</button>
   </div>`;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // RENDER — SUGGESTIONS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function renderSuggestions() {
-  if (!supabase) return;
+  if (!_supabase) return;
   const suggestions = await dbGetSuggestions();
-  const list = document.getElementById('sugg-list');
+  const list     = document.getElementById('sugg-list');
   const clearBtn = document.getElementById('sugg-clear-btn');
 
   if (!suggestions.length) {
@@ -747,123 +778,114 @@ async function renderSuggestions() {
     return;
   }
   clearBtn.style.display = 'block';
-
   list.innerHTML = suggestions.map(t => {
-    const rc = Math.min(t.rollover_count || 0, 4);
+    const rc      = Math.min(t.rollover_count || 0, 4);
     const rcLabel = rc === 0 ? 'Not started' : `↩ ${rc}×`;
     const fromDate = t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-    return `<div class="sugg-card" id="sc-${t.id}">
+    const safeId  = escAttr(t.id);
+    return `<div class="sugg-card" id="sc-${safeId}">
       <div class="sugg-card-title">${escHtml(t.title)}</div>
       <div class="sugg-card-from">From ${fromDate} · ${t.tag || 'task'}</div>
       <div class="sugg-card-foot">
         <span class="rollover-pill rc-${rc}">${rcLabel}</span>
         <div style="display:flex;gap:6px;align-items:center;">
-          <button class="sugg-dismiss" onclick="dismissSugg('${t.id}')" title="Dismiss">✕</button>
-          <button class="sugg-add-btn" onclick="addSuggToToday('${t.id}')">+ Today</button>
+          <button class="sugg-dismiss" onclick="dismissSugg('${safeId}')" title="Dismiss">✕</button>
+          <button class="sugg-add-btn" onclick="addSuggToToday('${safeId}')">+ Today</button>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // RENDER — PLANNED
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function renderPlanned() {
-  if (!supabase) return;
+  if (!_supabase) return;
   const [planned, overdue] = await Promise.all([dbGetPlanned(), dbGetOverdue()]);
 
-  // Group planned by date
   const groups = {};
-  for (const t of planned) {
-    if (!groups[t.date]) groups[t.date] = [];
-    groups[t.date].push(t);
-  }
+  for (const t of planned) { if (!groups[t.date]) groups[t.date] = []; groups[t.date].push(t); }
 
+  const today     = todayStr();
+  const tmrw      = new Date(); tmrw.setDate(tmrw.getDate() + 1);
+  const tmrwStr   = tmrw.toISOString().slice(0, 10);
   let html = '';
-  const today = todayStr();
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
-  // Overdue group
   if (overdue.length) {
     html += `<div class="planned-group">
       <div class="planned-group-hd">
         <div><div class="pg-date">Earlier</div><div class="pg-sub">Overdue</div></div>
         <div class="pg-badge pg-overdue">${overdue.length} overdue</div>
-      </div>
-      ${overdue.map(t => plannedCardHTML(t, true)).join('')}
-    </div>`;
+      </div>${overdue.map(t => plannedCardHTML(t, true)).join('')}</div>`;
   }
 
   for (const [date, tasks] of Object.entries(groups)) {
-    const isToday = date === today;
-    const isTomorrow = date === tomorrowStr;
-    const d = new Date(date + 'T12:00:00');
-    const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    const subLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    const badgeCls = isToday ? 'pg-today' : 'pg-default';
-    const badgeText = isToday ? 'today' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''}`;
+    const isToday   = date === today;
+    const isTmrw    = date === tmrwStr;
+    const d         = new Date(date + 'T12:00:00');
+    const dateLabel = isToday ? 'Today' : isTmrw ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const subLabel  = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const badgeCls  = isToday ? 'pg-today' : 'pg-default';
+    const badgeTxt  = isToday ? 'today' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''}`;
     html += `<div class="planned-group">
       <div class="planned-group-hd">
         <div><div class="pg-date">${dateLabel}</div><div class="pg-sub">${isToday ? subLabel : ''}</div></div>
-        <div class="pg-badge ${badgeCls}">${badgeText}</div>
-      </div>
-      ${tasks.map(t => plannedCardHTML(t, false)).join('')}
-    </div>`;
+        <div class="pg-badge ${badgeCls}">${badgeTxt}</div>
+      </div>${tasks.map(t => plannedCardHTML(t, false)).join('')}</div>`;
   }
 
   if (!html) html = '<div style="font-size:14px;color:var(--text3);padding:12px 0;">No upcoming scheduled tasks.</div>';
-
   document.getElementById('planned-list').innerHTML = html;
   const total = Object.values(groups).reduce((a, g) => a + g.length, 0);
   document.getElementById('planned-sub').textContent = `${total} upcoming task${total !== 1 ? 's' : ''}`;
 }
 
 function plannedCardHTML(t, isOverdue) {
-  const isDone = t.done;
-  const isCal  = t.is_cal_event;
-  const dateLabel = isOverdue ? `<span class="overdue-lbl">due ${new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>` : '';
-  const timeStr = t.start_time ? `<span class="task-time">${fmt12(t.start_time)}</span>` : '';
-  const todayBtn = !isDone ? `<button class="move-today" onclick="moveToToday('${t.id}')">→ Today</button>` : '';
-  return `<div class="task-card ${isDone ? 'done' : ''} ${isCal ? 'is-cal' : ''}" data-id="${t.id}">
-    <button class="task-check ${isDone ? 'done' : ''}" onclick="toggleTask('${t.id}')"></button>
+  const safeId  = escAttr(t.id);
+  const isCal   = t.is_cal_event;
+  const datelbl = isOverdue ? `<span class="overdue-lbl">due ${new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>` : '';
+  const timeTxt = t.start_time ? `<span class="task-time">${fmt12(t.start_time)}</span>` : '';
+  const todayBtn= !t.done ? `<button class="move-today" onclick="moveToToday('${safeId}')">→ Today</button>` : '';
+  return `<div class="task-card ${t.done ? 'done' : ''} ${isCal ? 'is-cal' : ''}" data-id="${safeId}">
+    <button class="task-check ${t.done ? 'done' : ''}" onclick="toggleTask('${safeId}')"></button>
     <div class="task-body">
       <div class="task-title">${escHtml(t.title)}</div>
-      <div class="task-meta">${dateLabel}${timeStr}<span class="tag tag-${t.tag || 'admin'}">${t.tag || 'admin'}</span>${isCal ? '<span class="tag tag-cal">cal</span>' : ''}</div>
+      <div class="task-meta">${datelbl}${timeTxt}<span class="tag tag-${t.tag || 'admin'}">${t.tag || 'admin'}</span>${isCal ? '<span class="tag tag-cal">cal</span>' : ''}</div>
     </div>
     ${todayBtn}
-    <button class="task-star ${t.starred ? 'starred' : ''}" onclick="toggleStar('${t.id}',this)">${t.starred ? '★' : '☆'}</button>
+    <button class="task-star ${t.starred ? 'starred' : ''}" onclick="toggleStar('${safeId}',this)">${t.starred ? '★' : '☆'}</button>
   </div>`;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // RENDER — CALENDAR STRIPS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function renderCalStrips() {
-  const today = todayStr();
-  const todayEvents = calEvents.filter(e => e.date === today);
-  const label = document.getElementById('cal-section-label');
+  const todayEvts = calEvents.filter(e => e.date === todayStr());
+  const label     = document.getElementById('cal-section-label');
   const container = document.getElementById('cal-strips');
-  if (!todayEvents.length) { label.style.display = 'none'; container.innerHTML = ''; return; }
+  if (!todayEvts.length) { label.style.display = 'none'; container.innerHTML = ''; return; }
   label.style.display = '';
-  container.innerHTML = todayEvents.map(e => `
-    <div class="cal-strip">
+  container.innerHTML = todayEvts.map(e => {
+    const safeE = encodeURIComponent(JSON.stringify(e));
+    return `<div class="cal-strip">
       <div style="font-size:18px;">📅</div>
       <div class="cal-strip-body">
         <div class="cal-strip-title">${escHtml(e.title)}</div>
         <div class="cal-strip-time">${e.start ? fmt12(e.start) + (e.end ? ' – ' + fmt12(e.end) : '') : 'All day'}${e.location ? ' · ' + escHtml(e.location) : ''}</div>
       </div>
-      <button class="cal-add" onclick="addCalEventAsTask(${JSON.stringify(e).replace(/"/g, '&quot;')})">+ Add task</button>
-    </div>`).join('');
+      <button class="cal-add" onclick="addCalEventAsTask('${safeE}')">+ Add task</button>
+    </div>`;
+  }).join('');
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // TASK ACTIONS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function toggleTask(id) {
-  if (!supabase) return;
-  const { data } = await supabase.from('tasks').select('done,tag').eq('id', id).single();
+  if (!_supabase) return;
+  const { data } = await _supabase.from('tasks').select('done,tag').eq('id', id).single();
   if (!data) return;
   const newDone = !data.done;
   await dbUpdate(id, { done: newDone, done_at: newDone ? new Date().toISOString() : null });
@@ -873,7 +895,7 @@ async function toggleTask(id) {
 }
 
 async function toggleStar(id, btn) {
-  if (!supabase) return;
+  if (!_supabase) return;
   const starred = !btn.classList.contains('starred');
   await dbUpdate(id, { starred });
   btn.classList.toggle('starred', starred);
@@ -882,8 +904,7 @@ async function toggleStar(id, btn) {
 
 async function moveToToday(id) {
   await dbUpdate(id, { date: todayStr() });
-  showToast('Moved to today');
-  await loadAll();
+  showToast('Moved to today'); await loadAll();
 }
 
 async function addSuggToToday(id) {
@@ -891,68 +912,37 @@ async function addSuggToToday(id) {
   if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
   await dbUpdate(id, { date: todayStr() });
   showToast('Added to today');
-  setTimeout(async () => {
-    if (card) card.remove();
-    await renderTaskList();
-  }, 400);
+  setTimeout(async () => { if (card) card.remove(); await renderTaskList(); }, 400);
 }
 
 async function dismissSugg(id) {
-  // Delete task entirely from suggestions
+  await dbDelete(id);
   const card = document.getElementById('sc-' + id);
   if (card) { card.style.opacity = '0'; card.style.transition = 'opacity 0.2s'; setTimeout(() => card.remove(), 220); }
-  await dbDelete(id);
 }
 
 async function clearAllSugg() {
   const suggs = await dbGetSuggestions();
   await Promise.all(suggs.map(s => dbDelete(s.id)));
-  await renderSuggestions();
-  showToast('Suggestions cleared');
+  await renderSuggestions(); showToast('Suggestions cleared');
 }
 
-async function saveQuickAdd() {
-  const title = document.getElementById('qa-title').value.trim();
-  if (!title) { hideQuickAdd(); return; }
-  const start = document.getElementById('qa-start').value || null;
-  const end   = document.getElementById('qa-end').value || null;
-  const tag   = document.getElementById('qa-tag').value;
-  const dateVal = document.getElementById('qa-date').value || todayStr();
-  const task = { title, date: dateVal, start_time: start, end_time: end, tag, source: 'manual', done: false, rollover_count: 0 };
-  await dbInsert(task);
-  document.getElementById('qa-title').value = '';
-  document.getElementById('qa-start').value = '';
-  document.getElementById('qa-end').value = '';
-  document.getElementById('qa-date').value = '';
-  hideQuickAdd();
-  showToast(`"${title}" added`);
-  await renderTaskList();
-  if (dateVal !== todayStr()) await renderPlanned();
+async function addCalEventAsTask(encoded) {
+  const e = JSON.parse(decodeURIComponent(encoded));
+  await dbInsert({ title: e.title, date: todayStr(), start_time: e.start || null, end_time: e.end || null, tag: 'errands', location: e.location || null, source: 'calendar', is_cal_event: true, done: false, rollover_count: 0 });
+  showToast(`"${e.title}" added as task`); await renderTaskList();
 }
 
-async function addCalEventAsTask(e) {
-  const task = {
-    title: e.title, date: todayStr(),
-    start_time: e.start || null, end_time: e.end || null,
-    tag: 'errands', location: e.location || null,
-    source: 'calendar', is_cal_event: true, done: false, rollover_count: 0
-  };
-  await dbInsert(task);
-  showToast(`"${e.title}" added as task`);
-  await renderTaskList();
-}
-
-// Edit modal
 async function openEdit(id) {
   editingTaskId = id;
-  const { data } = await supabase.from('tasks').select('*').eq('id', id).single();
+  const { data } = await _supabase.from('tasks').select('*').eq('id', id).single();
   if (!data) return;
-  document.getElementById('edit-title').value   = data.title || '';
-  document.getElementById('edit-date').value    = data.date || todayStr();
-  document.getElementById('edit-location').value= data.location || '';
-  document.getElementById('edit-start').value   = data.start_time || '';
-  document.getElementById('edit-end').value     = data.end_time || '';
-  document.getElementById('edit-tag').value     = data.tag || 'errands';
+  document.getElementById('edit-title').value    = data.title    || '';
+  document.getElementById('edit-date').value     = data.date     || todayStr();
+  document.getElementById('edit-location').value = data.location || '';
+  document.getElementById('edit-start').value    = data.start_time || '';
+  document.getElementById('edit-end').value      = data.end_time   || '';
+  document.getElementById('edit-tag').value      = data.tag || 'errands';
   document.getElementById('edit-modal').style.display = 'flex';
 }
 function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; editingTaskId = null; }
@@ -963,60 +953,74 @@ async function saveEdit() {
     date:       document.getElementById('edit-date').value,
     location:   document.getElementById('edit-location').value.trim() || null,
     start_time: document.getElementById('edit-start').value || null,
-    end_time:   document.getElementById('edit-end').value || null,
+    end_time:   document.getElementById('edit-end').value   || null,
     tag:        document.getElementById('edit-tag').value,
   });
-  closeEdit();
-  showToast('Task saved');
-  await loadAll();
+  closeEdit(); showToast('Task saved'); await loadAll();
 }
 async function deleteEditTask() {
-  if (!editingTaskId) return;
-  if (!confirm('Delete this task?')) return;
-  await dbDelete(editingTaskId);
-  closeEdit();
-  showToast('Task deleted');
-  await loadAll();
+  if (!editingTaskId || !confirm('Delete this task?')) return;
+  await dbDelete(editingTaskId); closeEdit(); showToast('Task deleted'); await loadAll();
 }
 
-// UI helpers
-function showQuickAdd() { document.getElementById('quick-add').style.display = 'flex'; document.getElementById('add-bar').style.display = 'none'; document.getElementById('qa-title').focus(); }
-function hideQuickAdd() { document.getElementById('quick-add').style.display = 'none'; document.getElementById('add-bar').style.display = 'flex'; }
+async function saveQuickAdd() {
+  const title = document.getElementById('qa-title').value.trim();
+  if (!title) { hideQuickAdd(); return; }
+  const dateVal = document.getElementById('qa-date').value || todayStr();
+  try {
+    await dbInsert({ title, date: dateVal, start_time: document.getElementById('qa-start').value || null, end_time: document.getElementById('qa-end').value || null, tag: document.getElementById('qa-tag').value, source: 'manual', done: false, rollover_count: 0 });
+    ['qa-title','qa-start','qa-end','qa-date'].forEach(id => document.getElementById(id).value = '');
+    hideQuickAdd(); showToast(`"${title}" added`);
+    await renderTaskList();
+    if (dateVal !== todayStr()) await renderPlanned();
+  } catch(e) { showToast('Error saving task — check Supabase connection'); }
+}
+
+function showQuickAdd()  { document.getElementById('quick-add').style.display = 'flex'; document.getElementById('add-bar').style.display = 'none'; document.getElementById('qa-title').focus(); }
+function hideQuickAdd()  { document.getElementById('quick-add').style.display = 'none'; document.getElementById('add-bar').style.display  = 'flex'; }
 function toggleCompleted() {
-  const tog = document.getElementById('completed-toggle');
+  const tog  = document.getElementById('completed-toggle');
   const list = document.getElementById('completed-list');
   const open = tog.classList.toggle('open');
   list.style.display = open ? 'block' : 'none';
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // VIEW SWITCHING
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function switchView(v) {
-  const myday   = document.getElementById('view-myday');
-  const planned = document.getElementById('view-planned');
-  const sugg    = document.getElementById('sugg-panel');
-  const tabMD   = document.getElementById('tab-myday');
-  const tabPL   = document.getElementById('tab-planned');
+  const md  = document.getElementById('view-myday');
+  const pl  = document.getElementById('view-planned');
+  const sp  = document.getElementById('sugg-panel');
+  const tMD = document.getElementById('tab-myday');
+  const tPL = document.getElementById('tab-planned');
   if (v === 'myday') {
-    myday.style.display = 'block'; planned.style.display = 'none'; sugg.style.display = '';
-    tabMD.classList.add('active'); tabPL.classList.remove('active');
+    md.style.display = 'block'; pl.style.display = 'none'; sp.style.display = '';
+    tMD.classList.add('active'); tPL.classList.remove('active');
   } else {
-    myday.style.display = 'none'; planned.style.display = 'block'; sugg.style.display = 'none';
-    tabPL.classList.add('active'); tabMD.classList.remove('active');
+    md.style.display = 'none'; pl.style.display = 'block'; sp.style.display = 'none';
+    tPL.classList.add('active'); tMD.classList.remove('active');
     renderPlanned();
   }
 }
 function setMobActive(el) { document.querySelectorAll('.mob-item').forEach(i => i.classList.remove('active')); el.classList.add('active'); }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // GOOGLE OAUTH
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function startOAuth() {
+  // Save any credentials entered on setup screen before redirecting
+  const url   = document.getElementById('su-url')?.value.trim();
+  const key   = document.getElementById('su-key')?.value.trim();
+  const aiKey = document.getElementById('setup-ai-key')?.value.trim();
   const calId = document.getElementById('setup-cal-id')?.value.trim() || localStorage.getItem(KEYS.calId) || '';
+  if (url)   localStorage.setItem(KEYS.supaUrl, url);
+  if (key)   localStorage.setItem(KEYS.supaKey, key);
+  if (aiKey) localStorage.setItem(KEYS.anthropicKey, aiKey);
   if (calId) localStorage.setItem(KEYS.calId, calId);
-  const redirectUri = window.location.origin + window.location.pathname;
-  const needsConsent = localStorage.getItem('wp_scope_ver') !== SCOPE_VERSION;
+
+  const redirectUri   = window.location.origin + window.location.pathname;
+  const needsConsent  = localStorage.getItem('wp_scope_ver') !== SCOPE_VERSION;
   const params = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: redirectUri, response_type: 'token', scope: SCOPES, ...(needsConsent ? { prompt: 'consent' } : {}) });
   window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
 }
@@ -1024,18 +1028,16 @@ function startOAuth() {
 function handleOAuthRedirect() {
   const storedVer = localStorage.getItem('wp_scope_ver') || '';
   if (storedVer !== SCOPE_VERSION) { try { localStorage.removeItem(KEYS.token); } catch(e) {} localStorage.setItem('wp_scope_ver', SCOPE_VERSION); }
-  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const hash  = new URLSearchParams(window.location.hash.slice(1));
   const token = hash.get('access_token');
   const exp   = parseInt(hash.get('expires_in') || '3600');
   if (token) {
-    accessToken  = token;
-    tokenExpiry  = Date.now() + Math.max(exp, 82800) * 1000;
+    accessToken = token;
+    tokenExpiry = Date.now() + Math.max(exp, 82800) * 1000;
     try { localStorage.setItem(KEYS.token, JSON.stringify({ token: accessToken, expiry: tokenExpiry })); } catch(e) {}
     localStorage.setItem('wp_scope_ver', SCOPE_VERSION);
     history.replaceState(null, '', window.location.pathname);
     updateConnDots();
-    fetchCalendar();
-    fetchWeather();
   }
 }
 
@@ -1044,22 +1046,14 @@ function signOut() {
   try { localStorage.removeItem(KEYS.token); } catch(e) {}
   calEvents = [];
   document.getElementById('cal-strips').innerHTML = '';
-  updateConnDots();
-  showToast('Signed out of Google');
+  updateConnDots(); showToast('Signed out of Google');
 }
 
-function expiredSession() {
-  accessToken = null;
-  const redirectUri = window.location.origin + window.location.pathname;
-  const params = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: redirectUri, response_type: 'token', scope: SCOPES });
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
-}
-
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // GOOGLE CALENDAR
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function fetchCalendar() {
-  if (!accessToken || Date.now() > tokenExpiry) { expiredSession(); return; }
+  if (!accessToken || Date.now() > tokenExpiry) return;
   const calId = localStorage.getItem(KEYS.calId) || ''; if (!calId) return;
   const now   = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -1068,25 +1062,22 @@ async function fetchCalendar() {
     const res  = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${start}&timeMax=${end}&singleEvents=true&orderBy=startTime&maxResults=100`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const data = await res.json();
     if (data.error) { console.warn('Cal error:', data.error.message); return; }
-    const allEvents = (data.items || []).map(e => ({
-      id: 'cal_' + e.id,
-      title: e.summary || '(no title)',
-      start: e.start?.dateTime ? isoToTime(e.start.dateTime) : '',
-      end:   e.end?.dateTime   ? isoToTime(e.end.dateTime)   : '',
+    calEvents = (data.items || []).map(e => ({
+      id:       'cal_' + e.id,
+      title:    e.summary || '(no title)',
+      start:    e.start?.dateTime ? isoToTime(e.start.dateTime) : '',
+      end:      e.end?.dateTime   ? isoToTime(e.end.dateTime)   : '',
       location: e.location || '',
-      date: (e.start?.dateTime || e.start?.date || '').slice(0, 10),
-      isCalEvent: true,
+      date:     (e.start?.dateTime || e.start?.date || '').slice(0, 10),
     }));
-    calEvents = allEvents;
-    try { localStorage.setItem(KEYS.calCache, JSON.stringify({ fetched: todayStr(), events: allEvents })); } catch(e) {}
-    renderCalStrips();
-    updateConnDots();
+    try { localStorage.setItem(KEYS.calCache, JSON.stringify({ fetched: todayStr(), events: calEvents })); } catch(e) {}
+    renderCalStrips(); updateConnDots();
   } catch(e) { console.warn('fetchCalendar failed', e); }
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // WEATHER
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function fetchWeather() {
   if (weatherData) { renderWeather(); return; }
   try {
@@ -1098,12 +1089,12 @@ async function fetchWeather() {
   } catch(e) {}
 }
 function wxCode(code) {
-  if (code === 0)  return { icon: '☀️', text: 'Clear' };
-  if (code <= 3)   return { icon: '⛅', text: 'Partly cloudy' };
-  if (code <= 49)  return { icon: '🌫️', text: 'Foggy' };
-  if (code <= 69)  return { icon: '🌧️', text: 'Rainy' };
-  if (code <= 79)  return { icon: '🌨️', text: 'Snow' };
-  if (code <= 82)  return { icon: '🌦️', text: 'Showers' };
+  if (code === 0) return { icon: '☀️', text: 'Clear' };
+  if (code <=  3) return { icon: '⛅',  text: 'Partly cloudy' };
+  if (code <= 49) return { icon: '🌫️', text: 'Foggy' };
+  if (code <= 69) return { icon: '🌧️', text: 'Rainy' };
+  if (code <= 79) return { icon: '🌨️', text: 'Snow' };
+  if (code <= 82) return { icon: '🌦️', text: 'Showers' };
   return { icon: '⛈️', text: 'Stormy' };
 }
 function renderWeather() {
@@ -1117,20 +1108,20 @@ function weatherSummary() {
   return `${text}, ${weatherData.temp}°F, wind ${weatherData.wind}mph, precip ${weatherData.precip}mm.`;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // GMAIL
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function fetchInboxTasks() {
-  if (!accessToken || Date.now() > tokenExpiry) { expiredSession(); return; }
+  if (!accessToken || Date.now() > tokenExpiry) { showToast('Sign in with Google first'); return; }
   const btn = document.getElementById('inbox-btn');
   btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none';
   try {
-    const labelsRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', { headers: { Authorization: 'Bearer ' + accessToken } });
+    const labelsRes  = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', { headers: { Authorization: 'Bearer ' + accessToken } });
     const labelsData = await labelsRes.json();
     if (labelsData.error) { addChatMsg('ai', 'Gmail error: ' + labelsData.error.message); return; }
     const label = labelsData.labels.find(l => l.name === 'Weekend Planner');
     if (!label) { addChatMsg('ai', 'No "Weekend Planner" label found. Create it in Gmail and apply it to emails you want as tasks.'); return; }
-    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=${label.id}&maxResults=10`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const listRes  = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=${label.id}&maxResults=10`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const listData = await listRes.json();
     const messages = listData.messages || [];
     if (!messages.length) { addChatMsg('ai', 'No emails with the "Weekend Planner" label found.'); return; }
@@ -1143,27 +1134,25 @@ async function fetchInboxTasks() {
       const from    = headers.find(h => h.name === 'From')?.value || '';
       const date    = headers.find(h => h.name === 'Date')?.value || '';
       let body = '';
-      const extract = (parts) => { if (!parts) return; for (const p of parts) { if (p.mimeType === 'text/plain' && p.body?.data) body += atob(p.body.data.replace(/-/g, '+').replace(/_/g, '/')) + '\n'; else if (p.parts) extract(p.parts); } };
-      if (msgData.payload?.body?.data) body = atob(msgData.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+      const extract = (parts) => { if (!parts) return; for (const p of parts) { if (p.mimeType === 'text/plain' && p.body?.data) body += atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/')) + '\n'; else if (p.parts) extract(p.parts); } };
+      if (msgData.payload?.body?.data) body = atob(msgData.payload.body.data.replace(/-/g,'+').replace(/_/g,'/'));
       else extract(msgData.payload?.parts);
       emailTexts.push(`--- EMAIL ---\nFrom: ${from}\nDate: ${date}\nSubject: ${subject}\n\n${body.slice(0, 1500)}`);
       await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ removeLabelIds: [label.id] }) });
     }
     addChatMsg('ai', `Reading ${emailTexts.length} email${emailTexts.length > 1 ? 's' : ''}…`);
-    const userMsg = 'Today is ' + currentTimeContext() + '.\n\n' + emailTexts.join('\n\n');
-    const reply = await callAI(userMsg, 'email');
+    const reply = await callAI('Today is ' + currentTimeContext() + '.\n\n' + emailTexts.join('\n\n'), 'email');
     if (reply) renderPlanOutput(reply);
     document.getElementById('inbox-badge').style.display = 'none';
   } catch(e) { addChatMsg('ai', 'Could not read Gmail.'); console.error(e); }
   btn.style.opacity = ''; btn.style.pointerEvents = '';
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // AI PLANNING
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function buildSystemPrompt(mode = 'chat') {
-  const base = `You are a personal concierge and weekend day planner for someone in Seattle, WA. You know them well and help them complete their day efficiently.
-
+  const base = `You are a personal concierge and weekend day planner for someone in Seattle, WA.
 ABOUT THIS PERSON:
 - Home: ${profile.address || DEFAULT_PROFILE.address}
 - Common destinations: ${profile.destinations || DEFAULT_PROFILE.destinations}
@@ -1171,46 +1160,32 @@ ABOUT THIS PERSON:
 - Weekend routine: ${profile.routine || DEFAULT_PROFILE.routine}
 - Energy level: ${profile.energy || DEFAULT_PROFILE.energy}
 - Other context: ${profile.other || DEFAULT_PROFILE.other}
-
-KNOWN LOCATIONS:
-- Home Depot: 1335 N Northgate Way, Seattle (10 min from home)
-- Mom (Parkshore): 1630 43rd Ave E, Seattle — Madison Park (15 min from home)
-- Grocery: QFC on 65th or Trader Joe's Roosevelt
-
-CONCIERGE RULES:
-- Current local time is in each request — use it as your anchor
-- start/end fields must be HH:MM 24-hour format (e.g. "10:00", "14:30")
-- Only schedule AFTER the current local time
-- Always include a 45-60 min lunch break around noon-1pm if the day spans it
-- Group tasks geographically to cut Seattle travel time
-- Focus planning on OPEN (uncompleted) tasks only`;
-
-  if (mode === 'json') return base + `\n\nRespond ONLY in this exact JSON format — no other text:\n{"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"Task name","location":"","reason":"One sentence","tag":"home|errands|health|admin","start":"10:00","end":"11:00"}],"suggestions":[]}`;
-  if (mode === 'dump') return base + `\n\nParse the user's brain dump into tasks. Respond ONLY in this exact JSON format:\n{"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"Clean task name","location":"","reason":"One sentence","tag":"home|errands|health|admin","start":"10:00","end":"11:00"}],"suggestions":[]}`;
-  if (mode === 'email') return base + `\n\nExtract actionable tasks from each forwarded email. Respond ONLY in this exact JSON format:\n{"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"Task from email","location":"","reason":"From: [subject]. Key detail.","tag":"home|errands|health|admin","start":"10:00","end":"11:00"}],"suggestions":[]}`;
-  return base + `\n\nYou are their concierge. Respond with short bullet points (• ). Never JSON. Each bullet should be a distinct actionable task or suggestion.`;
+KNOWN LOCATIONS: Home Depot 1335 N Northgate Way (10 min); Mom at Parkshore 1630 43rd Ave E Madison Park (15 min); Grocery: QFC 65th or TJs Roosevelt.
+RULES: start/end in HH:MM 24h. Only schedule AFTER current local time. Include lunch if day spans noon. Group tasks geographically.`;
+  if (mode === 'json')  return base + '\n\nRespond ONLY in this JSON: {"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
+  if (mode === 'dump')  return base + '\n\nParse brain dump into tasks. Respond ONLY in this JSON: {"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
+  if (mode === 'email') return base + '\n\nExtract tasks from forwarded emails. Respond ONLY in this JSON: {"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"","location":"","reason":"From: [subject].","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
+  return base + '\n\nRespond with short bullet points (• ). Never JSON.';
 }
 
 function currentTimeContext() {
-  const now = new Date();
-  const h = now.getHours(), m = now.getMinutes();
-  const hh = String(h).padStart(2, '0'), mm = String(m).padStart(2, '0');
-  const h12 = h % 12 || 12, ampm = h >= 12 ? 'pm' : 'am';
-  return `${now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}. Local time: ${h12}:${mm} ${ampm} (24h: ${hh}:${mm}) ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
+  const now = new Date(), h = now.getHours(), m = now.getMinutes();
+  const hh = String(h).padStart(2,'0'), mm = String(m).padStart(2,'0');
+  return `${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}. Local time: ${h%12||12}:${mm} ${h>=12?'pm':'am'} (24h: ${hh}:${mm}) ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
 }
 
 async function organizeDump() {
   const input = document.getElementById('brain-dump');
-  const raw = input.value.trim();
+  const raw   = input.value.trim();
   if (!raw) { addChatMsg('ai', 'Type your tasks above first.'); return; }
   const btn = document.getElementById('organize-btn');
   btn.disabled = true; btn.textContent = 'Organizing…';
-  const tasks = await dbGetToday();
-  const open = tasks.filter(t => !t.done);
-  const calList = calEvents.filter(e => e.date === todayStr()).map(e => `- ${e.title} (${e.start ? fmt12(e.start) : 'all day'}${e.end ? ' – ' + fmt12(e.end) : ''}${e.location ? ' @ ' + e.location : ''})`).join('\n') || 'None.';
+  const tasks    = _supabase ? await dbGetToday() : [];
+  const open     = tasks.filter(t => !t.done);
+  const calList  = calEvents.filter(e => e.date === todayStr()).map(e => `- ${e.title} (${e.start ? fmt12(e.start) : 'all day'}${e.end ? ' – ' + fmt12(e.end) : ''}${e.location ? ' @ ' + e.location : ''})`).join('\n') || 'None.';
   const hoursLeft = Math.max(0, 22 - new Date().getHours() - new Date().getMinutes() / 60).toFixed(1);
-  const userMsg = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS (don't duplicate):\n${open.length ? open.map(t => `- ${t.title}`).join('\n') : 'none'}\nCALENDAR:\n${calList}\n\nBRAIN DUMP:\n${raw}`;
-  const reply = await callAI(userMsg, 'dump');
+  const userMsg  = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS (don't duplicate):\n${open.length ? open.map(t => `- ${t.title}`).join('\n') : 'none'}\nCALENDAR:\n${calList}\n\nBRAIN DUMP:\n${raw}`;
+  const reply    = await callAI(userMsg, 'dump');
   btn.disabled = false; btn.textContent = '✏ Organize';
   if (reply) { renderPlanOutput(reply); input.value = ''; input.style.height = '34px'; }
 }
@@ -1218,12 +1193,11 @@ async function organizeDump() {
 async function planMyDay() {
   const btn = document.getElementById('replan-btn');
   btn.disabled = true;
-  const tasks = await dbGetToday();
-  const open = tasks.filter(t => !t.done);
-  const done = tasks.filter(t => t.done);
-  const now = new Date();
-  const hoursLeft = Math.max(0, 22 - now.getHours() - now.getMinutes() / 60).toFixed(1);
-  const userMsg = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS:\n${open.map(t => `- ${t.title} (${t.start_time ? fmt12(t.start_time) : 'no time'}, ${t.tag})`).join('\n') || 'none'}\nDONE: ${done.map(t => t.title).join(', ') || 'none'}\nRe-optimize the remaining open tasks starting from now.`;
+  const tasks = _supabase ? await dbGetToday() : [];
+  const open  = tasks.filter(t => !t.done);
+  const done  = tasks.filter(t =>  t.done);
+  const hoursLeft = Math.max(0, 22 - new Date().getHours() - new Date().getMinutes() / 60).toFixed(1);
+  const userMsg = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS:\n${open.map(t => `- ${t.title} (${t.start_time ? fmt12(t.start_time) : 'no time'}, ${t.tag})`).join('\n') || 'none'}\nDONE: ${done.map(t => t.title).join(', ') || 'none'}\nRe-optimize remaining open tasks starting from now.`;
   const reply = await callAI(userMsg, 'json');
   btn.disabled = false;
   if (reply) renderPlanOutput(reply);
@@ -1254,8 +1228,7 @@ function renderPlanOutput(jsonStr) {
     });
     html += '</div>';
   }
-  out.innerHTML = html;
-  _lastPlan = plan;
+  out.innerHTML = html; _lastPlan = plan;
 }
 
 function dismissPlanWarning() {
@@ -1270,21 +1243,19 @@ async function addPlanItem(idx) {
   await dbInsert({ title: item.title, date: todayStr(), start_time: item.start || null, end_time: item.end || null, tag: item.tag || 'admin', location: item.location || null, source: 'manual', done: false, rollover_count: 0 });
   _lastPlan.items[idx]._added = true;
   renderPlanOutput(JSON.stringify(_lastPlan));
-  await renderTaskList();
-  showToast(`"${item.title}" added`);
+  await renderTaskList(); showToast(`"${item.title}" added`);
 }
 
 async function sendChat() {
   const input = document.getElementById('chat-input');
-  const msg = input.value.trim(); if (!msg) return;
-  input.value = '';
-  addChatMsg('user', msg);
+  const msg   = input.value.trim(); if (!msg) return;
+  input.value = ''; addChatMsg('user', msg);
   const reply = await callAI(msg, 'chat');
   if (reply) addChatMsg('ai', reply);
 }
 
 async function callAI(userMessage, mode = 'chat') {
-  if (!anthropicKey) { addChatMsg('ai', 'Add your Anthropic API key in Settings.'); return null; }
+  if (!anthropicKey) { addChatMsg('ai', 'Add your Anthropic API key in Settings ⚙.'); return null; }
   const thinking = addChatMsg('ai', 'Thinking…', true);
   try {
     const messages = [...chatHistory, { role: 'user', content: userMessage }];
@@ -1309,12 +1280,12 @@ function addChatMsg(role, text, isThinking = false) {
   const div = document.createElement('div');
   div.className = `chat-msg ${role}${isThinking ? ' thinking' : ''}`;
   if (role === 'ai' && !isThinking) {
-    const lines = text.split('\n').filter(l => l.trim());
+    const lines      = text.split('\n').filter(l => l.trim());
     const hasBullets = lines.some(l => l.trim().startsWith('•') || l.trim().startsWith('-'));
     if (hasBullets) {
       div.innerHTML = lines.map(l => {
         const t = l.trim();
-        if (t.startsWith('•') || t.startsWith('-')) return `<div style="display:flex;gap:7px;padding:3px 0;"><span style="color:var(--gold-dk);font-weight:700;flex-shrink:0;">•</span><span>${escHtml(t.replace(/^[•\-]\s*/, ''))}</span></div>`;
+        if (t.startsWith('•') || t.startsWith('-')) return `<div style="display:flex;gap:7px;padding:3px 0;"><span style="color:var(--gold-dk);font-weight:700;flex-shrink:0;">•</span><span>${escHtml(t.replace(/^[•\-]\s*/,''))}</span></div>`;
         return `<div style="padding:2px 0;font-weight:500;">${escHtml(t)}</div>`;
       }).join('');
     } else { div.textContent = text; }
@@ -1324,12 +1295,11 @@ function addChatMsg(role, text, isThinking = false) {
   return div;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // SETTINGS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function openSettings() {
-  renderSettingsRows();
-  buildProfileFields();
+  renderSettingsRows(); buildProfileFields();
   document.getElementById('settings-drawer').classList.add('open');
   document.getElementById('settings-bd').classList.add('open');
 }
@@ -1338,17 +1308,22 @@ function closeSettings() {
   document.getElementById('settings-bd').classList.remove('open');
 }
 function renderSettingsRows() {
-  const gOk = !!(accessToken && Date.now() < tokenExpiry);
-  const sOk = !!supabase;
-  const aOk = !!anthropicKey;
-  const calId = localStorage.getItem(KEYS.calId) || '';
-  const supaUrl = localStorage.getItem(KEYS.supaUrl) || '';
+  const gOk    = !!(accessToken && Date.now() < tokenExpiry);
+  const sOk    = !!_supabase;
+  const aOk    = !!anthropicKey;
+  const calId  = localStorage.getItem(KEYS.calId)   || '';
+  const supaUrl= localStorage.getItem(KEYS.supaUrl)  || '';
   const rows = [
-    { label: 'Google', ok: gOk, detail: gOk ? calId : 'Not signed in', action: gOk ? null : { text: 'Sign in', fn: 'startOAuth()' } },
-    { label: 'Supabase', ok: sOk, detail: sOk ? (supaUrl.replace('https://', '').split('.')[0] + '.supabase.co') : 'Not connected', action: sOk ? null : { text: 'Setup', fn: 'openSetupScreen()' } },
-    { label: 'AI', ok: aOk, detail: aOk ? 'Key saved' : 'No key', action: null },
+    { label: 'Google',   ok: gOk,  detail: gOk  ? calId   : 'Not signed in',  action: gOk  ? null : { text: 'Sign in',  fn: 'startOAuth()' } },
+    { label: 'Supabase', ok: sOk,  detail: sOk  ? supaUrl.replace('https://','').split('.')[0] : 'Not connected', action: null },
+    { label: 'AI',       ok: aOk,  detail: aOk  ? 'Key saved' : 'No key',    action: null },
   ];
-  document.getElementById('settings-conn-rows').innerHTML = rows.map(r => `<div class="conn-row"><div class="conn-dot-sm ${r.ok ? 'ok' : 'off'}"></div><div style="flex:1;"><div class="conn-lbl">${r.label}</div></div>${r.action ? `<span class="conn-action" onclick="${r.action.fn}">${r.action.text}</span>` : (r.ok ? '<span style="font-size:11px;color:#4AE88A;">✓</span>' : '')}</div>`).join('');
+  document.getElementById('settings-conn-rows').innerHTML = rows.map(r =>
+    `<div class="conn-row">
+      <div class="conn-dot-sm ${r.ok ? 'ok' : 'off'}"></div>
+      <div style="flex:1;"><div class="conn-lbl">${r.label}</div><div class="conn-detail">${r.detail}</div></div>
+      ${r.action ? `<span class="conn-action" onclick="${r.action.fn}">${r.action.text}</span>` : (r.ok ? '<span style="font-size:11px;color:#4AE88A;">✓</span>' : '')}
+    </div>`).join('');
 }
 function saveAIKeyFromSettings() {
   const val = document.getElementById('settings-ai-key').value.trim();
@@ -1356,9 +1331,26 @@ function saveAIKeyFromSettings() {
   anthropicKey = val; localStorage.setItem(KEYS.anthropicKey, val);
   showToast('API key saved'); updateConnDots();
 }
-function openSetupScreen() {
-  closeSettings();
-  document.getElementById('setup-screen').style.display = 'flex';
+const PROFILE_FIELDS = [
+  { id: 'p-address',      label: 'Home address / neighborhood',      key: 'address'      },
+  { id: 'p-destinations', label: 'Common destinations',              key: 'destinations' },
+  { id: 'p-family',       label: 'Household & family context',       key: 'family'       },
+  { id: 'p-routine',      label: 'Weekend routine & preferences',    key: 'routine'      },
+  { id: 'p-energy',       label: 'Energy & physical notes',          key: 'energy'       },
+  { id: 'p-other',        label: 'Anything else the AI should know', key: 'other'        },
+];
+function buildProfileFields() {
+  const c = document.getElementById('profile-fields');
+  if (c.children.length) return;
+  c.innerHTML = PROFILE_FIELDS.map(f => `<div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:3px;">${f.label}</div>
+    <textarea id="${f.id}" style="width:100%;font-size:12px;padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-family:var(--font);outline:none;resize:vertical;min-height:44px;line-height:1.4;">${escHtml(profile[f.key] || DEFAULT_PROFILE[f.key])}</textarea>
+  </div>`).join('');
+}
+function saveProfile() {
+  PROFILE_FIELDS.forEach(f => { profile[f.key] = document.getElementById(f.id)?.value.trim() || DEFAULT_PROFILE[f.key]; });
+  try { localStorage.setItem(KEYS.profile, JSON.stringify(profile)); } catch(e) {}
+  showToast('Profile saved');
 }
 let soundOn = true;
 function toggleSound() {
@@ -1366,56 +1358,27 @@ function toggleSound() {
   localStorage.setItem(KEYS.soundEnabled, soundOn ? '1' : '0');
   document.getElementById('sound-toggle').textContent = soundOn ? 'On' : 'Off';
 }
-
-// Profile fields in settings
-const PROFILE_FIELDS = [
-  { id: 'p-address', label: 'Home address / neighborhood', key: 'address' },
-  { id: 'p-destinations', label: 'Common destinations', key: 'destinations' },
-  { id: 'p-family', label: 'Household & family context', key: 'family' },
-  { id: 'p-routine', label: 'Weekend routine & preferences', key: 'routine' },
-  { id: 'p-energy', label: 'Energy & physical notes', key: 'energy' },
-  { id: 'p-other', label: 'Anything else the AI should know', key: 'other' },
-];
-function buildProfileFields() {
-  const container = document.getElementById('profile-fields');
-  if (container.children.length) return; // already built
-  container.innerHTML = PROFILE_FIELDS.map(f => `
-    <div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:3px;">${f.label}</div>
-      <textarea id="${f.id}" style="width:100%;font-size:12px;padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-family:var(--font);outline:none;resize:vertical;min-height:44px;line-height:1.4;">${escHtml(profile[f.key] || DEFAULT_PROFILE[f.key])}</textarea>
-    </div>`).join('');
-}
-function saveProfile() {
-  PROFILE_FIELDS.forEach(f => { profile[f.key] = document.getElementById(f.id)?.value.trim() || DEFAULT_PROFILE[f.key]; });
-  try { localStorage.setItem(KEYS.profile, JSON.stringify(profile)); } catch(e) {}
-  showToast('Profile saved');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// CONN DOTS
-// ═══════════════════════════════════════════════════════════════════
 function updateConnDots() {
   const gOk = !!(accessToken && Date.now() < tokenExpiry);
-  const sOk = !!supabase;
+  const sOk = !!_supabase;
   const aOk = !!anthropicKey;
-  const set = (id, ok) => { const el = document.getElementById(id); if (el) { el.className = 'conn-dot ' + (ok ? 'ok' : 'off'); } };
-  set('dot-google', gOk); set('dot-supa', sOk); set('dot-ai', aOk);
+  [['dot-google', gOk], ['dot-supa', sOk], ['dot-ai', aOk]].forEach(([id, ok]) => {
+    const el = document.getElementById(id); if (el) el.className = 'conn-dot ' + (ok ? 'ok' : 'off');
+  });
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // SOUND
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 let _audioCtx = null;
 function getAudioCtx() { if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return _audioCtx; }
-function primeAudio() { try { const ctx = getAudioCtx(); if (ctx.state === 'suspended') ctx.resume(); } catch(e) {} }
+function primeAudio()  { try { const ctx = getAudioCtx(); if (ctx.state === 'suspended') ctx.resume(); } catch(e) {} }
 document.addEventListener('touchstart', primeAudio, { once: true });
-document.addEventListener('mousedown', primeAudio, { once: true });
+document.addEventListener('mousedown',  primeAudio, { once: true });
 function playSound(tag) {
   if (!soundOn) return;
   try {
-    const ctx = getAudioCtx();
-    if (ctx.state !== 'running') return;
-    // Simple chime for all tags
+    const ctx = getAudioCtx(); if (ctx.state !== 'running') return;
     const t = ctx.currentTime;
     [[880, 0], [1108, 0.18]].forEach(([freq, when]) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
@@ -1428,17 +1391,15 @@ function playSound(tag) {
   } catch(e) {}
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // HELPERS
-// ═══════════════════════════════════════════════════════════════════
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function isoToTime(iso) { if (!iso || iso.length === 10) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
-function fmt12(t) { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h >= 12 ? 'pm' : 'am'}`; }
-function setDateHeader() {
-  const el = document.getElementById('today-date');
-  if (el) el.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-}
+// ═══════════════════════════════════════════════════════════
+function todayStr()    { return new Date().toISOString().slice(0, 10); }
+function escHtml(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s)    { return String(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
+function isoToTime(iso){ if (!iso || iso.length === 10) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function fmt12(t)      { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'pm':'am'}`; }
+function setDateHeader(){ const el = document.getElementById('today-date'); if (el) el.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }
 let _toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -1447,10 +1408,35 @@ function showToast(msg) {
   _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// START
-// ═══════════════════════════════════════════════════════════════════
-boot();
+// ═══════════════════════════════════════════════════════════
+// START — load Supabase CDN dynamically, then boot
+// ═══════════════════════════════════════════════════════════
+(function loadSupabaseAndBoot() {
+  const script  = document.createElement('script');
+  script.src    = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+  script.onload = function() {
+    // Poll until createClient is available (usually immediate after onload)
+    let attempts = 0;
+    const check = setInterval(function() {
+      attempts++;
+      if (window.supabase && window.supabase.createClient) {
+        clearInterval(check);
+        boot();
+      } else if (attempts > 50) {
+        clearInterval(check);
+        document.getElementById('setup-screen').style.display = 'flex';
+        document.getElementById('setup-status').textContent  = 'Supabase library loaded but not initialised — please refresh.';
+        document.getElementById('setup-status').className    = 'setup-status err';
+      }
+    }, 100);
+  };
+  script.onerror = function() {
+    document.getElementById('setup-screen').style.display = 'flex';
+    document.getElementById('setup-status').textContent  = 'Could not load Supabase library (CDN blocked or offline). Check your internet connection and refresh.';
+    document.getElementById('setup-status').className    = 'setup-status err';
+  };
+  document.head.appendChild(script);
+})();
 </script>
 </body>
 </html>
