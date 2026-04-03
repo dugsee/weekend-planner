@@ -467,6 +467,14 @@
     <button class="btn btn-green" onclick="saveProfile()">Save Profile</button>
   </div>
 
+  <div class="s-label">Maintenance</div>
+  <div class="conn-row" style="align-items:flex-start;flex-direction:column;gap:4px;padding:10px 0;">
+    <div style="display:flex;align-items:center;width:100%;gap:10px;">
+      <div class="conn-lbl" style="flex:1;">Remove duplicate tasks</div>
+      <div class="conn-action" id="dedup-btn" onclick="runDedup()">Clean up</div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);">Removes duplicate rows from the database — safe to run any time.</div>
+  </div>
   <div class="s-label">Account</div>
   <div class="conn-row">
     <div class="conn-lbl">Sound effects</div>
@@ -564,6 +572,30 @@ async function dbDelete(id) {
   const { error } = await _supabase.from('tasks').delete().eq('id', id);
   if (error) console.error('dbDelete', error);
 }
+
+// Remove true duplicate rows from DB (same title + date, keep the one with lower id/earliest)
+// Called once on boot and available via Settings
+async function deduplicateTasksDB() {
+  if (!_supabase) return 0;
+  try {
+    const { data: all } = await _supabase.from('tasks').select('id,title,date,rollover_count,created_at').order('created_at');
+    if (!all) return 0;
+    const seen = {};
+    const toDelete = [];
+    all.forEach(t => {
+      const key = t.title.trim().toLowerCase() + '|' + t.date;
+      if (seen[key]) {
+        toDelete.push(t.id); // delete the later duplicate
+      } else {
+        seen[key] = t;
+      }
+    });
+    for (const id of toDelete) {
+      await _supabase.from('tasks').delete().eq('id', id);
+    }
+    return toDelete.length;
+  } catch(e) { console.error('deduplicateTasksDB', e); return 0; }
+}
 async function dbInsert(task) {
   const { data, error } = await _supabase.from('tasks').insert(task).select().single();
   if (error) { console.error('dbInsert', error); throw error; }
@@ -651,6 +683,8 @@ async function boot() {
     if (error) throw error;
     showApp();
     await loadAll();
+    // Silently clean up any duplicate tasks in the background
+    deduplicateTasksDB().then(n => { if (n > 0) { console.log(`Cleaned ${n} duplicate task(s)`); renderTaskList(); renderSuggestions(); } });
     // Always render cal strips from cache first (instant, no network needed)
     renderCalStrips();
     // Fetch fresh calendar if Google token is valid; show banner if not
@@ -745,8 +779,18 @@ async function renderTaskList() {
   document.getElementById('prog-text').textContent       = `${doneN} of ${total} done`;
   document.getElementById('remaining-count').textContent = open.length;
 
-  document.getElementById('task-list').innerHTML = open.length
-    ? open.map(taskCardHTML).join('')
+  // Deduplicate open tasks by title (keep most recently modified / latest id)
+  const openSeen = {};
+  const openDeduped = open.filter(t => {
+    const key = t.title.trim().toLowerCase();
+    if (!openSeen[key]) { openSeen[key] = t; return true; }
+    // Keep the one with the later date or higher rollover_count
+    if ((t.created_at || '') > (openSeen[key].created_at || '')) { openSeen[key] = t; return true; }
+    return false;
+  });
+
+  document.getElementById('task-list').innerHTML = openDeduped.length
+    ? openDeduped.map(taskCardHTML).join('')
     : '<div style="font-size:14px;color:var(--text3);padding:12px 0;">No tasks yet — add below or use Organize.</div>';
 
   document.getElementById('completed-label').textContent = `Completed (${doneN})`;
@@ -782,7 +826,18 @@ function taskCardHTML(t) {
 // ═══════════════════════════════════════════════════════════
 async function renderSuggestions() {
   if (!_supabase) return;
-  const suggestions = await dbGetSuggestions();
+  const raw = await dbGetSuggestions();
+
+  // Deduplicate by title — keep the row with the highest rollover_count for each title
+  const seen = {};
+  const suggestions = raw.filter(t => {
+    const key = t.title.trim().toLowerCase();
+    if (!seen[key] || t.rollover_count > seen[key].rollover_count) {
+      seen[key] = t; return true;
+    }
+    return false;
+  });
+
   const list     = document.getElementById('sugg-list');
   const clearBtn = document.getElementById('sugg-clear-btn');
 
@@ -924,15 +979,64 @@ async function moveToToday(id) {
 async function addSuggToToday(id) {
   const card = document.getElementById('sc-' + id);
   if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
-  await dbUpdate(id, { date: todayStr() });
-  showToast('Added to today');
-  setTimeout(async () => { if (card) card.remove(); await renderTaskList(); }, 400);
+  try {
+    // Fetch the task first so we know its current date
+    const { data: task, error: fetchErr } = await _supabase
+      .from('tasks').select('id,title,date,done').eq('id', id).single();
+
+    if (fetchErr || !task) {
+      showToast('Could not find task — try refreshing');
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      return;
+    }
+
+    const today = todayStr();
+
+    if (task.date === today) {
+      // Already dated today — it's already in My Day, just remove from suggestions view
+      showToast(`"${task.title}" is already on today`);
+      if (card) { card.style.transition = 'opacity 0.3s'; card.style.opacity = '0'; setTimeout(() => card.remove(), 320); }
+      await renderSuggestions();
+      return;
+    }
+
+    // Move to today
+    const { error: updateErr } = await _supabase
+      .from('tasks').update({ date: today, rollover_count: (task.rollover_count || 0) })
+      .eq('id', id);
+
+    if (updateErr) {
+      console.error('addSuggToToday update error:', updateErr);
+      showToast('Error moving task: ' + updateErr.message);
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      return;
+    }
+
+    showToast(`"${task.title}" added to today`);
+    if (card) { card.style.transition = 'opacity 0.3s'; card.style.opacity = '0'; setTimeout(() => card.remove(), 320); }
+    // Refresh both panels
+    await Promise.all([renderTaskList(), renderSuggestions()]);
+
+  } catch(e) {
+    console.error('addSuggToToday exception:', e);
+    showToast('Something went wrong — try again');
+    if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+  }
 }
 
 async function dismissSugg(id) {
   await dbDelete(id);
   const card = document.getElementById('sc-' + id);
   if (card) { card.style.opacity = '0'; card.style.transition = 'opacity 0.2s'; setTimeout(() => card.remove(), 220); }
+}
+
+async function runDedup() {
+  const btn = document.getElementById('dedup-btn');
+  if (btn) { btn.textContent = 'Cleaning…'; btn.style.pointerEvents = 'none'; }
+  const n = await deduplicateTasksDB();
+  if (btn) { btn.textContent = 'Clean up'; btn.style.pointerEvents = ''; }
+  showToast(n > 0 ? `Removed ${n} duplicate task${n > 1 ? 's' : ''}` : 'No duplicates found');
+  if (n > 0) { await loadAll(); }
 }
 
 async function clearAllSugg() {
