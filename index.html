@@ -148,6 +148,8 @@
     .task-star:hover,.task-star.starred{color:var(--gold-dk);}
     .task-edit-btn{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:background 0.12s;}
     .task-edit-btn:hover{background:var(--bg2);}
+    .task-replan-btn{background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:2px 5px;border-radius:4px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;transition:all 0.12s;white-space:nowrap;}
+    .task-replan-btn:hover{background:var(--gold-bg);color:var(--gold-dk);}
 
     /* Cal strip */
     .cal-strip{background:var(--gold-bg);border:1px solid rgba(255,194,0,0.4);border-radius:var(--radius);padding:9px 13px;display:flex;align-items:center;gap:10px;margin-bottom:6px;box-shadow:var(--shadow);}
@@ -339,7 +341,6 @@
         oninput="this.style.height='34px';this.style.height=Math.min(this.scrollHeight,100)+'px';"></textarea>
       <div class="ai-btns">
         <button class="ai-btn ai-btn-gold" id="organize-btn" onclick="organizeDump()">✏ Organize</button>
-        <button class="ai-btn ai-btn-green" id="replan-btn"  title="Re-optimize task order" onclick="planMyDay()">🔄</button>
       </div>
     </div>
     <div class="plan-output" id="plan-output"></div>
@@ -771,6 +772,7 @@ function taskCardHTML(t) {
       </div>
     </div>
     <button class="task-edit-btn" onclick="openEdit('${safeId}')">✎</button>
+    <button class="task-replan-btn" onclick="replanAroundTask('${safeId}')" title="Re-optimize schedule around this task">🔄</button>
     <button class="task-star ${t.starred ? 'starred' : ''}" onclick="toggleStar('${safeId}',this)">${t.starred ? '★' : '☆'}</button>
   </div>`;
 }
@@ -821,7 +823,7 @@ async function renderPlanned() {
 
   const today     = todayStr();
   const tmrw      = new Date(); tmrw.setDate(tmrw.getDate() + 1);
-  const tmrwStr   = tmrw.toISOString().slice(0, 10);
+  const tmrwStr   = `${tmrw.getFullYear()}-${String(tmrw.getMonth()+1).padStart(2,'0')}-${String(tmrw.getDate()).padStart(2,'0')}`;
   let html = '';
 
   if (overdue.length) {
@@ -1329,17 +1331,28 @@ async function organizeDump() {
   if (reply) { renderPlanOutput(reply); input.value = ''; input.style.height = '34px'; }
 }
 
-async function planMyDay() {
-  const btn = document.getElementById('replan-btn');
-  btn.disabled = true;
+async function planMyDay(focusTaskTitle) {
   const tasks = _supabase ? await dbGetToday() : [];
   const open  = tasks.filter(t => !t.done);
   const done  = tasks.filter(t =>  t.done);
   const hoursLeft = Math.max(0, 22 - new Date().getHours() - new Date().getMinutes() / 60).toFixed(1);
-  const userMsg = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS:\n${open.map(t => `- ${t.title} (${t.start_time ? fmt12(t.start_time) : 'no time'}, ${t.tag})`).join('\n') || 'none'}\nDONE: ${done.map(t => t.title).join(', ') || 'none'}\nRe-optimize remaining open tasks starting from now.`;
+  const focusNote = focusTaskTitle ? `\nFOCUS: Re-optimize especially around "${focusTaskTitle}" — fit it into the schedule without disrupting others.` : '';
+  const userMsg = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS:\n${open.map(t => `- ${t.title} (${t.start_time ? fmt12(t.start_time) : 'no time'}, ${t.tag})`).join('\n') || 'none'}\nDONE: ${done.map(t => t.title).join(', ') || 'none'}${focusNote}\nRe-optimize remaining open tasks starting from now.`;
   const reply = await callAI(userMsg, 'json');
-  btn.disabled = false;
   if (reply) renderPlanOutput(reply);
+}
+
+// Per-task replan: re-optimize the full day with focus on this specific task
+async function replanAroundTask(taskId) {
+  if (!_supabase) return;
+  const { data: t } = await _supabase.from('tasks').select('title').eq('id', taskId).single();
+  if (!t) return;
+  // Show spinner on the button
+  const btn = document.querySelector(`[data-id="${taskId}"] .task-replan-btn`);
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  await planMyDay(t.title);
+  if (btn) { btn.textContent = '🔄'; btn.disabled = false; }
+  showToast(`Re-optimizing around "${t.title}"…`);
 }
 
 function renderPlanOutput(jsonStr) {
@@ -1379,10 +1392,38 @@ function dismissPlanWarning() {
 async function addPlanItem(idx) {
   if (!_lastPlan?.items[idx]) return;
   const item = _lastPlan.items[idx];
-  await dbInsert({ title: item.title, date: todayStr(), start_time: item.start || null, end_time: item.end || null, tag: item.tag || 'admin', location: item.location || null, source: 'manual', done: false, rollover_count: 0 });
+  const today = todayStr();
+
+  // Check if a task with this exact title already exists for TODAY
+  const { data: existing } = await _supabase.from('tasks').select('id,title,start_time,end_time')
+    .eq('date', today).ilike('title', item.title.trim());
+
+  if (existing && existing.length > 0) {
+    // Task already on today's list — update its time if AI gave one, don't duplicate
+    const existingTask = existing[0];
+    const updates = {};
+    if (item.start && item.start !== existingTask.start_time) updates.start_time = item.start;
+    if (item.end   && item.end   !== existingTask.end_time)   updates.end_time   = item.end;
+    if (Object.keys(updates).length) {
+      await dbUpdate(existingTask.id, updates);
+      showToast(`"${item.title}" time updated`);
+    } else {
+      showToast(`"${item.title}" already on today\'s list`);
+    }
+  } else {
+    // Not on today's list — insert fresh (even if it existed on a prior day)
+    await dbInsert({
+      title: item.title, date: today,
+      start_time: item.start || null, end_time: item.end || null,
+      tag: item.tag || 'admin', location: item.location || null,
+      source: 'manual', done: false, rollover_count: 0
+    });
+    showToast(`"${item.title}" added`);
+  }
+
   _lastPlan.items[idx]._added = true;
   renderPlanOutput(JSON.stringify(_lastPlan));
-  await renderTaskList(); showToast(`"${item.title}" added`);
+  await renderTaskList();
 }
 
 async function sendChat() {
@@ -1533,12 +1574,25 @@ function playSound(tag) {
 // ═══════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════
-function todayStr()    { return new Date().toISOString().slice(0, 10); }
+function todayStr() {
+  // Use LOCAL date — toISOString() returns UTC which flips the day after 4pm Pacific
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function escHtml(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s)    { return String(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
 function isoToTime(iso){ if (!iso || iso.length === 10) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 function fmt12(t)      { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'pm':'am'}`; }
-function setDateHeader(){ const el = document.getElementById('today-date'); if (el) el.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }
+function setDateHeader() {
+  const el = document.getElementById('today-date');
+  if (!el) return;
+  // Use local date parts to avoid UTC timezone shifting the display date
+  const d = new Date();
+  el.textContent = d.toLocaleDateString('en-US', {
+    weekday:'long', month:'long', day:'numeric', year:'numeric',
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
+}
 let _toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
