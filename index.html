@@ -1604,9 +1604,13 @@ function renderPlanOutput(jsonStr) {
     html += '</div>';
   }
   if (html && html.includes('plan-item')) {
-    html += '<div style="text-align:right;margin-top:4px;"><button onclick="document.getElementById('plan-output').innerHTML=''" style="background:none;border:none;font-size:11px;color:var(--text3);cursor:pointer;font-family:var(--font-cond);letter-spacing:0.04em;padding:4px 0;">✕ clear results</button></div>';
+    html += '<div style="text-align:right;margin-top:4px;"><button onclick="clearPlanOutput()" style="background:none;border:none;font-size:11px;color:var(--text3);cursor:pointer;font-family:var(--font-cond);letter-spacing:0.04em;padding:4px 0;">✕ clear results</button></div>';
   }
   out.innerHTML = html; _lastPlan = plan;
+}
+
+function clearPlanOutput() {
+  document.getElementById('plan-output').innerHTML = '';
 }
 
 function dismissPlanWarning() {
@@ -1863,6 +1867,7 @@ function showToast(msg) {
     document.getElementById('setup-status').className    = 'setup-status err';
   };
   document.head.appendChild(script);
+})();
 </script>
 </body>
 </html>
