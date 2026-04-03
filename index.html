@@ -458,7 +458,13 @@
 
   <div class="s-label">Gmail → Tasks</div>
   <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;font-size:13px;color:var(--text2);line-height:1.6;">
-    In Gmail, create a label called <strong style="color:var(--green);">Weekend Planner</strong>. Apply it to any email you want converted into a task. Tap ✉ in the top bar to pull them in.
+    <strong style="color:var(--text);">How to forward emails as tasks:</strong><br/>
+    1. Forward any email to <strong style="color:var(--green);">cottingtondouglas+tasks@gmail.com</strong><br/>
+    2. Gmail auto-applies the "Weekend Planner" label via your filter rule<br/>
+    3. Tap ✉ in the top bar to import<br/><br/>
+    <strong style="color:var(--text);">Filter rule must use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px;">to:</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px;">from:</code></strong><br/>
+    In Gmail Settings → Filters → edit your rule so the search box reads:<br/>
+    <code style="background:var(--bg3);padding:3px 6px;border-radius:3px;display:inline-block;margin-top:4px;">to:(cottingtondouglas+tasks@gmail.com)</code>
   </div>
 
   <div class="s-label">Profile &amp; Preferences</div>
@@ -1357,40 +1363,110 @@ function weatherSummary() {
 // GMAIL
 // ═══════════════════════════════════════════════════════════
 async function fetchInboxTasks() {
-  if (!accessToken || Date.now() > tokenExpiry) { showToast('Sign in with Google first'); return; }
+  if (!accessToken || Date.now() > tokenExpiry) { showReconnectBanner(); return; }
   const btn = document.getElementById('inbox-btn');
+
+  // Helper to reset button — called from every exit path
+  function resetBtn() { btn.style.opacity = ''; btn.style.pointerEvents = ''; }
+
   btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none';
   try {
+    // Step 1: find the Weekend Planner label
     const labelsRes  = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', { headers: { Authorization: 'Bearer ' + accessToken } });
     const labelsData = await labelsRes.json();
-    if (labelsData.error) { addChatMsg('ai', 'Gmail error: ' + labelsData.error.message); return; }
+    if (labelsData.error) {
+      const code = labelsData.error.code;
+      if (code === 401 || code === 403) { resetBtn(); showReconnectBanner(); return; }
+      addChatMsg('ai', 'Gmail error: ' + labelsData.error.message);
+      resetBtn(); return;
+    }
     const label = labelsData.labels.find(l => l.name === 'Weekend Planner');
-    if (!label) { addChatMsg('ai', 'No "Weekend Planner" label found. Create it in Gmail and apply it to emails you want as tasks.'); return; }
-    const listRes  = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=${label.id}&maxResults=10`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!label) {
+      addChatMsg('ai', '⚠ No "Weekend Planner" label found in Gmail.\n\nTo fix: In Gmail, go to Settings → Labels → Create new label called "Weekend Planner". Your filter rule will then apply it automatically to forwarded emails.');
+      resetBtn(); return;
+    }
+
+    // Step 2: fetch messages with that label (include read messages — rule marks them as read)
+    const listRes  = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=${label.id}&maxResults=20&includeSpamTrash=false`,
+      { headers: { Authorization: 'Bearer ' + accessToken } }
+    );
     const listData = await listRes.json();
+    if (listData.error) { addChatMsg('ai', 'Gmail list error: ' + listData.error.message); resetBtn(); return; }
     const messages = listData.messages || [];
-    if (!messages.length) { addChatMsg('ai', 'No emails with the "Weekend Planner" label found.'); return; }
+
+    if (!messages.length) {
+      // Helpful diagnostic — check if the label exists but just has no messages
+      addChatMsg('ai', '📭 No emails found with the "Weekend Planner" label.\n\nTo send tasks by email:\n• Forward any email to yourself at cottingtondouglas@gmail.com\n• Your Gmail filter will automatically apply the "Weekend Planner" label\n• Tap ✉ again and the app will pick it up\n\nNote: The filter matches emails sent TO your +tasks alias — make sure you are forwarding TO cottingtondouglas+tasks@gmail.com (not from it).');
+      resetBtn(); return;
+    }
+
+    // Step 3: read each message and strip the label so it won't be re-processed
     const emailTexts = [];
     for (const msg of messages.slice(0, 5)) {
       const msgRes  = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, { headers: { Authorization: 'Bearer ' + accessToken } });
       const msgData = await msgRes.json();
+      if (msgData.error) continue;
       const headers = msgData.payload?.headers || [];
       const subject = headers.find(h => h.name === 'Subject')?.value || '(no subject)';
       const from    = headers.find(h => h.name === 'From')?.value || '';
       const date    = headers.find(h => h.name === 'Date')?.value || '';
+      // Extract plain text body — handles multipart and simple messages
       let body = '';
-      const extract = (parts) => { if (!parts) return; for (const p of parts) { if (p.mimeType === 'text/plain' && p.body?.data) body += atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/')) + '\n'; else if (p.parts) extract(p.parts); } };
-      if (msgData.payload?.body?.data) body = atob(msgData.payload.body.data.replace(/-/g,'+').replace(/_/g,'/'));
-      else extract(msgData.payload?.parts);
-      emailTexts.push(`--- EMAIL ---\nFrom: ${from}\nDate: ${date}\nSubject: ${subject}\n\n${body.slice(0, 1500)}`);
-      await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ removeLabelIds: [label.id] }) });
+      const extract = (parts) => {
+        if (!parts) return;
+        for (const p of parts) {
+          if (p.mimeType === 'text/plain' && p.body?.data) {
+            try { body += atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/')) + '\n'; } catch(e) {}
+          } else if (p.parts) extract(p.parts);
+        }
+      };
+      if (msgData.payload?.body?.data) {
+        try { body = atob(msgData.payload.body.data.replace(/-/g,'+').replace(/_/g,'/')); } catch(e) {}
+      } else { extract(msgData.payload?.parts); }
+
+      // If still no body, try html parts as fallback
+      if (!body.trim()) {
+        const extractHtml = (parts) => {
+          if (!parts) return;
+          for (const p of parts) {
+            if (p.mimeType === 'text/html' && p.body?.data) {
+              try {
+                const raw = atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'));
+                body += raw.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim() + '\n';
+              } catch(e) {}
+            } else if (p.parts) extractHtml(p.parts);
+          }
+        };
+        extractHtml(msgData.payload?.parts);
+      }
+
+      emailTexts.push(`--- EMAIL ---\nFrom: ${from}\nDate: ${date}\nSubject: ${subject}\n\n${body.slice(0, 2000)}`);
+
+      // Remove the Weekend Planner label so this email won't be re-processed next time
+      await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeLabelIds: [label.id] })
+      });
     }
+
+    if (!emailTexts.length) {
+      addChatMsg('ai', 'Found emails but could not read their content. Try again.');
+      resetBtn(); return;
+    }
+
+    // Step 4: send to AI for task extraction
     addChatMsg('ai', `Reading ${emailTexts.length} email${emailTexts.length > 1 ? 's' : ''}…`);
     const reply = await callAI('Today is ' + currentTimeContext() + '.\n\n' + emailTexts.join('\n\n'), 'email');
     if (reply) renderPlanOutput(reply);
     document.getElementById('inbox-badge').style.display = 'none';
-  } catch(e) { addChatMsg('ai', 'Could not read Gmail.'); console.error(e); }
-  btn.style.opacity = ''; btn.style.pointerEvents = '';
+
+  } catch(e) {
+    addChatMsg('ai', 'Could not read Gmail: ' + (e.message || e));
+    console.error('fetchInboxTasks error:', e);
+  }
+  resetBtn();
 }
 
 // ═══════════════════════════════════════════════════════════
