@@ -612,17 +612,34 @@ async function dbInsert(task) {
 
 // Rollover: bump date + increment rollover_count for overdue undone tasks
 async function runRollover() {
-  const overdue = await dbGetSuggestions();
+  if (!_supabase) return;
+  const today = todayStr();
+
+  // Find all undone, non-calendar tasks from BEFORE today
+  const { data: overdue } = await _supabase.from('tasks').select('*')
+    .eq('done', false).eq('is_cal_event', false).lt('date', today);
+
+  if (!overdue || !overdue.length) return;
+
   for (const t of overdue) {
-    if (t.date < todayStr()) {
-      await dbUpdate(t.id, { date: todayStr(), rollover_count: (t.rollover_count || 0) + 1 });
-    }
+    // Increment rollover_count but leave date as-is — they naturally surface
+    // in Suggestions (which queries date < today). User explicitly moves them
+    // to today via the "+ Today" button rather than auto-bumping them.
+    await dbUpdate(t.id, { rollover_count: (t.rollover_count || 0) + 1 });
   }
 }
+
 function scheduleMidnight() {
   const now  = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 10);
-  setTimeout(async () => { await runRollover(); await loadAll(); scheduleMidnight(); }, next - now);
+  setTimeout(async () => {
+    // At midnight: increment rollover counts, reload everything
+    // Uncompleted tasks from yesterday now appear in Suggestions automatically
+    // (Suggestions queries date < today, so they surface without any date bump)
+    await runRollover();
+    await loadAll();
+    scheduleMidnight();
+  }, next - now);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1624,36 +1641,69 @@ async function addPlanItem(idx) {
   const item = _lastPlan.items[idx];
   const today = todayStr();
 
-  // Check if a task with this exact title already exists for TODAY
-  const { data: existing } = await _supabase.from('tasks').select('id,title,start_time,end_time')
-    .eq('date', today).ilike('title', item.title.trim());
-
-  if (existing && existing.length > 0) {
-    // Task already on today's list — update its time if AI gave one, don't duplicate
-    const existingTask = existing[0];
-    const updates = {};
-    if (item.start && item.start !== existingTask.start_time) updates.start_time = item.start;
-    if (item.end   && item.end   !== existingTask.end_time)   updates.end_time   = item.end;
-    if (Object.keys(updates).length) {
-      await dbUpdate(existingTask.id, updates);
-      showToast(`"${item.title}" time updated`);
-    } else {
-      showToast(`"${item.title}" already on today\'s list`);
-    }
-  } else {
-    // Not on today's list — insert fresh (even if it existed on a prior day)
-    await dbInsert({
-      title: item.title, date: today,
-      start_time: item.start || null, end_time: item.end || null,
-      tag: item.tag || 'admin', location: item.location || null,
-      source: 'manual', done: false, rollover_count: 0
-    });
-    showToast(`"${item.title}" added`);
-  }
-
+  // Mark added immediately so button state updates right away
   _lastPlan.items[idx]._added = true;
   renderPlanOutput(JSON.stringify(_lastPlan));
-  await renderTaskList();
+
+  try {
+    // Check for a same-title task already on today's list
+    // Use eq (exact) not ilike to avoid Supabase filter compatibility issues
+    const { data: existing, error: checkErr } = await _supabase
+      .from('tasks').select('id,start_time,end_time')
+      .eq('date', today)
+      .eq('title', item.title.trim());
+
+    if (checkErr) {
+      // If duplicate check fails, just try to insert anyway
+      console.warn('addPlanItem duplicate check failed:', checkErr.message);
+    }
+
+    if (!checkErr && existing && existing.length > 0) {
+      // Already on today's list — update time only if AI gave a new one
+      const ex = existing[0];
+      const updates = {};
+      if (item.start && item.start !== ex.start_time) updates.start_time = item.start;
+      if (item.end   && item.end   !== ex.end_time)   updates.end_time   = item.end;
+      if (Object.keys(updates).length) {
+        await dbUpdate(ex.id, updates);
+        showToast(`"${item.title}" — time updated`);
+      } else {
+        showToast(`"${item.title}" already on today's list`);
+      }
+    } else {
+      // Insert as a new task — use upsert so duplicate IDs never cause a hard failure
+      const newTask = {
+        title:        item.title.trim(),
+        date:         today,
+        start_time:   item.start  || null,
+        end_time:     item.end    || null,
+        tag:          item.tag    || 'errands',
+        location:     item.location || null,
+        source:       'manual',
+        done:         false,
+        rollover_count: 0,
+        starred:      false
+      };
+      const { error: insertErr } = await _supabase.from('tasks').insert(newTask);
+      if (insertErr) {
+        console.error('addPlanItem insert error:', insertErr);
+        showToast('Could not add task: ' + insertErr.message);
+        // Un-mark as added so user can try again
+        _lastPlan.items[idx]._added = false;
+        renderPlanOutput(JSON.stringify(_lastPlan));
+        return;
+      }
+      showToast(`"${item.title}" added to today`);
+    }
+
+    await renderTaskList();
+
+  } catch(e) {
+    console.error('addPlanItem exception:', e);
+    showToast('Error adding task — try again');
+    _lastPlan.items[idx]._added = false;
+    renderPlanOutput(JSON.stringify(_lastPlan));
+  }
 }
 
 async function sendChat() {
