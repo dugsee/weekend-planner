@@ -143,8 +143,8 @@
     .task-time{font-size:12px;color:var(--text3);font-family:var(--font-cond);font-weight:500;}
     .task-loc{font-size:12px;color:#3a7abf;}
     .tag{font-size:10px;padding:2px 7px;border-radius:99px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.05em;text-transform:uppercase;}
-    .tag-errands{background:#e4effa;color:#1a5fa5;}.tag-home{background:#faeeda;color:#854f0b;}.tag-health{background:#e8f3de;color:#3b6d11;}.tag-admin{background:#eeedfe;color:#3c3489;}.tag-cal{background:#fff3cc;color:#7a5800;}.tag-email{background:#e4effa;color:#1a5fa5;}
-    @media(prefers-color-scheme:dark){.tag-errands,.tag-email{background:#0f2a4a;color:#7ab8f0;}.tag-home,.tag-cal{background:#3d2800;color:#FFC200;}.tag-health{background:#0d2a0d;color:#7ad87a;}.tag-admin{background:#1a1a40;color:#b0aaff;}}
+    .tag-errands{background:#e4effa;color:#1a5fa5;}.tag-home{background:#faeeda;color:#854f0b;}.tag-health{background:#e8f3de;color:#3b6d11;}.tag-admin{background:#eeedfe;color:#3c3489;}.tag-work{background:#fde8f0;color:#8b1a4a;}.tag-social{background:#e8f5e9;color:#1b5e20;}.tag-cal{background:#fff3cc;color:#7a5800;}.tag-email{background:#e4effa;color:#1a5fa5;}
+    @media(prefers-color-scheme:dark){.tag-errands,.tag-email{background:#0f2a4a;color:#7ab8f0;}.tag-home,.tag-cal{background:#3d2800;color:#FFC200;}.tag-health{background:#0d2a0d;color:#7ad87a;}.tag-admin{background:#1a1a40;color:#b0aaff;}.tag-work{background:#3d0020;color:#f48fb1;}.tag-social{background:#0d2a0d;color:#a5d6a7;}}
     .task-star{background:none;border:none;color:var(--border2);font-size:16px;cursor:pointer;flex-shrink:0;padding:0 2px;transition:color 0.12s;}
     .task-star:hover,.task-star.starred{color:var(--gold-dk);}
     .task-edit-btn{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:background 0.12s;}
@@ -372,7 +372,7 @@
         <input type="time" class="qa-input qa-time" id="qa-start"/>
         <span style="font-size:13px;color:var(--text3);">to</span>
         <input type="time" class="qa-input qa-time" id="qa-end"/>
-        <select class="qa-sel" id="qa-tag"><option>errands</option><option>home</option><option>health</option><option>admin</option></select>
+        <select class="qa-sel" id="qa-tag"><option>errands</option><option>home</option><option>health</option><option>admin</option><option>work</option><option>social</option></select>
         <input type="date" class="qa-input" id="qa-date" style="flex:none;width:130px;" title="Leave blank for today"/>
       </div>
       <div class="qa-row" style="justify-content:flex-end;gap:8px;">
@@ -424,7 +424,7 @@
       <input type="time" id="edit-start"/>
       <span style="font-size:13px;color:var(--text3);">to</span>
       <input type="time" id="edit-end"/>
-      <select id="edit-tag"><option>errands</option><option>home</option><option>health</option><option>admin</option></select>
+      <select id="edit-tag"><option>errands</option><option>home</option><option>health</option><option>admin</option><option>work</option><option>social</option></select>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" style="color:#a32d2d;border-color:#e24b4a;" onclick="deleteEditTask()">Delete</button>
@@ -1527,21 +1527,38 @@ async function fetchInboxTasks() {
 // ═══════════════════════════════════════════════════════════
 // AI PLANNING
 // ═══════════════════════════════════════════════════════════
-function buildSystemPrompt(mode = 'chat') {
-  const base = `You are a personal concierge and weekend day planner for someone in Seattle, WA.
-ABOUT THIS PERSON:
-- Home: ${profile.address || DEFAULT_PROFILE.address}
-- Common destinations: ${profile.destinations || DEFAULT_PROFILE.destinations}
-- Household: ${profile.family || DEFAULT_PROFILE.family}
-- Weekend routine: ${profile.routine || DEFAULT_PROFILE.routine}
-- Energy level: ${profile.energy || DEFAULT_PROFILE.energy}
-- Other context: ${profile.other || DEFAULT_PROFILE.other}
-KNOWN LOCATIONS: Home Depot 1335 N Northgate Way (10 min); Mom at Parkshore 1630 43rd Ave E Madison Park (15 min); Grocery: QFC 65th or TJs Roosevelt.
-RULES: start/end in HH:MM 24h. Only schedule AFTER current local time. Include lunch if day spans noon. Group tasks geographically.`;
-  if (mode === 'json')  return base + '\n\nRespond ONLY in this JSON: {"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
-  if (mode === 'dump')  return base + '\n\nParse brain dump into tasks. Respond ONLY in this JSON: {"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
-  if (mode === 'email') return base + '\n\nExtract tasks from forwarded emails. Respond ONLY in this JSON: {"warning":null,"items":[{"time":"10:00 am – 11:00 am","title":"","location":"","reason":"From: [subject].","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
-  return base + '\n\nRespond with short bullet points (• ). Never JSON.';
+function buildSystemPrompt(mode) {
+  mode = mode || 'chat';
+  var p = profile || {};
+  var d = DEFAULT_PROFILE;
+  var baseLines = [
+    'You are a personal task planner and concierge for someone in Seattle, WA.',
+    'You help plan tasks for ANY day of the week — Monday through Sunday.',
+    'NEVER filter, warn about, or deprioritise tasks based on the day of week.',
+    'Weekdays (Mon-Fri) are equally valid as weekends. Do not add warnings like "this is not a weekend task".',
+    'ABOUT THIS PERSON:',
+    '- Home: ' + (p.address || d.address),
+    '- Common destinations: ' + (p.destinations || d.destinations),
+    '- Household: ' + (p.family || d.family),
+    '- Daily routine: ' + (p.routine || d.routine),
+    '- Energy level: ' + (p.energy || d.energy),
+    '- Other context: ' + (p.other || d.other),
+    'KNOWN LOCATIONS: Home Depot 1335 N Northgate Way (10 min); Mom at Parkshore 1630 43rd Ave E Madison Park (15 min); Grocery: QFC 65th or TJs Roosevelt.',
+    'RULES:',
+    '- start/end times in HH:MM 24h format.',
+    '- Only schedule tasks AFTER current local time.',
+    '- Include lunch if the day spans noon.',
+    '- Group tasks geographically where possible.',
+    '- TAGS: use ONLY one of these exact tag values (no others): errands, home, health, admin, work, social',
+    '  errands=shopping/pickups/outside appointments, home=tasks at home, health=medical/exercise/wellness,',
+    '  admin=paperwork/calls/finances, work=job-related tasks, social=meetups/events/meals with others'
+  ];
+  var base = baseLines.join('\n');
+  var schema = '{"warning":null,"items":[{"time":"10:00 am - 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
+  if (mode === 'json')  return base + '\n\nRe-optimise the open tasks. Respond ONLY in this JSON:\n' + schema;
+  if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema;
+  if (mode === 'email') return base + '\n\nExtract tasks from the forwarded emails. Use tag social for social events, work for work items. Respond ONLY in this JSON:\n' + schema.replace('"reason":""', '"reason":"From: [subject]."');
+  return base + '\n\nRespond with short bullet points. Never use JSON format.';
 }
 
 function currentTimeContext() {
@@ -1636,6 +1653,24 @@ function dismissPlanWarning() {
   if (w) { w.style.opacity = '0'; w.style.transition = 'opacity 0.2s'; setTimeout(() => w.remove(), 220); }
 }
 
+// Sanitize AI-returned tag to valid DB values
+function sanitizeTag(tag) {
+  const valid = ['errands','home','health','admin','work','social'];
+  const t = (tag || '').toLowerCase().trim();
+  if (valid.includes(t)) return t;
+  // Map common AI alternatives
+  const map = {
+    'shopping':'errands', 'appointment':'errands', 'errand':'errands',
+    'house':'home', 'chores':'home', 'household':'home',
+    'medical':'health', 'fitness':'health', 'exercise':'health', 'wellness':'health',
+    'finance':'admin', 'paperwork':'admin', 'administrative':'admin', 'business':'admin',
+    'work':'work', 'job':'work', 'professional':'work', 'meeting':'work',
+    'social':'social', 'event':'social', 'leisure':'social', 'personal':'social',
+    'fun':'social', 'recreation':'social', 'entertainment':'social'
+  };
+  return map[t] || 'errands';
+}
+
 async function addPlanItem(idx) {
   if (!_lastPlan?.items[idx]) return;
   const item = _lastPlan.items[idx];
@@ -1677,7 +1712,7 @@ async function addPlanItem(idx) {
         date:         today,
         start_time:   item.start  || null,
         end_time:     item.end    || null,
-        tag:          item.tag    || 'errands',
+        tag:          sanitizeTag(item.tag),
         location:     item.location || null,
         source:       'manual',
         done:         false,
