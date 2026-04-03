@@ -113,7 +113,8 @@
     .btn-add-plan:hover{background:var(--gold);color:var(--green-dk);}
 
     /* Chat */
-    .chat-msgs{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;margin-bottom:10px;}
+    .chat-msgs{display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;margin-bottom:4px;}
+    .chat-msgs:empty{display:none;margin:0;}
     .chat-msg{font-size:13px;line-height:1.6;padding:8px 12px;border-radius:var(--radius);}
     .chat-msg.user{background:var(--bg2);color:var(--text);align-self:flex-end;max-width:85%;border-bottom-right-radius:3px;}
     .chat-msg.ai{background:#eeedfe;color:#26215c;align-self:flex-start;max-width:92%;border-bottom-left-radius:3px;}
@@ -257,6 +258,7 @@
     .mob-item{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 10px;border-radius:var(--radius);color:var(--text3);font-size:10px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.05em;text-transform:uppercase;transition:color 0.12s;}
     .mob-item.active{color:var(--green);}
     .mob-item .micon{font-size:20px;}
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
     ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
   </style>
 </head>
@@ -343,12 +345,12 @@
         <button class="ai-btn ai-btn-gold" id="organize-btn" onclick="organizeDump()">✏ Organize</button>
       </div>
     </div>
-    <div class="plan-output" id="plan-output"></div>
     <div class="chat-msgs" id="chat-msgs"></div>
     <div class="chat-row">
       <input type="text" class="chat-input" id="chat-input" placeholder="Ask your concierge anything…" onkeydown="if(event.key==='Enter')sendChat()"/>
       <button class="btn btn-ghost" onclick="sendChat()">Send</button>
     </div>
+    <div class="plan-output" id="plan-output"></div>
 
     <div class="sec-label" id="cal-section-label" style="display:none;">📅 From Google Calendar</div>
     <div id="cal-strips"></div>
@@ -459,12 +461,12 @@
   <div class="s-label">Gmail → Tasks</div>
   <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;font-size:13px;color:var(--text2);line-height:1.6;">
     <strong style="color:var(--text);">How to forward emails as tasks:</strong><br/>
-    1. Forward any email to <strong style="color:var(--green);">cottingtondouglas+tasks@gmail.com</strong><br/>
+    1. Forward any email to <strong style="color:var(--green);"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d7b4b8a3a3beb9b0a3b8b9b3b8a2b0bbb6a4fca3b6a4bca497b0bab6bebbf9b4b8ba">[email&#160;protected]</a></strong><br/>
     2. Gmail auto-applies the "Weekend Planner" label via your filter rule<br/>
     3. Tap ✉ in the top bar to import<br/><br/>
     <strong style="color:var(--text);">Filter rule must use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px;">to:</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px;">from:</code></strong><br/>
     In Gmail Settings → Filters → edit your rule so the search box reads:<br/>
-    <code style="background:var(--bg3);padding:3px 6px;border-radius:3px;display:inline-block;margin-top:4px;">to:(cottingtondouglas+tasks@gmail.com)</code>
+    <code style="background:var(--bg3);padding:3px 6px;border-radius:3px;display:inline-block;margin-top:4px;">to:(<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="5d3e32292934333a2932333932283a313c2e76293c2e362e1d3a303c3431733e3230">[email&#160;protected]</a>)</code>
   </div>
 
   <div class="s-label">Profile &amp; Preferences</div>
@@ -492,7 +494,7 @@
   </div>
 </aside>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ═══════════════════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════════════════
@@ -1377,12 +1379,13 @@ async function fetchInboxTasks() {
     if (labelsData.error) {
       const code = labelsData.error.code;
       if (code === 401 || code === 403) { resetBtn(); showReconnectBanner(); return; }
-      addChatMsg('ai', 'Gmail error: ' + labelsData.error.message);
+      document.getElementById('plan-output').innerHTML = `<div style="background:#fce4e4;border:1px solid #e24b4a;border-radius:var(--radius);padding:12px 14px;font-size:13px;color:#791f1f;">Gmail error: ${escHtml(labelsData.error.message)}</div>`;
       resetBtn(); return;
     }
     const label = labelsData.labels.find(l => l.name === 'Weekend Planner');
     if (!label) {
-      addChatMsg('ai', '⚠ No "Weekend Planner" label found in Gmail.\n\nTo fix: In Gmail, go to Settings → Labels → Create new label called "Weekend Planner". Your filter rule will then apply it automatically to forwarded emails.');
+      document.getElementById('plan-output').innerHTML = '<div style="background:#fce4e4;border:1px solid #e24b4a;border-radius:var(--radius);padding:12px 14px;font-size:13px;color:#791f1f;line-height:1.6;">⚠ No "Weekend Planner" label found in Gmail.<br/><br/>In Gmail: Settings → Labels → Create new label called <strong>Weekend Planner</strong>. Your filter rule will then apply it automatically.</div>';
+      document.getElementById('plan-output').scrollIntoView({ behavior: 'smooth', block: 'start' });
       resetBtn(); return;
     }
 
@@ -1396,8 +1399,8 @@ async function fetchInboxTasks() {
     const messages = listData.messages || [];
 
     if (!messages.length) {
-      // Helpful diagnostic — check if the label exists but just has no messages
-      addChatMsg('ai', '📭 No emails found with the "Weekend Planner" label.\n\nTo send tasks by email:\n• Forward any email to yourself at cottingtondouglas@gmail.com\n• Your Gmail filter will automatically apply the "Weekend Planner" label\n• Tap ✉ again and the app will pick it up\n\nNote: The filter matches emails sent TO your +tasks alias — make sure you are forwarding TO cottingtondouglas+tasks@gmail.com (not from it).');
+      document.getElementById('plan-output').innerHTML = '<div style="background:var(--gold-bg);border:1px solid rgba(255,194,0,0.4);border-radius:var(--radius);padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.7;">📭 <strong>No emails with the "Weekend Planner" label found.</strong><br/><br/>To send a task by email:<br/>1. Forward any email to <strong>cottingtondouglas+tasks@gmail.com</strong><br/>2. Your Gmail filter auto-applies the Weekend Planner label<br/>3. Tap ✉ again to import<br/><br/><em>Make sure your Gmail filter uses <strong>to:</strong> not <strong>from:</strong></em></div>';
+      document.getElementById('plan-output').scrollIntoView({ behavior: 'smooth', block: 'start' });
       resetBtn(); return;
     }
 
@@ -1452,18 +1455,53 @@ async function fetchInboxTasks() {
     }
 
     if (!emailTexts.length) {
-      addChatMsg('ai', 'Found emails but could not read their content. Try again.');
+      document.getElementById('plan-output').innerHTML = '<div style="font-size:13px;color:var(--text3);padding:8px 0;">Found emails but could not read their content. Try again.</div>';
       resetBtn(); return;
     }
 
-    // Step 4: send to AI for task extraction
-    addChatMsg('ai', `Reading ${emailTexts.length} email${emailTexts.length > 1 ? 's' : ''}…`);
+    // Step 4: show email previews immediately while AI processes in background
+    // This keeps the UI interactive — user sees what was found right away
+    document.getElementById('chat-msgs').innerHTML = '';
+    const planOut = document.getElementById('plan-output');
+
+    // Parse email subjects for the preview
+    const previews = emailTexts.map(txt => {
+      const subjectLine = txt.match(/Subject: (.+)/)?.[1] || '(email)';
+      const fromLine    = txt.match(/From: (.+)/)?.[1] || '';
+      // Shorten from field to just the name part
+      const fromName = fromLine.replace(/<[^>]+>/, '').replace(/"/g, '').trim().slice(0, 40);
+      return { subject: subjectLine.slice(0, 60), from: fromName };
+    });
+
+    planOut.innerHTML = `
+      <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:4px;">
+        <div style="background:var(--green);color:white;padding:8px 14px;font-size:11px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;display:flex;align-items:center;gap:8px;">
+          <span style="animation:spin 1s linear infinite;display:inline-block;">⏳</span>
+          Extracting tasks from ${previews.length} email${previews.length > 1 ? 's' : ''}…
+        </div>
+        ${previews.map(p => `
+          <div style="padding:8px 14px;border-top:1px solid var(--border);background:var(--bg);">
+            <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(p.subject)}</div>
+            ${p.from ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${escHtml(p.from)}</div>` : ''}
+          </div>`).join('')}
+      </div>`;
+
+    // Scroll plan-output into view so user can see it
+    planOut.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Now call AI — plan-output is already showing useful info while we wait
     const reply = await callAI('Today is ' + currentTimeContext() + '.\n\n' + emailTexts.join('\n\n'), 'email');
-    if (reply) renderPlanOutput(reply);
+    if (reply) {
+      renderPlanOutput(reply);
+      // Auto-scroll to the results
+      planOut.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      planOut.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:8px 0;">Could not extract tasks from emails. Try again.</div>';
+    }
     document.getElementById('inbox-badge').style.display = 'none';
 
   } catch(e) {
-    addChatMsg('ai', 'Could not read Gmail: ' + (e.message || e));
+    document.getElementById('plan-output').innerHTML = `<div style="background:#fce4e4;border:1px solid #e24b4a;border-radius:var(--radius);padding:12px 14px;font-size:13px;color:#791f1f;">Could not read Gmail: ${escHtml(String(e.message || e))}</div>`;
     console.error('fetchInboxTasks error:', e);
   }
   resetBtn();
@@ -1540,6 +1578,11 @@ function renderPlanOutput(jsonStr) {
   let plan;
   try { plan = JSON.parse(jsonStr.replace(/```json|```/g, '').trim()); }
   catch(e) { out.innerHTML = ''; addChatMsg('ai', jsonStr); return; }
+
+  // Clear stale chat bubbles so they don't push plan items off screen
+  const chatMsgs = document.getElementById('chat-msgs');
+  if (chatMsgs) chatMsgs.innerHTML = '';
+
   let html = '';
   if (plan.warning && !plan._warnDismissed) {
     html += `<div class="plan-warning"><span>⚠ ${escHtml(plan.warning)}</span><button onclick="dismissPlanWarning()" style="background:none;border:none;cursor:pointer;color:#a32d2d;font-size:16px;flex-shrink:0;">✕</button></div>`;
@@ -1559,6 +1602,9 @@ function renderPlanOutput(jsonStr) {
       </div>`;
     });
     html += '</div>';
+  }
+  if (html && html.includes('plan-item')) {
+    html += '<div style="text-align:right;margin-top:4px;"><button onclick="document.getElementById('plan-output').innerHTML=''" style="background:none;border:none;font-size:11px;color:var(--text3);cursor:pointer;font-family:var(--font-cond);letter-spacing:0.04em;padding:4px 0;">✕ clear results</button></div>';
   }
   out.innerHTML = html; _lastPlan = plan;
 }
@@ -1616,21 +1662,29 @@ async function sendChat() {
 
 async function callAI(userMessage, mode = 'chat') {
   if (!anthropicKey) { addChatMsg('ai', 'Add your Anthropic API key in Settings ⚙.'); return null; }
-  const thinking = addChatMsg('ai', 'Thinking…', true);
+  // For email/json/dump modes that render to plan-output, skip the chat thinking bubble
+  const usesChatBubble = (mode === 'chat');
+  const thinking = usesChatBubble ? addChatMsg('ai', 'Thinking…', true) : null;
   try {
     const messages = [...chatHistory, { role: 'user', content: userMessage }];
     const res  = await fetch(ANTHROPIC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: 1800, system: buildSystemPrompt(mode), messages }) });
     const data = await res.json();
     if (thinking) thinking.remove();
-    if (data.error) { addChatMsg('ai', 'API error: ' + data.error.message); return null; }
+    if (data.error) {
+      if (usesChatBubble) addChatMsg('ai', 'API error: ' + data.error.message);
+      return null;
+    }
     const reply = data.content?.[0]?.text || '';
-    chatHistory.push({ role: 'user', content: userMessage }, { role: 'assistant', content: reply });
-    if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
-    try { localStorage.setItem(KEYS.chatHistory, JSON.stringify(chatHistory)); } catch(e) {}
+    // Only add to chat history in chat mode — not for email/organize/replan
+    if (usesChatBubble) {
+      chatHistory.push({ role: 'user', content: userMessage }, { role: 'assistant', content: reply });
+      if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+      try { localStorage.setItem(KEYS.chatHistory, JSON.stringify(chatHistory)); } catch(e) {}
+    }
     return reply;
   } catch(e) {
     if (thinking) thinking.remove();
-    addChatMsg('ai', 'Network error — check your connection.');
+    if (usesChatBubble) addChatMsg('ai', 'Network error — check your connection.');
     return null;
   }
 }
@@ -1805,11 +1859,10 @@ function showToast(msg) {
   };
   script.onerror = function() {
     document.getElementById('setup-screen').style.display = 'flex';
-    document.getElementById('setup-status').textContent  = 'Could not load Supabase library (CDN blocked or offline). Check your internet connection and refresh.';
+    document.getElementById('setup-status').textContent  = 'Could not load Supabase library. Check your internet connection and refresh.';
     document.getElementById('setup-status').className    = 'setup-status err';
   };
   document.head.appendChild(script);
-})();
 </script>
 </body>
 </html>
