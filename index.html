@@ -260,6 +260,26 @@
     .mob-item .micon{font-size:20px;}
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
     ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+
+    /* ── Achievement Badges ── */
+    .badge-toast{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:none;animation:badge-fade 4.5s ease forwards;}
+    @keyframes badge-fade{0%{opacity:0;transform:scale(0.7)}10%{opacity:1;transform:scale(1.05)}15%{transform:scale(1)}85%{opacity:1}100%{opacity:0;transform:scale(0.95)}}
+    .badge-card{background:var(--green-dk);border:3px solid var(--gold);border-radius:16px;padding:20px 24px;max-width:320px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.5),0 0 0 1px rgba(255,194,0,0.3);pointer-events:none;}
+    .badge-card-unlocked{font-family:var(--font-cond);font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;}
+    .badge-card-svg{width:140px;height:140px;margin:0 auto 12px;}
+    .badge-card-name{font-family:var(--font-display);font-size:22px;color:white;line-height:1.1;margin-bottom:8px;letter-spacing:0.04em;}
+    .badge-card-desc{font-family:var(--font-cond);font-size:13px;color:rgba(255,255,255,0.8);line-height:1.5;}
+    .badge-card-tier{display:inline-block;margin-top:10px;font-family:var(--font-cond);font-size:10px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;padding:3px 12px;border-radius:99px;}
+    .badge-tier-bronze{background:#cd7f32;color:white;}
+    .badge-tier-silver{background:#c0c0c0;color:#333;}
+    .badge-tier-gold{background:var(--gold);color:var(--green-dk);}
+    .badge-tier-chaos{background:linear-gradient(135deg,#ff6b35,#f7c59f,#efefd0,#004e89);color:white;text-shadow:0 1px 2px rgba(0,0,0,0.5);}
+    /* Badge shelf in settings */
+    .badge-shelf{display:flex;flex-wrap:wrap;gap:10px;padding:4px 0;}
+    .badge-shelf-item{display:flex;flex-direction:column;align-items:center;gap:4px;width:64px;cursor:pointer;}
+    .badge-shelf-item svg{width:56px;height:56px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));}
+    .badge-shelf-item-name{font-family:var(--font-cond);font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text3);text-align:center;line-height:1.2;}
+    .badge-shelf-empty{font-size:13px;color:var(--text3);font-family:var(--font-cond);}
   </style>
 </head>
 <body>
@@ -475,6 +495,10 @@
     <button class="btn btn-green" onclick="saveProfile()">Save Profile</button>
   </div>
 
+  <div class="s-label">Achievements</div>
+  <div class="badge-shelf" id="badge-shelf">
+    <div class="badge-shelf-empty">No badges yet — start completing tasks!</div>
+  </div>
   <div class="s-label">Maintenance</div>
   <div class="conn-row" style="align-items:flex-start;flex-direction:column;gap:4px;padding:10px 0;">
     <div style="display:flex;align-items:center;width:100%;gap:10px;">
@@ -509,6 +533,7 @@ const KEYS = {
   anthropicKey:'wp_ai_key', profile:'wp_profile_v1',
   weather:'wp_weather', chatHistory:'wp_chat_v1',
   soundEnabled:'wp_sound', calCache:'wp_cal_all',
+  badges:'wp_badges_v1',
 };
 const DEFAULT_PROFILE = {
   address:      'Bryant neighborhood, Seattle 98115 (near Ravenna and Wedgewood)',
@@ -983,7 +1008,11 @@ async function toggleTask(id) {
   if (!data) return;
   const newDone = !data.done;
   await dbUpdate(id, { done: newDone, done_at: newDone ? new Date().toISOString() : null });
-  if (newDone) { primeAudio(); playSound(data.tag || 'admin'); }
+  if (newDone) {
+    primeAudio(); playSound(data.tag || 'admin');
+    // Check for achievement badges — runs async, doesn't block UI
+    setTimeout(() => checkAchievements(), 800);
+  }
   await renderTaskList();
   await renderPlanned();
 }
@@ -1802,7 +1831,7 @@ function addChatMsg(role, text, isThinking = false) {
 // SETTINGS
 // ═══════════════════════════════════════════════════════════
 function openSettings() {
-  renderSettingsRows(); buildProfileFields();
+  renderSettingsRows(); buildProfileFields(); renderBadgeShelf();
   document.getElementById('settings-drawer').classList.add('open');
   document.getElementById('settings-bd').classList.add('open');
 }
@@ -1922,6 +1951,248 @@ function showToast(msg) {
   t.textContent = msg; t.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// ACHIEVEMENT ENGINE — 1970s Seattle SuperSonics style
+// ═══════════════════════════════════════════════════════════
+
+function loadBadges() {
+  try { return JSON.parse(localStorage.getItem(KEYS.badges) || '[]'); } catch(e) { return []; }
+}
+function saveBadges(badges) {
+  try { localStorage.setItem(KEYS.badges, JSON.stringify(badges)); } catch(e) {}
+}
+
+async function gatherStats() {
+  if (!_supabase) return null;
+  const today = todayStr();
+  const { data: all } = await _supabase.from('tasks').select('title,date,done,done_at,tag,rollover_count');
+  if (!all) return null;
+
+  const done = all.filter(t => t.done);
+  const todayDone = done.filter(t => t.done_at && t.done_at.slice(0,10) === today);
+
+  // Category counts
+  const catCounts = {};
+  done.forEach(t => { const tag = t.tag || 'errands'; catCounts[tag] = (catCounts[tag]||0) + 1; });
+  const topCat = Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'errands';
+
+  // Week tasks (last 7 days)
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const weekStr = weekAgo.toISOString().slice(0,10);
+  const weekDone = done.filter(t => t.done_at && t.done_at.slice(0,10) >= weekStr);
+
+  // Time of day
+  const timeSlots = { morning:0, afternoon:0, evening:0 };
+  done.forEach(t => {
+    if (!t.done_at) return;
+    const h = new Date(t.done_at).getHours();
+    if (h < 12) timeSlots.morning++;
+    else if (h < 17) timeSlots.afternoon++;
+    else timeSlots.evening++;
+  });
+
+  // Streak (consecutive days with at least 1 task done)
+  const doneDays = [...new Set(done.map(t => t.done_at?.slice(0,10)).filter(Boolean))].sort();
+  let streak = 0, longestStreak = 0, cur = 0;
+  for (let i = 0; i < doneDays.length; i++) {
+    if (i === 0) { cur = 1; }
+    else {
+      const prev = new Date(doneDays[i-1]); prev.setDate(prev.getDate()+1);
+      cur = prev.toISOString().slice(0,10) === doneDays[i] ? cur+1 : 1;
+    }
+    longestStreak = Math.max(longestStreak, cur);
+  }
+  // Current streak ends today or yesterday
+  const lastDay = doneDays[doneDays.length-1];
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+  if (lastDay === today || lastDay === yesterday.toISOString().slice(0,10)) streak = cur;
+
+  return {
+    tasks_completed_today:    todayDone.length,
+    current_streak_days:      streak,
+    longest_streak_ever:      longestStreak,
+    all_time_tasks_completed: done.length,
+    category_counts:          catCounts,
+    top_category:             topCat,
+    tasks_completed_this_week:weekDone.length,
+    time_of_day_completions:  timeSlots,
+    badges_already_earned:    loadBadges().map(b => b.badge_id)
+  };
+}
+
+const BADGE_SYSTEM_PROMPT = `You are the achievement engine for a personal productivity app themed around the 1970s Seattle SuperSonics basketball team. Think gold and green, afros, short shorts, funky typography, and arena energy. Your badges should feel like they came from a novelty gift shop in the Kingdome basement in 1977.
+Your humor style: badges use innuendo and absurdist visual comedy — suggestive but never explicit. Think juggy trophy wives in SuperSonics gear, suspiciously shaped trophies, rockets that look like something else, tall players with prominent features, locker room comedy. Keep it in the spirit of a 1970s arena novelty item — cheeky, not crude.
+BADGE TRIGGERS — evaluate ALL of these and award if any threshold is newly crossed:
+- Streak milestones: 3, 7, 14, 21, 30, 50, 100 consecutive days
+- All-time task milestones: 1, 5, 10, 25, 50, 100, 250, 500 tasks
+- Single-day bursts: 3, 5, 10 tasks in one day
+- Category dominance: 10, 25, 50 tasks in a single category
+- Weekly heroics: 15+ tasks in one week
+- Time-of-day patterns: 20+ tasks predominantly morning, afternoon, or evening
+- Easter egg / surprise badges: award unpredictably based on unusual stat combinations
+RULES:
+1. Do NOT award any badge_id already in badges_already_earned
+2. If a badge should be awarded respond ONLY with valid JSON:
+{"award":true,"badge_id":"unique_snake_case_id","name":"badge name","description":"1-2 sentences. Use innuendo-laced 70s sports humor.","tier":"bronze|silver|gold|chaos","trigger_stat":"e.g. streak_7","svg_prompt":"Art direction for SVG. Green #00653A and gold #FFC200. Cheeky 70s cartoon style. Describe badge shape, central character or object, colors, text, decorative elements."}
+3. If no badge should be awarded: {"award":false}
+4. Surprise the user. Avoid predictable names. Make them laugh.`;
+
+async function checkAchievements() {
+  if (!anthropicKey) return;
+  const stats = await gatherStats();
+  if (!stats) return;
+
+  try {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: 800,
+        system: BADGE_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: JSON.stringify(stats) }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    let badge;
+    try { badge = JSON.parse(text.replace(/```json|```/g,'').trim()); } catch(e) { return; }
+    if (!badge.award) return;
+
+    // Save badge
+    const earned = loadBadges();
+    if (earned.find(b => b.badge_id === badge.badge_id)) return; // already have it
+    earned.push({ ...badge, earned_at: new Date().toISOString() });
+    saveBadges(earned);
+
+    // Generate SVG for the badge
+    const svg = await generateBadgeSVG(badge);
+    badge._svg = svg;
+
+    // Show the award toast
+    showBadgeToast(badge);
+
+  } catch(e) { console.warn('Achievement check failed:', e); }
+}
+
+async function generateBadgeSVG(badge) {
+  // Build a styled SVG based on badge tier and name — 70s Sonics aesthetic
+  const tier = badge.tier || 'bronze';
+  const tierColors = {
+    bronze: { ring:'#cd7f32', inner:'#8b4513', glow:'rgba(205,127,50,0.4)' },
+    silver: { ring:'#a8a8a8', inner:'#606060', glow:'rgba(192,192,192,0.4)' },
+    gold:   { ring:'#FFC200', inner:'#c49200', glow:'rgba(255,194,0,0.5)'   },
+    chaos:  { ring:'#ff6b35', inner:'#8b0000', glow:'rgba(255,107,53,0.4)'  }
+  };
+  const tc = tierColors[tier] || tierColors.bronze;
+  const name = badge.name || '';
+  // Word-wrap name into 2 lines max
+  const words = name.split(' ');
+  let line1 = '', line2 = '';
+  for (const w of words) {
+    if ((line1 + ' ' + w).trim().length <= 14) line1 = (line1 + ' ' + w).trim();
+    else line2 = (line2 + ' ' + w).trim();
+  }
+  if (line2.length > 16) line2 = line2.slice(0,15) + '…';
+
+  // Pick a central icon based on trigger_stat or tier
+  const ts = badge.trigger_stat || '';
+  let emoji = '🏀';
+  if (ts.includes('streak'))   emoji = '🔥';
+  if (ts.includes('morning'))  emoji = '🌅';
+  if (ts.includes('afternoon'))emoji = '☀️';
+  if (ts.includes('evening'))  emoji = '🌙';
+  if (ts.includes('errands'))  emoji = '🛒';
+  if (ts.includes('health'))   emoji = '💪';
+  if (ts.includes('work'))     emoji = '💼';
+  if (ts.includes('social'))   emoji = '🍺';
+  if (ts.includes('home'))     emoji = '🏠';
+  if (ts.includes('admin'))    emoji = '📋';
+  if (tier === 'chaos')        emoji = '🪄';
+
+  return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg${tier}" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#00653A"/>
+      <stop offset="100%" stop-color="#003d22"/>
+    </radialGradient>
+    <filter id="glow${tier}">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Outer ring -->
+  <circle cx="60" cy="60" r="58" fill="${tc.ring}" opacity="0.9"/>
+  <!-- Inner bg -->
+  <circle cx="60" cy="60" r="52" fill="url(#bg${tier})"/>
+  <!-- Decorative ring -->
+  <circle cx="60" cy="60" r="48" fill="none" stroke="${tc.ring}" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.6"/>
+  <!-- Starburst rays -->
+  ${[0,30,60,90,120,150,180,210,240,270,300,330].map(a => {
+    const rad = a * Math.PI / 180;
+    const x1 = 60 + 36 * Math.cos(rad), y1 = 60 + 36 * Math.sin(rad);
+    const x2 = 60 + 46 * Math.cos(rad), y2 = 60 + 46 * Math.sin(rad);
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${tc.ring}" stroke-width="2" opacity="0.5"/>`;
+  }).join('')}
+  <!-- Central emoji -->
+  <text x="60" y="66" font-size="30" text-anchor="middle" dominant-baseline="middle">${emoji}</text>
+  <!-- Badge name line 1 -->
+  <text x="60" y="${line2 ? '88' : '91'}" font-family="Arial Black,Arial" font-size="${line1.length > 12 ? '7' : '8'}" font-weight="900" fill="#FFC200" text-anchor="middle" letter-spacing="0.5">${line1.toUpperCase()}</text>
+  ${line2 ? `<text x="60" y="97" font-family="Arial Black,Arial" font-size="${line2.length > 12 ? '7' : '8'}" font-weight="900" fill="#FFC200" text-anchor="middle" letter-spacing="0.5">${line2.toUpperCase()}</text>` : ''}
+  <!-- Bottom stars -->
+  <text x="60" y="110" font-size="8" text-anchor="middle" fill="${tc.ring}" opacity="0.8">★ ★ ★</text>
+</svg>`;
+}
+
+function showBadgeToast(badge) {
+  const existing = document.getElementById('badge-toast-el');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.id = 'badge-toast-el';
+  div.className = 'badge-toast';
+  div.innerHTML = `
+    <div class="badge-card">
+      <div class="badge-card-unlocked">🏆 Achievement Unlocked!</div>
+      <div class="badge-card-svg">${badge._svg || ''}</div>
+      <div class="badge-card-name">${escHtml(badge.name || '')}</div>
+      <div class="badge-card-desc">${escHtml(badge.description || '')}</div>
+      <span class="badge-card-tier badge-tier-${badge.tier || 'bronze'}">${(badge.tier||'bronze').toUpperCase()}</span>
+    </div>`;
+  document.body.appendChild(div);
+  setTimeout(() => { if (div.parentNode) div.remove(); }, 4500);
+}
+
+function renderBadgeShelf() {
+  const el = document.getElementById('badge-shelf');
+  if (!el) return;
+  const earned = loadBadges();
+  if (!earned.length) {
+    el.innerHTML = '<div class="badge-shelf-empty">No badges yet — start completing tasks!</div>';
+    return;
+  }
+  el.innerHTML = earned.slice().reverse().map(b => `
+    <div class="badge-shelf-item" title="${escHtml(b.description||'')}" onclick="showBadgeDetail('${escAttr(b.badge_id)}')">
+      <div>${b._svg || '<svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="28" fill="#004225"/><text x="30" y="35" text-anchor="middle" font-size="20">🏀</text></svg>'}</div>
+      <div class="badge-shelf-item-name">${escHtml((b.name||'').slice(0,18))}</div>
+    </div>`).join('');
+}
+
+function showBadgeDetail(badgeId) {
+  const badge = loadBadges().find(b => b.badge_id === badgeId);
+  if (!badge) return;
+  badge._svg = badge._svg || '';
+  showBadgeToast(badge);
+  const el = document.getElementById('badge-toast-el');
+  if (el) { el.style.animation = 'none'; el.style.opacity = '1'; el.style.pointerEvents = 'all'; el.onclick = () => el.remove(); }
 }
 
 // ═══════════════════════════════════════════════════════════
