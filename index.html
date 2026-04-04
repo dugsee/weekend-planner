@@ -2221,16 +2221,139 @@ function showBadgeToast(badge) {
   const div = document.createElement('div');
   div.id = 'badge-toast-el';
   div.className = 'badge-toast';
+  div.style.pointerEvents = 'all';
+
+  const canEmail = !!(accessToken && Date.now() < tokenExpiry);
+  const emailBtn = canEmail
+    ? `<button onclick="emailBadge(event)" style="margin-top:12px;background:#FFC200;color:#004225;border:none;border-radius:99px;padding:6px 18px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">✉ Email This Badge</button>`
+    : '';
+
   div.innerHTML = `
-    <div class="badge-card">
+    <div class="badge-card" style="pointer-events:all;">
       <div class="badge-card-unlocked">🏆 Achievement Unlocked!</div>
       <div class="badge-card-svg">${badge._svg || ''}</div>
       <div class="badge-card-name">${escHtml(badge.name || '')}</div>
       <div class="badge-card-desc">${escHtml(badge.description || '')}</div>
       <span class="badge-card-tier badge-tier-${badge.tier || 'bronze'}">${(badge.tier||'bronze').toUpperCase()}</span>
+      ${emailBtn}
+      <div style="margin-top:10px;font-family:var(--font-cond);font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;">Tap anywhere to dismiss</div>
     </div>`;
+
+  // Store badge ref for email function
+  div._badge = badge;
+  window._currentBadgeForEmail = badge;
+
+  div.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') return; // don't dismiss on button click
+    div.remove();
+  });
+
   document.body.appendChild(div);
-  setTimeout(() => { if (div.parentNode) div.remove(); }, 4500);
+  // Auto-dismiss after 8 seconds (longer to give time to tap email)
+  setTimeout(() => { if (div.parentNode) div.remove(); }, 8000);
+}
+
+async function emailBadge(e) {
+  e.stopPropagation();
+  const badge = window._currentBadgeForEmail;
+  if (!badge) return;
+  if (!accessToken || Date.now() > tokenExpiry) { showReconnectBanner(); return; }
+
+  const btn = e.target;
+  btn.textContent = 'Writing dispatch…';
+  btn.disabled = true;
+
+  try {
+    // Build stats summary for the email prompt
+    const stats = await gatherStats();
+    const statsSummary = stats
+      ? `${stats.all_time_tasks_completed} tasks completed all-time, ${stats.current_streak_days}-day streak, ${stats.tasks_completed_today} done today, top category: ${stats.top_category}`
+      : 'stats unavailable';
+
+    // Call AI for the email copy
+    const emailPrompt = `badge_name: ${badge.name}
+badge_description: ${badge.description}
+badge_tier: ${badge.tier}
+trigger_stat: ${badge.trigger_stat}
+badge_svg: [embedded SVG]
+user_stats_summary: ${statsSummary}`;
+
+    const emailSystemPrompt = `You are the official communications director for a fictional 1970s Seattle SuperSonics fan club that also manages productivity achievements. Write a short HTML email announcing a newly earned badge.
+WRITE:
+- An h2 headline that sounds like a 1970s sports announcer having the time of his life
+- A badge announcement with the badge name and description
+- 2 sentences of color commentary on the user stats, written like a broadcaster who has had two beers at halftime
+- A sign-off from a fictional 1970s SuperSonics character (make up a name — something like "Big Gus Fontaine, Arena Correspondent" or "Rhonda Spectacular, Statistician of the Hardwood")
+RULES: No html/head/body tags — inner content only. Under 250 words. Enthusiastic, slightly unhinged, arena-announcer energy. Reference Seattle or the Kingdome at least once. Respond with HTML only.`;
+
+    const res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 600, system: emailSystemPrompt, messages: [{ role:'user', content: emailPrompt }] })
+    });
+    const data = await res.json();
+    const emailBody = data.content?.[0]?.text || '';
+
+    if (!emailBody) { btn.textContent = 'Could not generate email'; return; }
+
+    // Build the full styled email HTML
+    const svgInline = (badge._svg || '').replace(/viewBox="0 0 400 400"/, 'viewBox="0 0 400 400" width="160" height="160"');
+    const tierColor = { bronze:'#cd7f32', silver:'#a8a8a8', gold:'#FFC200', chaos:'#39ff14' }[badge.tier] || '#FFC200';
+
+    const fullHtml = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#FFF8E7;border:3px solid #00653A;border-radius:8px;overflow:hidden;">
+<div style="background:#00653A;padding:18px 24px;text-align:center;border-bottom:4px solid #FFC200;">
+<div style="font-family:Arial Black,Arial;font-size:10px;font-weight:900;letter-spacing:4px;color:#FFC200;text-transform:uppercase;margin-bottom:6px;">Seattle SuperSonics Fan Club · Achievement Division</div>
+</div>
+<div style="padding:20px 24px;background:#fff;text-align:center;">
+<div style="margin:0 auto 14px;width:160px;height:160px;">${svgInline}</div>
+<div style="display:inline-block;background:#00653A;color:#FFC200;font-family:Arial Black,Arial;font-size:16px;font-weight:900;letter-spacing:2px;padding:5px 18px;border-radius:4px;margin-bottom:8px;text-transform:uppercase;">${badge.name}</div>
+<div style="margin-bottom:10px;"><span style="background:${tierColor};color:#003d1e;font-family:Arial Black;font-size:10px;font-weight:900;letter-spacing:3px;padding:3px 12px;border-radius:99px;text-transform:uppercase;">${(badge.tier||'bronze').toUpperCase()} TIER</span></div>
+</div>
+<div style="background:#00653A;padding:16px 24px;border-top:2px solid #FFC200;border-bottom:2px solid #FFC200;">
+${emailBody}
+</div>
+<div style="background:#003d1e;padding:10px 24px;text-align:center;">
+<div style="font-family:Arial,sans-serif;font-size:10px;color:#FFC200;letter-spacing:2px;opacity:0.7;text-transform:uppercase;">Official Dispatch · Kingdome Basement Suite 7 · Seattle, WA 98104</div>
+</div></div>`;
+
+    // Send via Gmail API
+    const calId = localStorage.getItem('wp_cal_id') || '';
+    if (!calId) { btn.textContent = 'No Gmail address set'; return; }
+
+    const subject = `🏆 Badge Unlocked: ${badge.name} — SuperSonics Achievement Division`;
+    const mime = [
+      'MIME-Version: 1.0',
+      `To: ${calId}`,
+      `From: ${calId}`,
+      `Subject: ${subject}`,
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      fullHtml
+    ].join('\r\n');
+
+    const encoded = btoa(unescape(encodeURIComponent(mime)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+    const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: { 'Authorization':'Bearer '+accessToken, 'Content-Type':'application/json' },
+      body: JSON.stringify({ raw: encoded })
+    });
+    const sendData = await sendRes.json();
+
+    if (sendData.error) {
+      btn.textContent = 'Send failed: ' + sendData.error.message;
+    } else {
+      btn.textContent = '✓ Dispatch sent!';
+      btn.style.background = '#4AE88A';
+      btn.style.color = '#003d1e';
+      showToast('Badge email sent to ' + calId);
+    }
+  } catch(err) {
+    console.error('emailBadge error:', err);
+    btn.textContent = 'Error — try again';
+    btn.disabled = false;
+  }
 }
 
 function renderBadgeShelf() {
