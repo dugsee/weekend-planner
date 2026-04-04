@@ -2084,71 +2084,133 @@ async function checkAchievements() {
 }
 
 async function generateBadgeSVG(badge) {
-  // Build a styled SVG based on badge tier and name — 70s Sonics aesthetic
   const tier = badge.tier || 'bronze';
-  const tierColors = {
-    bronze: { ring:'#cd7f32', inner:'#8b4513', glow:'rgba(205,127,50,0.4)' },
-    silver: { ring:'#a8a8a8', inner:'#606060', glow:'rgba(192,192,192,0.4)' },
-    gold:   { ring:'#FFC200', inner:'#c49200', glow:'rgba(255,194,0,0.5)'   },
-    chaos:  { ring:'#ff6b35', inner:'#8b0000', glow:'rgba(255,107,53,0.4)'  }
-  };
-  const tc = tierColors[tier] || tierColors.bronze;
-  const name = badge.name || '';
-  // Word-wrap name into 2 lines max
+  const name = (badge.name || '').toUpperCase();
+  const ts   = badge.trigger_stat || '';
+
+  // Word-wrap name into up to 3 lines of ≤14 chars
   const words = name.split(' ');
-  let line1 = '', line2 = '';
+  const lines = [''];
   for (const w of words) {
-    if ((line1 + ' ' + w).trim().length <= 14) line1 = (line1 + ' ' + w).trim();
-    else line2 = (line2 + ' ' + w).trim();
+    if ((lines[lines.length-1] + ' ' + w).trim().length <= 13) {
+      lines[lines.length-1] = (lines[lines.length-1] + ' ' + w).trim();
+    } else { lines.push(w); }
   }
-  if (line2.length > 16) line2 = line2.slice(0,15) + '…';
+  const nameLines = lines.slice(0,3);
 
-  // Pick a central icon based on trigger_stat or tier
-  const ts = badge.trigger_stat || '';
-  let emoji = '🏀';
-  if (ts.includes('streak'))   emoji = '🔥';
-  if (ts.includes('morning'))  emoji = '🌅';
-  if (ts.includes('afternoon'))emoji = '☀️';
-  if (ts.includes('evening'))  emoji = '🌙';
-  if (ts.includes('errands'))  emoji = '🛒';
-  if (ts.includes('health'))   emoji = '💪';
-  if (ts.includes('work'))     emoji = '💼';
-  if (ts.includes('social'))   emoji = '🍺';
-  if (ts.includes('home'))     emoji = '🏠';
-  if (ts.includes('admin'))    emoji = '📋';
-  if (tier === 'chaos')        emoji = '🪄';
+  // Tier-specific palette
+  const T = {
+    bronze:{ star:'#cd7f32', outer:'#e8961e', ring:'#8b5a00', bg1:'#00843d', bg2:'#003d1e', txt:'#FFC200', glow:'#cd7f32' },
+    silver:{ star:'#b0b0c8', outer:'#d0d0e0', ring:'#808090', bg1:'#2a2a3a', bg2:'#111118', txt:'#e0e0ff', glow:'#b0b0c8' },
+    gold:  { star:'#FFC200', outer:'#ffe066', ring:'#c49200', bg1:'#006837', bg2:'#002a15', txt:'#FFC200', glow:'#FFC200' },
+    chaos: { star:'#39ff14', outer:'#FFC200', ring:'#ff6b35', bg1:'#003a1a', bg2:'#1a0030', txt:'#39ff14', glow:'#39ff14' }
+  };
+  const c = T[tier] || T.bronze;
 
-  return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="bg${tier}" cx="50%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="#00653A"/>
-      <stop offset="100%" stop-color="#003d22"/>
-    </radialGradient>
-    <filter id="glow${tier}">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <!-- Outer ring -->
-  <circle cx="60" cy="60" r="58" fill="${tc.ring}" opacity="0.9"/>
-  <!-- Inner bg -->
-  <circle cx="60" cy="60" r="52" fill="url(#bg${tier})"/>
-  <!-- Decorative ring -->
-  <circle cx="60" cy="60" r="48" fill="none" stroke="${tc.ring}" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.6"/>
-  <!-- Starburst rays -->
-  ${[0,30,60,90,120,150,180,210,240,270,300,330].map(a => {
-    const rad = a * Math.PI / 180;
-    const x1 = 60 + 36 * Math.cos(rad), y1 = 60 + 36 * Math.sin(rad);
-    const x2 = 60 + 46 * Math.cos(rad), y2 = 60 + 46 * Math.sin(rad);
-    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${tc.ring}" stroke-width="2" opacity="0.5"/>`;
-  }).join('')}
-  <!-- Central emoji -->
-  <text x="60" y="66" font-size="30" text-anchor="middle" dominant-baseline="middle">${emoji}</text>
-  <!-- Badge name line 1 -->
-  <text x="60" y="${line2 ? '88' : '91'}" font-family="Arial Black,Arial" font-size="${line1.length > 12 ? '7' : '8'}" font-weight="900" fill="#FFC200" text-anchor="middle" letter-spacing="0.5">${line1.toUpperCase()}</text>
-  ${line2 ? `<text x="60" y="97" font-family="Arial Black,Arial" font-size="${line2.length > 12 ? '7' : '8'}" font-weight="900" fill="#FFC200" text-anchor="middle" letter-spacing="0.5">${line2.toUpperCase()}</text>` : ''}
-  <!-- Bottom stars -->
-  <text x="60" y="110" font-size="8" text-anchor="middle" fill="${tc.ring}" opacity="0.8">★ ★ ★</text>
+  // Central illustration — pick based on trigger
+  let central = '';
+  if (ts.includes('streak_1') || ts.includes('all_time_1')) {
+    // First task — basketball at tip-off
+    central = `<circle cx="60" cy="50" r="18" fill="#e07020" stroke="#c05010" stroke-width="1.5"/>
+    <line x1="42" y1="50" x2="78" y2="50" stroke="#c05010" stroke-width="1.5"/>
+    <line x1="60" y1="32" x2="60" y2="68" stroke="#c05010" stroke-width="1.5"/>
+    <path d="M46,38 Q60,44 74,38" fill="none" stroke="#c05010" stroke-width="1.5"/>
+    <path d="M46,62 Q60,56 74,62" fill="none" stroke="#c05010" stroke-width="1.5"/>`;
+  } else if (ts.includes('streak')) {
+    // Flame / streak
+    central = `<ellipse cx="60" cy="62" rx="14" ry="18" fill="#ff6b00"/>
+    <ellipse cx="60" cy="58" rx="10" ry="14" fill="#ffaa00"/>
+    <ellipse cx="60" cy="54" rx="6" ry="10" fill="#FFC200"/>
+    <path d="M48,68 Q52,55 58,65 Q55,48 65,40 Q63,52 68,48 Q72,62 65,68 Z" fill="#ff4400" opacity="0.7"/>`;
+  } else if (ts.includes('today') || ts.includes('day_')) {
+    // Trophy with suspiciously proportioned cup
+    central = `<ellipse cx="60" cy="44" rx="20" ry="24" fill="${c.outer}"/>
+    <ellipse cx="60" cy="24" rx="15" ry="7" fill="${c.ring}"/>
+    <rect x="56" y="68" width="8" height="16" fill="${c.ring}"/>
+    <ellipse cx="60" cy="84" rx="14" ry="5" fill="${c.ring}"/>
+    <path d="M40,44 Q30,36 32,56 Q36,66 48,64" fill="none" stroke="${c.outer}" stroke-width="4" stroke-linecap="round"/>
+    <path d="M80,44 Q90,36 88,56 Q84,66 72,64" fill="none" stroke="${c.outer}" stroke-width="4" stroke-linecap="round"/>`;
+  } else if (ts.includes('morning')) {
+    // Sun rising
+    central = `<path d="M60,70 Q35,70 35,50 Q35,32 60,32 Q85,32 85,50 Q85,70 60,70 Z" fill="#FFC200"/>
+    <rect x="30" y="68" width="60" height="4" rx="2" fill="${c.ring}"/>
+    ${[0,30,60,90,120,150].map(a => {
+      const r = a*Math.PI/180, x1=60+22*Math.cos(r), y1=50+22*Math.sin(r), x2=60+30*Math.cos(r), y2=50+30*Math.sin(r);
+      return '<line x1="'+x1.toFixed(0)+'" y1="'+y1.toFixed(0)+'" x2="'+x2.toFixed(0)+'" y2="'+y2.toFixed(0)+'" stroke="#FFC200" stroke-width="3" stroke-linecap="round"/>';
+    }).join('')}`;
+  } else if (ts.includes('evening')) {
+    // Space needle silhouette (tall + ample deck)
+    central = `<rect x="57" y="18" width="6" height="45" fill="${c.outer}"/>
+    <ellipse cx="60" cy="36" rx="22" ry="10" fill="${c.outer}"/>
+    <ellipse cx="60" cy="30" rx="17" ry="7" fill="${c.ring}"/>
+    <polygon points="60,10 63,22 57,22" fill="${c.outer}"/>
+    <path d="M38,72 Q46,62 54,60 L57,63 L63,63 L66,60 Q74,62 82,72 Z" fill="${c.outer}"/>`;
+  } else if (ts.includes('errands') || ts.includes('home') || ts.includes('admin') || ts.includes('work')) {
+    // Championship ring cross-section (that needs no explanation)
+    central = `<ellipse cx="60" cy="55" rx="30" ry="20" fill="${c.ring}"/>
+    <ellipse cx="60" cy="55" rx="24" ry="15" fill="${c.bg1}"/>
+    <ellipse cx="60" cy="55" rx="16" ry="10" fill="${c.outer}"/>
+    <text x="60" y="59" font-family="Arial Black" font-size="9" fill="${c.bg2}" text-anchor="middle" font-weight="900">CHAMP</text>
+    <rect x="40" y="72" width="40" height="10" rx="5" fill="${c.ring}"/>
+    <rect x="44" y="45" width="32" height="8" rx="4" fill="${c.ring}"/>`;
+  } else if (ts.includes('social') || ts.includes('health')) {
+    // Player silhouette — tall with prominent afro
+    central = `<circle cx="60" cy="24" r="11" fill="#3a2010"/>
+    <circle cx="60" cy="22" r="15" fill="#1a0a00" opacity="0.9"/>
+    <ellipse cx="60" cy="52" rx="13" ry="18" fill="#00653A"/>
+    <rect x="47" y="68" width="8" height="14" rx="3" fill="#004225"/>
+    <rect x="61" y="68" width="8" height="14" rx="3" fill="#004225"/>
+    <line x1="47" y1="55" x2="32" y2="48" stroke="#00653A" stroke-width="4" stroke-linecap="round"/>
+    <line x1="73" y1="55" x2="88" y2="44" stroke="#00653A" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="90" cy="41" r="6" fill="#e07020"/>`;
+  } else {
+    // Default basketball
+    central = `<circle cx="60" cy="50" r="22" fill="#e07020" stroke="#c05010" stroke-width="2"/>
+    <line x1="38" y1="50" x2="82" y2="50" stroke="#8b3010" stroke-width="2"/>
+    <line x1="60" y1="28" x2="60" y2="72" stroke="#8b3010" stroke-width="2"/>
+    <path d="M42,36 Q60,44 78,36" fill="none" stroke="#8b3010" stroke-width="2"/>
+    <path d="M42,64 Q60,56 78,64" fill="none" stroke="#8b3010" stroke-width="2"/>`;
+  }
+
+  // Starburst rays
+  const rays = [];
+  const rayCount = tier === 'chaos' ? 20 : 16;
+  for (let i=0; i<rayCount; i++) {
+    const a = (i * 360/rayCount) * Math.PI/180;
+    const r1 = i%2===0 ? 92 : 88, r2 = i%2===0 ? 108 : 96;
+    const x1=(200+r1*Math.cos(a)).toFixed(1), y1=(200+r1*Math.sin(a)).toFixed(1);
+    const x2=(200+r2*Math.cos(a)).toFixed(1), y2=(200+r2*Math.sin(a)).toFixed(1);
+    rays.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c.star}" stroke-width="${i%2===0?3:2}" opacity="0.7"/>`);
+  }
+
+  // Chaos swirl rings
+  const chaosRings = tier==='chaos' ? `
+    <circle cx="200" cy="200" r="108" fill="none" stroke="#39ff14" stroke-width="3" stroke-dasharray="15 8" opacity="0.6"/>
+    <circle cx="200" cy="200" r="100" fill="none" stroke="#FFC200" stroke-width="2" stroke-dasharray="8 15" opacity="0.5"/>
+    <ellipse cx="200" cy="165" rx="35" ry="48" fill="#00653A" opacity="0.4" transform="rotate(20,200,165)"/>
+    <ellipse cx="175" cy="230" rx="28" ry="38" fill="#FFC200" opacity="0.3" transform="rotate(-15,175,230)"/>` : '';
+
+  const nameY = 285 + (nameLines.length > 1 ? 0 : 8);
+  const nameSvg = nameLines.map((l,i) =>
+    `<text x="200" y="${nameY + i*18}" font-family="Arial Black,Arial" font-size="${l.length>12?11:13}" font-weight="900" fill="${c.txt}" text-anchor="middle" letter-spacing="2">${l}</text>`
+  ).join('');
+
+  return `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <radialGradient id="rbg" cx="45%" cy="38%" r="62%"><stop offset="0%" stop-color="${c.bg1}"/><stop offset="100%" stop-color="${c.bg2}"/></radialGradient>
+  <radialGradient id="rglow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="${c.glow}" stop-opacity="0.5"/><stop offset="100%" stop-color="${c.glow}" stop-opacity="0"/></radialGradient>
+</defs>
+<circle cx="200" cy="200" r="195" fill="url(#rglow)"/>
+<polygon points="${Array.from({length:24},(_,i)=>{const a=i*15*Math.PI/180,r=i%2===0?115:90,x=(200+r*Math.cos(a)).toFixed(1),y=(200+r*Math.sin(a)).toFixed(1);return x+','+y}).join(' ')}" fill="${c.star}"/>
+<polygon points="${Array.from({length:24},(_,i)=>{const a=i*15*Math.PI/180,r=i%2===0?108:85,x=(200+r*Math.cos(a)).toFixed(1),y=(200+r*Math.sin(a)).toFixed(1);return x+','+y}).join(' ')}" fill="${c.outer}"/>
+${chaosRings}
+${rays.join('')}
+<circle cx="200" cy="200" r="82" fill="url(#rbg)"/>
+<circle cx="200" cy="200" r="80" fill="none" stroke="${c.star}" stroke-width="2.5" stroke-dasharray="10 5"/>
+<circle cx="200" cy="200" r="73" fill="none" stroke="${c.ring}" stroke-width="1" opacity="0.6"/>
+<g transform="translate(140,150)">${central}</g>
+${nameSvg}
+<text x="200" y="${nameY + nameLines.length*18 + 5}" font-family="Arial,sans-serif" font-size="9" fill="${c.star}" text-anchor="middle" letter-spacing="3" opacity="0.8">★ ★ ★ ${tier.toUpperCase()} ★ ★ ★</text>
 </svg>`;
 }
 
