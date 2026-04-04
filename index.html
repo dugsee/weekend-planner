@@ -738,6 +738,8 @@ async function boot() {
     await loadAll();
     // Silently clean up any duplicate tasks in the background
     deduplicateTasksDB().then(n => { if (n > 0) { console.log(`Cleaned ${n} duplicate task(s)`); renderTaskList(); renderSuggestions(); } });
+    // Migrate any localStorage badges up to Supabase (runs once, no-op if already done)
+    migrateBadgesFromLocalStorage();
     // Always render cal strips from cache first (instant, no network needed)
     renderCalStrips();
     // Fetch fresh calendar if Google token is valid; show banner if not
@@ -1961,11 +1963,83 @@ function showToast(msg) {
 // ACHIEVEMENT ENGINE — 1970s Seattle SuperSonics style
 // ═══════════════════════════════════════════════════════════
 
-function loadBadges() {
+// ── Badge storage — Supabase (cross-device) + localStorage cache ──────────
+// Badges live in Supabase so Chrome and iOS share the same shelf.
+// localStorage is used as a fast read-cache only.
+
+async function loadBadges() {
+  // Always try Supabase first for freshness
+  if (_supabase) {
+    try {
+      const { data, error } = await _supabase
+        .from('badges')
+        .select('*')
+        .order('earned_at', { ascending: true });
+      if (!error && data) {
+        // Parse SVG field back from JSON string storage
+        const badges = data.map(row => {
+          try { return { ...row, ...JSON.parse(row.payload || '{}') }; }
+          catch(e) { return row; }
+        });
+        // Mirror to localStorage cache for instant reads
+        try { localStorage.setItem(KEYS.badges, JSON.stringify(badges)); } catch(e) {}
+        return badges;
+      }
+    } catch(e) { console.warn('loadBadges Supabase error:', e); }
+  }
+  // Fallback to localStorage cache
   try { return JSON.parse(localStorage.getItem(KEYS.badges) || '[]'); } catch(e) { return []; }
 }
-function saveBadges(badges) {
-  try { localStorage.setItem(KEYS.badges, JSON.stringify(badges)); } catch(e) {}
+
+function loadBadgesSync() {
+  // Synchronous read from localStorage cache (for renderBadgeShelf immediate display)
+  try { return JSON.parse(localStorage.getItem(KEYS.badges) || '[]'); } catch(e) { return []; }
+}
+
+async function saveBadge(badge) {
+  // Save a single badge to Supabase + localStorage cache
+  const payload = JSON.stringify({
+    name:        badge.name,
+    description: badge.description,
+    tier:        badge.tier,
+    trigger_stat:badge.trigger_stat,
+    _svg:        badge._svg || ''
+  });
+  const row = {
+    badge_id:  badge.badge_id,
+    earned_at: badge.earned_at || new Date().toISOString(),
+    payload:   payload
+  };
+  if (_supabase) {
+    try {
+      const { error } = await _supabase.from('badges')
+        .upsert(row, { onConflict: 'badge_id' });
+      if (error) console.warn('saveBadge Supabase error:', error);
+    } catch(e) { console.warn('saveBadge exception:', e); }
+  }
+  // Update localStorage cache
+  try {
+    const cached = JSON.parse(localStorage.getItem(KEYS.badges) || '[]');
+    const idx = cached.findIndex(b => b.badge_id === badge.badge_id);
+    if (idx >= 0) cached[idx] = { ...cached[idx], ...badge };
+    else cached.push(badge);
+    localStorage.setItem(KEYS.badges, JSON.stringify(cached));
+  } catch(e) {}
+}
+
+async function migrateBadgesFromLocalStorage() {
+  // One-time migration: push any localStorage badges up to Supabase
+  if (!_supabase) return;
+  try {
+    const local = JSON.parse(localStorage.getItem(KEYS.badges) || '[]');
+    if (!local.length) return;
+    // Check if Supabase already has badges
+    const { data } = await _supabase.from('badges').select('badge_id');
+    if (data && data.length > 0) return; // already migrated
+    // Push each badge up
+    for (const badge of local) { await saveBadge(badge); }
+    console.log('Migrated', local.length, 'badge(s) from localStorage to Supabase');
+  } catch(e) { console.warn('migrateBadgesFromLocalStorage:', e); }
 }
 
 async function gatherStats() {
@@ -2022,7 +2096,7 @@ async function gatherStats() {
     top_category:             topCat,
     tasks_completed_this_week:weekDone.length,
     time_of_day_completions:  timeSlots,
-    badges_already_earned:    loadBadges().map(b => b.badge_id)
+    badges_already_earned:    (await loadBadges()).map(b => b.badge_id)
   };
 }
 
@@ -2070,11 +2144,11 @@ async function checkAchievements() {
     try { badge = JSON.parse(text.replace(/```json|```/g,'').trim()); } catch(e) { return; }
     if (!badge.award) return;
 
-    // Save badge
-    const earned = loadBadges();
+    // Save badge to Supabase (syncs across all devices)
+    const earned = await loadBadges();
     if (earned.find(b => b.badge_id === badge.badge_id)) return; // already have it
-    earned.push({ ...badge, earned_at: new Date().toISOString() });
-    saveBadges(earned);
+    badge.earned_at = new Date().toISOString();
+    await saveBadge(badge);
 
     // Generate SVG for the badge
     const svg = await generateBadgeSVG(badge);
@@ -2397,20 +2471,27 @@ async function svgToPngDataUri(svgString, width, height) {
 function renderBadgeShelf() {
   const el = document.getElementById('badge-shelf');
   if (!el) return;
-  const earned = loadBadges();
+  // Show cached version instantly
+  _renderBadgeShelfWith(el, loadBadgesSync());
+  // Then refresh from Supabase
+  loadBadges().then(badges => _renderBadgeShelfWith(el, badges));
+}
+
+function _renderBadgeShelfWith(el, earned) {
   if (!earned.length) {
-    el.innerHTML = '<div class="badge-shelf-empty">No badges yet — start completing tasks!</div>';
+    el.innerHTML = '<div class="badge-shelf-empty">No badges yet — complete tasks to earn some!</div>';
     return;
   }
   el.innerHTML = earned.slice().reverse().map(b => `
     <div class="badge-shelf-item" title="${escHtml(b.description||'')}" onclick="showBadgeDetail('${escAttr(b.badge_id)}')">
-      <div>${b._svg || '<svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="28" fill="#004225"/><text x="30" y="35" text-anchor="middle" font-size="20">🏀</text></svg>'}</div>
+      <div>${b._svg || '<svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="28" fill="#004225"/><text x="30" y="35" text-anchor="middle" font-size="20">&#x1F3C0;</text></svg>'}</div>
       <div class="badge-shelf-item-name">${escHtml((b.name||'').slice(0,18))}</div>
     </div>`).join('');
 }
 
-function showBadgeDetail(badgeId) {
-  const badge = loadBadges().find(b => b.badge_id === badgeId);
+async function showBadgeDetail(badgeId) {
+  const badges = await loadBadges();
+  const badge = badges.find(b => b.badge_id === badgeId);
   if (!badge) return;
   badge._svg = badge._svg || '';
   showBadgeToast(badge);
