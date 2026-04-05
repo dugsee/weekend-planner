@@ -2087,6 +2087,13 @@ async function gatherStats() {
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
   if (lastDay === today || lastDay === yesterday.toISOString().slice(0,10)) streak = cur;
 
+  // Last 5 completed task titles (most recent first) for personalized email jokes
+  const recentTitles = done
+    .filter(t => t.done_at)
+    .sort((a,b) => b.done_at.localeCompare(a.done_at))
+    .slice(0,5)
+    .map(t => t.title);
+
   return {
     tasks_completed_today:    todayDone.length,
     current_streak_days:      streak,
@@ -2096,6 +2103,7 @@ async function gatherStats() {
     top_category:             topCat,
     tasks_completed_this_week:weekDone.length,
     time_of_day_completions:  timeSlots,
+    recent_task_titles:       recentTitles,
     badges_already_earned:    (await loadBadges()).map(b => b.badge_id)
   };
 }
@@ -2156,6 +2164,10 @@ async function checkAchievements() {
 
     // Show the award toast
     showBadgeToast(badge);
+
+    // Auto-send badge email — silent, non-blocking
+    // Runs after toast so it doesn't delay the visual reward
+    sendBadgeEmailAuto(badge);
 
   } catch(e) { console.warn('Achievement check failed:', e); }
 }
@@ -2330,6 +2342,117 @@ function showBadgeToast(badge) {
   setTimeout(() => { if (div.parentNode) div.remove(); }, 8000);
 }
 
+// ── Core email sending logic (shared by auto and manual) ─────────────────
+async function sendBadgeEmailCore(badge) {
+  // Returns true on success, throws on failure
+  const stats = await gatherStats();
+  const recentTasks = stats?.recent_task_titles || [];
+  const statsSummary = stats
+    ? `${stats.all_time_tasks_completed} tasks completed all-time, ${stats.current_streak_days}-day streak, ${stats.tasks_completed_today} done today, top category: ${stats.top_category}`
+    : 'stats unavailable';
+
+  const emailPrompt = `badge_name: ${badge.name}
+badge_description: ${badge.description}
+badge_tier: ${badge.tier}
+trigger_stat: ${badge.trigger_stat}
+badge_svg: [embedded SVG]
+user_stats_summary: ${statsSummary}
+recent_task_titles: ${JSON.stringify(recentTasks)}`;
+
+  const emailSystemPrompt = `You are the highly unhinged official communications director for the 1970s Seattle SuperSonics Productivity Fan Club. You are writing a personalized badge achievement email to a man named Doug Cottington who lives in the Bryant neighborhood of Seattle with his wife Ana.
+
+PERSONALITY & TONE:
+- Address Doug by a rotating funny nickname — NEVER just "Doug." Invent a new absurd variant each time, riffing on: Sir Funk Master Doug, Dugolicious, Dugomite, Snoop Dougie Doug, The Douginator, El Dugo Grande, Doug "The Streak" Fontaine, Dougzilla, Baron Von Dougsworth
+- Reference his wife Ana warmly with light comedy — she might be an alibi for late tasks, a witness to his greatness, or a co-conspirator
+- If recent_task_titles contains anything, reference the most interesting task title with a specific joke (e.g. if "Handle trust tax return" is there, say something like "Even the IRS bows before El Dugo Grande today")
+- Mildly bawdy 1970s locker room humor is welcome — double entendres about "long streaks," "personal bests," "going all the way," and "big finishes" are fair game. Suggestive, never explicit.
+
+EMAIL STRUCTURE (raw HTML only, no html/head/body tags):
+1. An h2 headline in arena-announcer style — include Doug's nickname and reference the badge or achievement
+2. A stat callout: 1-2 sentences on what he accomplished, with a joke baked in — reference the streak length, tasks completed, or a specific task title from recent_task_titles
+3. An Ana mention (optional but encouraged) — one wry sentence
+4. A sign-off from a freshly invented fictional 1970s character with an absurd title (e.g. "Rhonda Spectacular, Hardwood Historian" or "Big Gus Fontaine, Kingdome Correspondent" — invent a NEW one every time)
+
+RULES: Under 350 words. At least one Seattle/Kingdome/Pacific Northwest reference. Enthusiastic, slightly unhinged, arena energy. Respond with raw HTML only — no markdown, no code fences.`;
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model: AI_MODEL, max_tokens: 900, system: emailSystemPrompt, messages: [{ role:'user', content: emailPrompt }] })
+  });
+  const data = await res.json();
+  const emailBody = data.content?.[0]?.text || '';
+  if (!emailBody) throw new Error('No email body generated');
+
+  const badgePngDataUri = await svgToPngDataUri(badge._svg || '', 200, 200);
+  const badgeImgTag = badgePngDataUri
+    ? `<img src="${badgePngDataUri}" width="200" height="200" alt="${badge.name} badge" style="display:block;margin:0 auto;"/>`
+    : `<div style="width:200px;height:200px;margin:0 auto;background:#00653A;border-radius:50%;border:4px solid #FFC200;"></div>`;
+
+  const tierColor = { bronze:'#cd7f32', silver:'#a8a8a8', gold:'#FFC200', chaos:'#39ff14' }[badge.tier] || '#FFC200';
+
+  const fullHtml = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#FFF8E7;border:3px solid #00653A;border-radius:8px;overflow:hidden;">
+<div style="background:#00653A;padding:18px 24px;text-align:center;border-bottom:4px solid #FFC200;">
+<div style="font-family:Arial Black,Arial;font-size:10px;font-weight:900;letter-spacing:4px;color:#FFC200;text-transform:uppercase;margin-bottom:6px;">Seattle SuperSonics Fan Club · Achievement Division</div>
+</div>
+<div style="padding:20px 24px;background:#fff;text-align:center;">
+<div style="margin:0 auto 16px;">${badgeImgTag}</div>
+<div style="display:inline-block;background:#00653A;color:#FFC200;font-family:Arial Black,Arial;font-size:16px;font-weight:900;letter-spacing:2px;padding:5px 18px;border-radius:4px;margin-bottom:8px;text-transform:uppercase;">${badge.name}</div>
+<div style="margin-bottom:10px;"><span style="background:${tierColor};color:#003d1e;font-family:Arial Black;font-size:10px;font-weight:900;letter-spacing:3px;padding:3px 12px;border-radius:99px;text-transform:uppercase;">${(badge.tier||'bronze').toUpperCase()} TIER</span></div>
+</div>
+<div style="background:#00653A;padding:16px 24px;border-top:2px solid #FFC200;border-bottom:2px solid #FFC200;color:#FFF8E7;">
+${emailBody}
+</div>
+<div style="background:#003d1e;padding:10px 24px;text-align:center;">
+<div style="font-family:Arial,sans-serif;font-size:10px;color:#FFC200;letter-spacing:2px;opacity:0.7;text-transform:uppercase;">Official Dispatch · Kingdome Basement Suite 7 · Seattle, WA 98104</div>
+</div></div>`;
+
+  const calId = localStorage.getItem('wp_cal_id') || '';
+  if (!calId) throw new Error('No Gmail address configured');
+
+  // Funky subject line — pick randomly so it rotates
+  const nicknames = ['Dugomite','El Dugo Grande','The Douginator','Baron Von Dougsworth','Snoop Dougie Doug','Dougzilla','Sir Funk Master Doug'];
+  const nick = nicknames[Math.floor(Math.random() * nicknames.length)];
+  const subject = `🏀 ${nick} STRIKES AGAIN — ${badge.name} Badge Unlocked at the Kingdome`;
+  const mime = [
+    'MIME-Version: 1.0',
+    `To: ${calId}`,
+    `From: ${calId}`,
+    `Subject: ${subject}`,
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    fullHtml
+  ].join('\r\n');
+
+  const encoded = btoa(unescape(encodeURIComponent(mime)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+  const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { 'Authorization':'Bearer '+accessToken, 'Content-Type':'application/json' },
+    body: JSON.stringify({ raw: encoded })
+  });
+  const sendData = await sendRes.json();
+  if (sendData.error) throw new Error(sendData.error.message);
+  return true;
+}
+
+// ── Auto-send on badge earn — silent, shows toast instead of UI feedback ──
+async function sendBadgeEmailAuto(badge) {
+  if (!accessToken || Date.now() > tokenExpiry) return; // not signed in, skip silently
+  if (!anthropicKey) return;
+  if (!localStorage.getItem('wp_cal_id')) return;
+  try {
+    await sendBadgeEmailCore(badge);
+    const calId = localStorage.getItem('wp_cal_id') || 'your email';
+    showToast(`🏀 Badge earned! Email sent to ${calId}`);
+  } catch(err) {
+    console.warn('Auto badge email failed:', err);
+    showToast('🏀 Badge earned! (Email failed — check Gmail connection)');
+  }
+}
+
+// ── Manual resend — triggered from toast button or settings ───────────────
 async function emailBadge(e) {
   e.stopPropagation();
   const badge = window._currentBadgeForEmail;
@@ -2341,96 +2464,11 @@ async function emailBadge(e) {
   btn.disabled = true;
 
   try {
-    // Build stats summary for the email prompt
-    const stats = await gatherStats();
-    const statsSummary = stats
-      ? `${stats.all_time_tasks_completed} tasks completed all-time, ${stats.current_streak_days}-day streak, ${stats.tasks_completed_today} done today, top category: ${stats.top_category}`
-      : 'stats unavailable';
-
-    // Call AI for the email copy
-    const emailPrompt = `badge_name: ${badge.name}
-badge_description: ${badge.description}
-badge_tier: ${badge.tier}
-trigger_stat: ${badge.trigger_stat}
-badge_svg: [embedded SVG]
-user_stats_summary: ${statsSummary}`;
-
-    const emailSystemPrompt = `You are the official communications director for a fictional 1970s Seattle SuperSonics fan club that also manages productivity achievements. Write a short HTML email announcing a newly earned badge.
-WRITE:
-- An h2 headline that sounds like a 1970s sports announcer having the time of his life
-- A badge announcement with the badge name and description
-- 2 sentences of color commentary on the user stats, written like a broadcaster who has had two beers at halftime
-- A sign-off from a fictional 1970s SuperSonics character (make up a name — something like "Big Gus Fontaine, Arena Correspondent" or "Rhonda Spectacular, Statistician of the Hardwood")
-RULES: No html/head/body tags — inner content only. Under 250 words. Enthusiastic, slightly unhinged, arena-announcer energy. Reference Seattle or the Kingdome at least once. Respond with HTML only.`;
-
-    const res = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify({ model: AI_MODEL, max_tokens: 600, system: emailSystemPrompt, messages: [{ role:'user', content: emailPrompt }] })
-    });
-    const data = await res.json();
-    const emailBody = data.content?.[0]?.text || '';
-
-    if (!emailBody) { btn.textContent = 'Could not generate email'; return; }
-
-    // ── Convert SVG badge → PNG data URI (Gmail strips inline SVG) ──────────
-    // Render SVG on a canvas, export as base64 PNG, embed as <img src="data:...">
-    const badgePngDataUri = await svgToPngDataUri(badge._svg || '', 200, 200);
-    const badgeImgTag = badgePngDataUri
-      ? `<img src="${badgePngDataUri}" width="200" height="200" alt="${badge.name} badge" style="display:block;margin:0 auto;"/>`
-      : `<div style="width:200px;height:200px;margin:0 auto;background:#00653A;border-radius:50%;border:4px solid #FFC200;display:flex;align-items:center;justify-content:center;"><span style="color:#FFC200;font-size:40px;">🏆</span></div>`;
-
-    const tierColor = { bronze:'#cd7f32', silver:'#a8a8a8', gold:'#FFC200', chaos:'#39ff14' }[badge.tier] || '#FFC200';
-
-    const fullHtml = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#FFF8E7;border:3px solid #00653A;border-radius:8px;overflow:hidden;">
-<div style="background:#00653A;padding:18px 24px;text-align:center;border-bottom:4px solid #FFC200;">
-<div style="font-family:Arial Black,Arial;font-size:10px;font-weight:900;letter-spacing:4px;color:#FFC200;text-transform:uppercase;margin-bottom:6px;">Seattle SuperSonics Fan Club · Achievement Division</div>
-</div>
-<div style="padding:20px 24px;background:#fff;text-align:center;">
-<div style="margin:0 auto 16px;">${badgeImgTag}</div>
-<div style="display:inline-block;background:#00653A;color:#FFC200;font-family:Arial Black,Arial;font-size:16px;font-weight:900;letter-spacing:2px;padding:5px 18px;border-radius:4px;margin-bottom:8px;text-transform:uppercase;">${badge.name}</div>
-<div style="margin-bottom:10px;"><span style="background:${tierColor};color:#003d1e;font-family:Arial Black;font-size:10px;font-weight:900;letter-spacing:3px;padding:3px 12px;border-radius:99px;text-transform:uppercase;">${(badge.tier||'bronze').toUpperCase()} TIER</span></div>
-</div>
-<div style="background:#00653A;padding:16px 24px;border-top:2px solid #FFC200;border-bottom:2px solid #FFC200;">
-${emailBody}
-</div>
-<div style="background:#003d1e;padding:10px 24px;text-align:center;">
-<div style="font-family:Arial,sans-serif;font-size:10px;color:#FFC200;letter-spacing:2px;opacity:0.7;text-transform:uppercase;">Official Dispatch · Kingdome Basement Suite 7 · Seattle, WA 98104</div>
-</div></div>`;
-
-    // Send via Gmail API
-    const calId = localStorage.getItem('wp_cal_id') || '';
-    if (!calId) { btn.textContent = 'No Gmail address set'; return; }
-
-    const subject = `🏆 Badge Unlocked: ${badge.name} — SuperSonics Achievement Division`;
-    const mime = [
-      'MIME-Version: 1.0',
-      `To: ${calId}`,
-      `From: ${calId}`,
-      `Subject: ${subject}`,
-      'Content-Type: text/html; charset=utf-8',
-      '',
-      fullHtml
-    ].join('\r\n');
-
-    const encoded = btoa(unescape(encodeURIComponent(mime)))
-      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-
-    const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: { 'Authorization':'Bearer '+accessToken, 'Content-Type':'application/json' },
-      body: JSON.stringify({ raw: encoded })
-    });
-    const sendData = await sendRes.json();
-
-    if (sendData.error) {
-      btn.textContent = 'Send failed: ' + sendData.error.message;
-    } else {
-      btn.textContent = '✓ Dispatch sent!';
-      btn.style.background = '#4AE88A';
-      btn.style.color = '#003d1e';
-      showToast('Badge email sent to ' + calId);
-    }
+    await sendBadgeEmailCore(badge);
+    btn.textContent = '✓ Dispatch sent!';
+    btn.style.background = '#4AE88A';
+    btn.style.color = '#003d1e';
+    showToast('Badge re-sent to ' + (localStorage.getItem('wp_cal_id') || 'your email'));
   } catch(err) {
     console.error('emailBadge error:', err);
     btn.textContent = 'Error — try again';
