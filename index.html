@@ -602,8 +602,11 @@ function initSupabase(url, key) {
 }
 
 async function dbGetToday() {
+  // Exclude is_cal_event rows — those are shown in the calendar strips above,
+  // not in the Today's Tasks list, to avoid duplication
   const { data, error } = await _supabase.from('tasks').select('*')
-    .eq('date', todayStr()).order('start_time', { ascending: true, nullsFirst: false });
+    .eq('date', todayStr()).eq('is_cal_event', false)
+    .order('start_time', { ascending: true, nullsFirst: false });
   if (error) { console.error('dbGetToday', error); return []; }
   return data || [];
 }
@@ -1026,15 +1029,19 @@ function renderCalStrips() {
   const container = document.getElementById('cal-strips');
   if (!todayEvts.length) { label.style.display = 'none'; container.innerHTML = ''; return; }
   label.style.display = '';
+  // Cal events are automatically synced to Supabase — no manual "add" needed.
+  // Strips are informational: show the event, let the user open it in Google Calendar.
   container.innerHTML = todayEvts.map(e => {
-    const safeE = encodeURIComponent(JSON.stringify(e));
+    const gcalUrl = e.htmlLink
+      ? escHtml(e.htmlLink)
+      : `https://calendar.google.com/calendar/r/day/${(e.date||'').replace(/-/g,'/')}`;
     return `<div class="cal-strip">
-      <div style="font-size:18px;">📅</div>
+      <div style="font-size:18px;flex-shrink:0;">📅</div>
       <div class="cal-strip-body">
         <div class="cal-strip-title">${escHtml(e.title)}</div>
         <div class="cal-strip-time">${e.start ? fmt12(e.start) + (e.end ? ' – ' + fmt12(e.end) : '') : 'All day'}${e.location ? ' · ' + escHtml(e.location) : ''}</div>
       </div>
-      <button class="cal-add" onclick="addCalEventAsTask('${safeE}')">+ Add task</button>
+      <a href="${gcalUrl}" target="_blank" rel="noopener" style="flex-shrink:0;background:none;border:1px solid rgba(255,194,0,0.5);color:var(--gold-dk);font-size:10px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:4px 9px;border-radius:99px;text-decoration:none;white-space:nowrap;">View</a>
     </div>`;
   }).join('');
 }
@@ -1140,9 +1147,9 @@ async function clearAllSugg() {
 }
 
 async function addCalEventAsTask(encoded) {
-  const e = JSON.parse(decodeURIComponent(encoded));
-  await dbInsert({ title: e.title, date: todayStr(), start_time: e.start || null, end_time: e.end || null, tag: 'errands', location: e.location || null, source: 'calendar', is_cal_event: true, done: false, rollover_count: 0 });
-  showToast(`"${e.title}" added as task`); await renderTaskList();
+  // No-op: calendar events are automatically synced to Supabase via syncCalEventsToSupabase.
+  // This function is kept to avoid JS errors from any cached HTML references.
+  showToast('Calendar events sync automatically via the 🔄 button');
 }
 
 async function openEdit(id) {
@@ -1406,6 +1413,7 @@ async function fetchCalendar() {
       end:      e.end?.dateTime   ? isoToTime(e.end.dateTime)   : '',
       location: e.location || '',
       date:     (e.start?.dateTime || e.start?.date || '').slice(0, 10),
+      htmlLink: e.htmlLink || '',
     }));
 
     try { localStorage.setItem(KEYS.calCache, JSON.stringify({ fetched: todayStr(), events: calEvents })); } catch(e) {}
@@ -1425,28 +1433,43 @@ async function syncCalEventsToSupabase(events) {
   if (!_supabase || !events.length) return;
   try {
     const { data: existing } = await _supabase
-      .from('tasks').select('id, done, rollover_count').eq('is_cal_event', true);
+      .from('tasks').select('id, done, rollover_count, starred').eq('is_cal_event', true);
     const existingMap = {};
     (existing || []).forEach(r => { existingMap[r.id] = r; });
 
-    const rows = events.map(e => ({
-      id:             e.id,
-      title:          e.title,
-      date:           e.date,
-      start_time:     e.start || null,
-      end_time:       e.end   || null,
-      location:       e.location || null,
-      tag:            'errands',
-      source:         'calendar',
-      is_cal_event:   true,
-      done:           existingMap[e.id]?.done          ?? false,
-      rollover_count: existingMap[e.id]?.rollover_count ?? 0,
-      starred:        false,
-    }));
+    const rows = events.map(e => {
+      // Normalize ID: always 'cal_' + raw Google event ID (strip any existing prefix)
+      const rawId = String(e.id || '').replace(/^cal_/, '');
+      const stableId = 'cal_' + rawId;
+      return {
+        id:             stableId,
+        title:          e.title,
+        date:           e.date,
+        start_time:     e.start || null,
+        end_time:       e.end   || null,
+        location:       e.location || null,
+        tag:            'errands',
+        source:         'calendar',
+        is_cal_event:   true,
+        done:           existingMap[stableId]?.done          ?? false,
+        rollover_count: existingMap[stableId]?.rollover_count ?? 0,
+        starred:        existingMap[stableId]?.starred        ?? false,
+      };
+    });
 
+    // Upsert in batches — onConflict:'id' prevents duplicates on re-sync
     for (let i = 0; i < rows.length; i += 50) {
       const { error } = await _supabase.from('tasks').upsert(rows.slice(i, i + 50), { onConflict: 'id' });
       if (error) console.warn('syncCalEventsToSupabase error', error);
+    }
+
+    // Delete stale cal rows that are no longer in the Google Calendar response
+    // (e.g. deleted or moved events) — only for future dates to avoid removing past done items
+    const syncedIds = new Set(rows.map(r => r.id));
+    const today = todayStr();
+    const staleRows = (existing || []).filter(r => r.id.startsWith('cal_') && !syncedIds.has(r.id) && !r.done);
+    for (const stale of staleRows) {
+      await _supabase.from('tasks').delete().eq('id', stale.id).gte('date', today);
     }
   } catch(e) { console.warn('syncCalEventsToSupabase failed', e); }
 }
