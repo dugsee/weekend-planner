@@ -163,6 +163,9 @@
     .cal-add.added{background:none;border-color:var(--text3);color:var(--text3);cursor:default;opacity:0.6;}
 
     /* Completed toggle */
+    .sec-label-toggle{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;}
+    .sec-label-toggle:hover{color:var(--green);}
+    .cal-strips-collapsed{display:none;}
     .completed-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-cond);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);padding:10px 0 5px;user-select:none;}
     .c-caret{transition:transform 0.18s;display:inline-block;}
     .completed-toggle.open .c-caret{transform:rotate(90deg);}
@@ -386,7 +389,14 @@
     </div>
     <div class="plan-output" id="plan-output"></div>
 
-    <div class="sec-label" id="cal-section-label" style="display:none;">📅 From Google Calendar</div>
+    <div class="sec-label sec-label-toggle" id="cal-section-label" style="display:none;" onclick="toggleCalSection()">
+      <span>
+        <svg id="cal-caret" width="10" height="10" viewBox="0 0 10 10" style="vertical-align:1px;margin-right:4px;transition:transform 0.2s;" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 3L5 7L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>From Google Calendar
+      </span>
+      <span id="cal-count" style="font-size:10px;opacity:0.7;font-weight:500;"></span>
+    </div>
     <div id="cal-strips"></div>
     <div class="sec-label">Today's Tasks</div>
     <div id="task-list"></div>
@@ -1025,12 +1035,28 @@ function plannedCardHTML(t, isOverdue) {
 // ═══════════════════════════════════════════════════════════
 // RENDER — CALENDAR STRIPS
 // ═══════════════════════════════════════════════════════════
+function toggleCalSection() {
+  const strips = document.getElementById('cal-strips');
+  const caret  = document.getElementById('cal-caret');
+  const isOpen = strips.style.display !== 'none';
+  strips.style.display = isOpen ? 'none' : '';
+  if (caret) caret.style.transform = isOpen ? 'rotate(-90deg)' : '';
+  try { localStorage.setItem('wp_cal_collapsed', isOpen ? '1' : '0'); } catch(e) {}
+}
+
 function renderCalStrips() {
   const todayEvts = calEvents.filter(e => e.date === todayStr());
   const label     = document.getElementById('cal-section-label');
   const container = document.getElementById('cal-strips');
+  const caret     = document.getElementById('cal-caret');
+  const countEl   = document.getElementById('cal-count');
   if (!todayEvts.length) { label.style.display = 'none'; container.innerHTML = ''; return; }
   label.style.display = '';
+  if (countEl) countEl.textContent = todayEvts.length + ' event' + (todayEvts.length !== 1 ? 's' : '');
+  // Restore collapsed state from localStorage
+  const collapsed = localStorage.getItem('wp_cal_collapsed') === '1';
+  container.style.display = collapsed ? 'none' : '';
+  if (caret) caret.style.transform = collapsed ? 'rotate(-90deg)' : '';
   container.innerHTML = todayEvts.map(e => {
     const gcalUrl = e.htmlLink
       ? escHtml(e.htmlLink)
