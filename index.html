@@ -871,7 +871,7 @@ function loadLocalState() {
   try { chatHistory = JSON.parse(localStorage.getItem(KEYS.chatHistory) || '[]'); } catch(e) {}
   anthropicKey  = localStorage.getItem(KEYS.anthropicKey) || '';
   soundEnabled  = localStorage.getItem(KEYS.soundEnabled) !== '0';
-  try { const cal = JSON.parse(localStorage.getItem(KEYS.calCache) || 'null'); if (cal && cal.fetched === todayStr()) calEvents = cal.events || []; } catch(e) {}
+  try { const cal = JSON.parse(localStorage.getItem(KEYS.calCache) || 'null'); if (cal && cal.fetched === todayStr() && cal.window === '12mo') calEvents = cal.events || []; } catch(e) {}
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1468,12 +1468,15 @@ async function fetchCalendar() {
   }
   const calId = localStorage.getItem(KEYS.calId) || ''; if (!calId) return;
   const now   = new Date();
+  // Fetch today → 12 months ahead so the Planned tab shows the full year
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 28).toISOString();
+  const endD  = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+  const end   = endD.toISOString();
   try {
+    // maxResults=2500 is Google Calendar API's maximum per page
     const res  = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events` +
-      `?timeMin=${start}&timeMax=${end}&singleEvents=true&orderBy=startTime&maxResults=200`,
+      `?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}&singleEvents=true&orderBy=startTime&maxResults=2500`,
       { headers: { Authorization: 'Bearer ' + accessToken } }
     );
     const data = await res.json();
@@ -1503,7 +1506,7 @@ async function fetchCalendar() {
       htmlLink: e.htmlLink || '',
     }));
 
-    try { localStorage.setItem(KEYS.calCache, JSON.stringify({ fetched: todayStr(), events: calEvents })); } catch(e) {}
+    try { localStorage.setItem(KEYS.calCache, JSON.stringify({ fetched: todayStr(), window: '12mo', events: calEvents })); } catch(e) {}
 
     if (_supabase && calEvents.length) {
       await syncCalEventsToSupabase(calEvents);
