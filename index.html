@@ -473,7 +473,7 @@
     <!-- Calendar event section -->
     <div id="cal-event-section" style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-family:var(--font-cond);font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">
-        <input type="checkbox" id="edit-add-cal" onchange="toggleCalSection(this.checked)" style="width:16px;height:16px;accent-color:var(--green);"/>
+        <input type="checkbox" id="edit-add-cal" onchange="toggleEditCalSection(this.checked)" style="width:16px;height:16px;accent-color:var(--green);"/>
         <svg width="14" height="14" viewBox="0 0 20 20" style="flex-shrink:0;" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="2" y="4" width="16" height="14" rx="2" fill="var(--green)" opacity="0.15" stroke="var(--green)" stroke-width="1.5"/>
           <line x1="6" y1="2" x2="6" y2="6" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round"/>
@@ -630,13 +630,18 @@ async function dbGetSuggestions() {
   return data || [];
 }
 async function dbGetPlanned() {
-  // Show up to 12 months ahead
+  // Show manual tasks for the next 12 months
+  // Exclude is_cal_event rows — they clog the row budget and duplicate the strips
   const d = new Date();
   d.setFullYear(d.getFullYear() + 1);
   const yearAhead = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const { data, error } = await _supabase.from('tasks').select('*')
-    .gte('date', todayStr()).lte('date', yearAhead)
-    .order('date').order('start_time', { ascending: true, nullsFirst: false });
+    .gte('date', todayStr())
+    .lte('date', yearAhead)
+    .eq('is_cal_event', false)
+    .order('date')
+    .order('start_time', { ascending: true, nullsFirst: false })
+    .limit(1000);
   if (error) { console.error('dbGetPlanned', error); return []; }
   return data || [];
 }
@@ -1185,39 +1190,45 @@ async function addCalEventAsTask(btn, encoded) {
   const e = JSON.parse(decodeURIComponent(encoded));
   if (!_supabase) { showToast('Supabase not connected'); return; }
 
-  // Optimistic UI — disable button immediately
   btn.textContent = '…';
   btn.disabled = true;
 
   try {
-    // Insert a MANUAL task copy — fresh timestamp ID, is_cal_event:false
-    // This means Google Calendar reconnect/sync never touches this row
+    // Create a manual task copy with a fresh text ID — completely separate from
+    // the cal_ synced row, so Google reconnects never touch it
     const newId = 'task_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-    await dbInsert({
-      id:            newId,
-      title:         e.title,
-      date:          todayStr(),
-      start_time:    e.start    || null,
-      end_time:      e.end      || null,
-      location:      e.location || null,
-      tag:           'errands',
-      source:        'manual',
-      is_cal_event:  false,   // ← key: not a cal row, safe from sync overwrites
-      done:          false,
-      rollover_count:0,
-    });
+    const newTask = {
+      id:             newId,
+      title:          e.title,
+      date:           todayStr(),
+      start_time:     e.start    || null,
+      end_time:       e.end      || null,
+      location:       e.location || null,
+      tag:            'errands',
+      source:         'manual',
+      is_cal_event:   false,
+      done:           false,
+      rollover_count: 0,
+      starred:        false,
+    };
 
-    // Mark as added so button stays disabled across re-renders
+    // Use upsert so the explicit id field is always honoured
+    const { error } = await _supabase.from('tasks')
+      .upsert(newTask, { onConflict: 'id' });
+    if (error) throw error;
+
+    // Persist added state so button stays disabled if strips re-render
     _calStripAdded.add(e.id);
     btn.textContent = '✓ Added';
     btn.classList.add('added');
 
     showToast(`"${e.title}" added to today`);
+    // Re-fetch task list from DB so the new row is guaranteed visible
     await renderTaskList();
   } catch(err) {
     btn.textContent = '+ Today';
     btn.disabled = false;
-    showToast('Error adding task');
+    showToast('Error adding task — ' + (err.message || err));
     console.error('addCalEventAsTask:', err);
   }
 }
@@ -1234,7 +1245,7 @@ async function openEdit(id) {
   document.getElementById('edit-tag').value      = data.tag || 'errands';
   // Reset calendar section
   const calCb = document.getElementById('edit-add-cal');
-  if (calCb) { calCb.checked = false; toggleCalSection(false); }
+  if (calCb) { calCb.checked = false; toggleEditCalSection(false); }
   document.getElementById('edit-attendees').value = '';
   document.getElementById('edit-cal-notes').value = '';
   document.getElementById('cal-status').textContent = '';
@@ -1244,7 +1255,7 @@ async function openEdit(id) {
   document.getElementById('edit-modal').style.display = 'flex';
 }
 
-function toggleCalSection(on) {
+function toggleEditCalSection(on) {
   document.getElementById('cal-extra').style.display = on ? 'block' : 'none';
 }
 function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; editingTaskId = null; }
