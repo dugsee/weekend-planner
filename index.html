@@ -264,7 +264,7 @@
     .mob-nav-items{display:flex;justify-content:space-around;}
     .mob-item{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 10px;border-radius:var(--radius);color:var(--text3);font-size:10px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.05em;text-transform:uppercase;transition:color 0.12s;}
     .mob-item.active{color:var(--green);}
-    .mob-item .micon{font-size:20px;}
+    .mob-item .micon{font-size:20px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
     ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
 
@@ -446,10 +446,37 @@
 <!-- Mobile nav -->
 <nav class="mob-nav" id="mob-nav">
   <div class="mob-nav-items">
-    <div class="mob-item active" onclick="switchView('myday');setMobActive(this)"><span class="micon">☀</span>My Day</div>
-    <div class="mob-item" onclick="switchView('planned');setMobActive(this)"><span class="micon">📅</span>Planned</div>
-    <div class="mob-item" onclick="showToast('Suggestions visible on desktop')"><span class="micon">💡</span>Suggest</div>
-    <div class="mob-item" onclick="openSettings()"><span class="micon">⚙</span>Settings</div>
+    <div class="mob-item active" id="mob-myday" onclick="switchView('myday');setMobActive(this)">
+      <span class="micon">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="10" r="9" fill="#e07020" stroke="#8b3010" stroke-width="1.2"/>
+          <line x1="1" y1="10" x2="19" y2="10" stroke="#8b3010" stroke-width="1.2"/>
+          <line x1="10" y1="1" x2="10" y2="19" stroke="#8b3010" stroke-width="1.2"/>
+          <path d="M3.5,5.5 Q10,8 16.5,5.5" fill="none" stroke="#8b3010" stroke-width="1"/>
+          <path d="M3.5,14.5 Q10,12 16.5,14.5" fill="none" stroke="#8b3010" stroke-width="1"/>
+        </svg>
+      </span>My Day</div>
+    <div class="mob-item" id="mob-planned" onclick="switchView('planned');setMobActive(this)">
+      <span class="micon">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="10,1 12.5,7.5 19.5,7.5 13.5,11.5 15.5,18.5 10,14 4.5,18.5 6.5,11.5 0.5,7.5 7.5,7.5" fill="#FFC200" stroke="#c49200" stroke-width="0.8" stroke-linejoin="round"/>
+        </svg>
+      </span>Planned</div>
+    <div class="mob-item" onclick="showToast('Suggestions visible on desktop')">
+      <span class="micon">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M7.5,12.5 Q7,15 10,15.5 Q13,15 12.5,12.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="10" y1="15.5" x2="10" y2="18" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </span>Suggest</div>
+    <div class="mob-item" onclick="openSettings()">
+      <span class="micon">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M10,1.5 L10,4 M10,16 L10,18.5 M1.5,10 L4,10 M16,10 L18.5,10 M4.1,4.1 L5.8,5.8 M14.2,14.2 L15.9,15.9 M15.9,4.1 L14.2,5.8 M5.8,14.2 L4.1,15.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </span>Settings</div>
   </div>
 </nav>
 
