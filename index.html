@@ -206,6 +206,15 @@
     .sugg-clear{width:100%;padding:8px;background:none;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;color:var(--text3);cursor:pointer;font-family:var(--font);margin-top:4px;transition:all 0.15s;}
     .sugg-clear:hover{background:var(--bg3);color:var(--text);}
     .sugg-empty{font-size:13px;color:var(--text3);font-style:italic;text-align:center;padding:20px 0;}
+    .sugg-add-task-btn{width:100%;padding:8px 12px;background:var(--green);color:white;border:none;border-radius:var(--radius);font-size:12px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:background 0.15s;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;}
+    .sugg-add-task-btn:hover{background:var(--green-dk);}
+    .sugg-quick-add{background:var(--bg);border:1px solid var(--green);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;display:none;box-shadow:var(--shadow);}
+    .sugg-quick-add input,.sugg-quick-add select{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--font);margin-bottom:6px;}
+    .sugg-quick-add input:focus,.sugg-quick-add select:focus{outline:none;border-color:var(--green);}
+    .sugg-quick-add-row{display:flex;gap:6px;margin-top:2px;}
+    .sugg-quick-add-row button{flex:1;padding:6px 0;border:none;border-radius:var(--radius);font-size:12px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;transition:background 0.15s;}
+    .sugg-qa-save{background:var(--green);color:white;}.sugg-qa-save:hover{background:var(--green-dk);}
+    .sugg-qa-cancel{background:var(--bg3);color:var(--text3);border:1px solid var(--border)!important;}.sugg-qa-cancel:hover{color:var(--text);}
 
     /* ── Planned view ── */
     .planned{flex:1;overflow-y:auto;padding:22px 22px 80px;display:none;}
@@ -437,6 +446,30 @@
   <aside class="sugg-panel" id="sugg-panel" style="display:none;">
     <div class="sugg-title">SUGGESTIONS</div>
     <div class="sugg-sub">Tasks not finished on previous days.</div>
+    <!-- Quick add task from suggestions panel -->
+    <button class="sugg-add-task-btn" id="sugg-add-btn" onclick="toggleSuggQuickAdd(true)">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="7" y1="1" x2="7" y2="13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="1" y1="7" x2="13" y2="7" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Add a Task
+    </button>
+    <div class="sugg-quick-add" id="sugg-quick-add">
+      <input type="text" id="sugg-qa-title" placeholder="Task name…" onkeydown="if(event.key==='Enter')saveSuggTask();if(event.key==='Escape')toggleSuggQuickAdd(false)"/>
+      <input type="date" id="sugg-qa-date"/>
+      <select id="sugg-qa-tag">
+        <option value="errands">Errands</option>
+        <option value="home">Home</option>
+        <option value="health">Health</option>
+        <option value="admin">Admin</option>
+        <option value="work">Work</option>
+        <option value="social">Social</option>
+      </select>
+      <div class="sugg-quick-add-row">
+        <button class="sugg-qa-cancel" onclick="toggleSuggQuickAdd(false)">Cancel</button>
+        <button class="sugg-qa-save" onclick="saveSuggTask()">Save Task</button>
+      </div>
+    </div>
     <div id="sugg-list"></div>
     <button class="sugg-clear" id="sugg-clear-btn" onclick="clearAllSugg()" style="display:none;">Clear all</button>
   </aside>
@@ -1195,6 +1228,38 @@ async function addSuggToToday(id) {
     console.error('addSuggToToday exception:', e);
     showToast('Something went wrong — try again');
     if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+  }
+}
+
+function toggleSuggQuickAdd(open) {
+  const form = document.getElementById('sugg-quick-add');
+  const btn  = document.getElementById('sugg-add-btn');
+  form.style.display = open ? 'block' : 'none';
+  btn.style.display  = open ? 'none'  : 'flex';
+  if (open) {
+    // Default date to today
+    document.getElementById('sugg-qa-date').value = todayStr();
+    document.getElementById('sugg-qa-title').value = '';
+    document.getElementById('sugg-qa-tag').value = 'errands';
+    setTimeout(() => document.getElementById('sugg-qa-title').focus(), 50);
+  }
+}
+
+async function saveSuggTask() {
+  const title = document.getElementById('sugg-qa-title').value.trim();
+  if (!title) { document.getElementById('sugg-qa-title').focus(); return; }
+  const date  = document.getElementById('sugg-qa-date').value  || todayStr();
+  const tag   = document.getElementById('sugg-qa-tag').value   || 'errands';
+  try {
+    await dbInsert({ title, date, tag, source: 'manual', is_cal_event: false, done: false, rollover_count: 0, starred: false });
+    toggleSuggQuickAdd(false);
+    showToast(`"${title}" added`);
+    // Refresh both task list and planned (in case it's a future date)
+    await renderTaskList();
+    if (date !== todayStr()) await renderPlanned();
+  } catch(e) {
+    showToast('Error saving task');
+    console.error('saveSuggTask:', e);
   }
 }
 
