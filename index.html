@@ -456,7 +456,8 @@
     </button>
     <div class="sugg-quick-add" id="sugg-quick-add">
       <input type="text" id="sugg-qa-title" placeholder="Task name…" onkeydown="if(event.key==='Enter')saveSuggTask();if(event.key==='Escape')toggleSuggQuickAdd(false)"/>
-      <input type="date" id="sugg-qa-date"/>
+      <input type="date" id="sugg-qa-date" title="Leave blank to save without a date (appears in Suggestions)"/>
+      <div style="font-size:10px;color:var(--text3);font-family:var(--font-cond);margin:-4px 0 6px;letter-spacing:0.04em;">No date = saved to Suggestions</div>
       <select id="sugg-qa-tag">
         <option value="errands">Errands</option>
         <option value="home">Home</option>
@@ -683,11 +684,20 @@ async function dbGetToday() {
   return data || [];
 }
 async function dbGetSuggestions() {
-  const { data, error } = await _supabase.from('tasks').select('*')
-    .eq('done', false).lt('date', todayStr())
-    .order('rollover_count', { ascending: false });
-  if (error) { console.error('dbGetSuggestions', error); return []; }
-  return data || [];
+  // Fetch two groups: past-dated undone tasks + undated undone tasks
+  // Postgres null comparisons don't match .lt() so we query them separately
+  const today = todayStr();
+  const [pastRes, undatedRes] = await Promise.all([
+    _supabase.from('tasks').select('*')
+      .eq('done', false).lt('date', today).eq('is_cal_event', false)
+      .order('rollover_count', { ascending: false }),
+    _supabase.from('tasks').select('*')
+      .eq('done', false).is('date', null).eq('is_cal_event', false)
+      .order('created_at', { ascending: false }),
+  ]);
+  if (pastRes.error)    console.error('dbGetSuggestions past:', pastRes.error);
+  if (undatedRes.error) console.error('dbGetSuggestions undated:', undatedRes.error);
+  return [...(pastRes.data || []), ...(undatedRes.data || [])];
 }
 async function dbGetPlanned() {
   // Fetch ALL future tasks — manual tasks AND calendar events — for the next 12 months
@@ -1237,10 +1247,10 @@ function toggleSuggQuickAdd(open) {
   form.style.display = open ? 'block' : 'none';
   btn.style.display  = open ? 'none'  : 'flex';
   if (open) {
-    // Default date to today
-    document.getElementById('sugg-qa-date').value = todayStr();
+    // Leave date blank — saving with no date puts it in Suggestions (undated)
+    document.getElementById('sugg-qa-date').value  = '';
     document.getElementById('sugg-qa-title').value = '';
-    document.getElementById('sugg-qa-tag').value = 'errands';
+    document.getElementById('sugg-qa-tag').value   = 'errands';
     setTimeout(() => document.getElementById('sugg-qa-title').focus(), 50);
   }
 }
@@ -1248,15 +1258,20 @@ function toggleSuggQuickAdd(open) {
 async function saveSuggTask() {
   const title = document.getElementById('sugg-qa-title').value.trim();
   if (!title) { document.getElementById('sugg-qa-title').focus(); return; }
-  const date  = document.getElementById('sugg-qa-date').value  || todayStr();
-  const tag   = document.getElementById('sugg-qa-tag').value   || 'errands';
+  // date is optional — null means undated, surfaces in Suggestions panel
+  const dateVal = document.getElementById('sugg-qa-date').value || null;
+  const tag     = document.getElementById('sugg-qa-tag').value  || 'errands';
   try {
-    await dbInsert({ title, date, tag, source: 'manual', is_cal_event: false, done: false, rollover_count: 0, starred: false });
+    await dbInsert({ title, date: dateVal, tag, source: 'manual', is_cal_event: false, done: false, rollover_count: 0, starred: false });
     toggleSuggQuickAdd(false);
-    showToast(`"${title}" added`);
-    // Refresh both task list and planned (in case it's a future date)
-    await renderTaskList();
-    if (date !== todayStr()) await renderPlanned();
+    showToast(`"${title}" added${dateVal ? '' : ' to Suggestions'}`);
+    // Refresh the right view
+    if (!dateVal) {
+      await renderSuggestions(); // undated — appears in Suggestions
+    } else {
+      await renderTaskList();
+      if (dateVal !== todayStr()) await renderPlanned();
+    }
   } catch(e) {
     showToast('Error saving task');
     console.error('saveSuggTask:', e);
