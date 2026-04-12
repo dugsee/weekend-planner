@@ -232,6 +232,8 @@
     .overdue-lbl{background:#fce4e4;color:#a32d2d;font-size:10px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;}
     .move-today{background:none;border:1px solid var(--border2);color:var(--text3);font-size:11px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:99px;padding:2px 9px;cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0;}
     .move-today:hover{background:var(--green);color:white;border-color:var(--green);}
+    .move-sugg{background:none;border:1px solid var(--border2);color:var(--text3);font-size:11px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:99px;padding:2px 9px;cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0;}
+    .move-sugg:hover{background:var(--gold);color:var(--green-dk);border-color:var(--gold);}
 
     /* ── Edit modal ── */
     .modal-bd{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:600;display:flex;align-items:flex-end;justify-content:center;}
@@ -769,7 +771,7 @@ async function runRollover() {
 
   // Find all undone, non-calendar tasks from BEFORE today
   const { data: overdue } = await _supabase.from('tasks').select('*')
-    .eq('done', false).eq('is_cal_event', false).lt('date', today);
+    .eq('done', false).eq('is_cal_event', false).lt('date', today).not('date', 'is', null);
 
   if (!overdue || !overdue.length) return;
 
@@ -982,6 +984,10 @@ function taskCardHTML(t) {
   const cls     = ['task-card', t.done ? 'done' : '', isCal ? 'is-cal' : '', isEmail ? 'is-email' : ''].filter(Boolean).join(' ');
   const timeStr = t.start_time ? fmt12(t.start_time) + (t.end_time ? ' – ' + fmt12(t.end_time) : '') : '';
   const safeId  = escAttr(t.id);
+  // Show → Suggest only for undone manual tasks (not cal events, not done)
+  const suggBtn = (!t.done && !isCal)
+    ? `<button class="move-sugg" onclick="moveToSuggestions('${safeId}')" title="Move to Suggestions (unschedule)">→ Suggest</button>`
+    : '';
   return `<div class="${cls}" data-id="${safeId}">
     <button class="task-check ${t.done ? 'done' : ''}" onclick="toggleTask('${safeId}')"></button>
     <div class="task-body">
@@ -994,6 +1000,7 @@ function taskCardHTML(t) {
         ${isEmail   ? '<span class="tag tag-email">email</span>' : ''}
       </div>
     </div>
+    ${suggBtn}
     <button class="task-edit-btn" onclick="openEdit('${safeId}')">✎</button>
     <button class="task-replan-btn" onclick="replanAroundTask('${safeId}')" title="Re-optimize schedule around this task">🔄</button>
     <button class="task-star ${t.starred ? 'starred' : ''}" onclick="toggleStar('${safeId}',this)">${t.starred ? '★' : '☆'}</button>
@@ -1186,6 +1193,14 @@ async function toggleStar(id, btn) {
   await dbUpdate(id, { starred });
   btn.classList.toggle('starred', starred);
   btn.textContent = starred ? '★' : '☆';
+}
+
+async function moveToSuggestions(id) {
+  if (!_supabase) return;
+  // Set date to null — task becomes undated, appears in Suggestions
+  await dbUpdate(id, { date: null, start_time: null, end_time: null });
+  showToast('Moved to Suggestions');
+  await Promise.all([renderTaskList(), renderSuggestions()]);
 }
 
 async function moveToToday(id) {
