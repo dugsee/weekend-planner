@@ -606,6 +606,10 @@
   <div class="badge-shelf" id="badge-shelf">
     <div class="badge-shelf-empty">No badges yet — start completing tasks!</div>
   </div>
+  <div class="s-label">Weekly Summary</div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5;">Sent automatically every 7 days. Covers tasks completed, badges earned, streaks, and category breakdown — all in one Chappelle-voiced dispatch.</div>
+  <button class="btn btn-green" style="width:100%;margin-bottom:4px;" onclick="sendWeeklySummary(true)">📊 Send Weekly Summary Now</button>
+  <div id="summary-last-sent" style="font-size:11px;color:var(--text3);font-family:var(--font-cond);text-align:center;margin-bottom:8px;"></div>
   <div class="s-label">Maintenance</div>
   <div class="conn-row" style="align-items:flex-start;flex-direction:column;gap:4px;padding:10px 0;">
     <div style="display:flex;align-items:center;width:100%;gap:10px;">
@@ -640,7 +644,7 @@ const KEYS = {
   anthropicKey:'wp_ai_key', profile:'wp_profile_v1',
   weather:'wp_weather', chatHistory:'wp_chat_v1',
   soundEnabled:'wp_sound', calCache:'wp_cal_all',
-  badges:'wp_badges_v1',
+  badges:'wp_badges_v1', lastSummary:'wp_last_summary',
 };
 const DEFAULT_PROFILE = {
   address:      'Bryant neighborhood, Seattle 98115 (near Ravenna and Wedgewood)',
@@ -866,6 +870,8 @@ async function boot() {
     deduplicateTasksDB().then(n => { if (n > 0) { console.log(`Cleaned ${n} duplicate task(s)`); renderTaskList(); renderSuggestions(); } });
     // Migrate any localStorage badges up to Supabase (runs once, no-op if already done)
     migrateBadgesFromLocalStorage();
+    // Send weekly summary if 7+ days since last one (runs silently in background)
+    setTimeout(() => maybeSendWeeklySummary(), 5000);
     // Always render cal strips from cache first (instant, no network needed)
     renderCalStrips();
     // Fetch fresh calendar if Google token is valid; show banner if not
@@ -2190,6 +2196,18 @@ function addChatMsg(role, text, isThinking = false) {
 // ═══════════════════════════════════════════════════════════
 function openSettings() {
   renderSettingsRows(); buildProfileFields(); renderBadgeShelf();
+  // Show when weekly summary was last sent
+  const lastEl = document.getElementById('summary-last-sent');
+  if (lastEl) {
+    const last = parseInt(localStorage.getItem(KEYS.lastSummary) || '0', 10);
+    if (last) {
+      const d = new Date(last);
+      const daysAgo = Math.floor((Date.now() - last) / (1000*60*60*24));
+      lastEl.textContent = `Last sent: ${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})} · ${daysAgo === 0 ? 'today' : daysAgo + ' day' + (daysAgo === 1 ? '' : 's') + ' ago'}`;
+    } else {
+      lastEl.textContent = 'Not yet sent';
+    }
+  }
   document.getElementById('settings-drawer').classList.add('open');
   document.getElementById('settings-bd').classList.add('open');
 }
@@ -2537,9 +2555,8 @@ async function checkAchievements() {
     // Show the award toast
     showBadgeToast(badge);
 
-    // Auto-send badge email — silent, non-blocking
-    // Runs after toast so it doesn't delay the visual reward
-    sendBadgeEmailAuto(badge);
+    // Badge earned — toast shown, weekly summary will cover it
+    // (auto-send per badge removed; use Settings → Send Weekly Summary for email)
 
   } catch(e) { console.warn('Achievement check failed:', e); }
 }
@@ -2826,18 +2843,147 @@ ${emailBody}
 }
 
 // ── Auto-send on badge earn — silent, shows toast instead of UI feedback ──
-async function sendBadgeEmailAuto(badge) {
-  if (!accessToken || Date.now() > tokenExpiry) return; // not signed in, skip silently
+// ── Weekly summary email ─────────────────────────────────────────────────
+// Fires automatically once per week on app load, or manually from Settings
+
+async function maybeSendWeeklySummary() {
+  // Only fire if: Google connected, Anthropic key set, Gmail address set
+  if (!accessToken || Date.now() > tokenExpiry) return;
   if (!anthropicKey) return;
-  if (!localStorage.getItem('wp_cal_id')) return;
-  try {
-    await sendBadgeEmailCore(badge);
-    const calId = localStorage.getItem('wp_cal_id') || 'your email';
-    showToast(`🏀 Badge earned! Email sent to ${calId}`);
-  } catch(err) {
-    console.warn('Auto badge email failed:', err);
-    showToast('🏀 Badge earned! (Email failed — check Gmail connection)');
-  }
+  const calId = localStorage.getItem(KEYS.calId) || '';
+  if (!calId) return;
+
+  // Check if 7 days have passed since last summary
+  const lastSent = parseInt(localStorage.getItem(KEYS.lastSummary) || '0', 10);
+  const daysSince = (Date.now() - lastSent) / (1000 * 60 * 60 * 24);
+  if (daysSince < 7) return;
+
+  // Fire in background — don't await, don't block UI
+  sendWeeklySummary(false).catch(e => console.warn('Weekly summary failed:', e));
+}
+
+async function sendWeeklySummary(manual = true) {
+  const calId = localStorage.getItem(KEYS.calId) || '';
+  if (!calId) { if (manual) showToast('No Gmail address set'); return; }
+  if (!accessToken || Date.now() > tokenExpiry) { if (manual) showReconnectBanner(); return; }
+  if (!anthropicKey) { if (manual) showToast('No Anthropic API key set'); return; }
+
+  if (manual) showToast('📊 Generating weekly summary…');
+
+  // Gather rich stats for the week
+  const stats = await gatherStats();
+  if (!stats) { if (manual) showToast('Could not load stats'); return; }
+
+  // Get tasks completed this week with full detail
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekStr = weekAgo.toISOString().slice(0, 10);
+  const { data: weekTasks } = await _supabase
+    .from('tasks').select('title,tag,date,done_at,location,source')
+    .eq('done', true)
+    .gte('done_at', weekAgo.toISOString())
+    .order('done_at', { ascending: false });
+
+  // Get badges earned this week
+  const allBadges = await loadBadges();
+  const weekBadges = allBadges.filter(b => b.earned_at && b.earned_at >= weekAgo.toISOString());
+
+  // Build rich context for Claude
+  const tasksByCategory = {};
+  (weekTasks || []).forEach(t => {
+    const cat = t.tag || 'admin';
+    if (!tasksByCategory[cat]) tasksByCategory[cat] = [];
+    tasksByCategory[cat].push(t.title + (t.location ? ' @ ' + t.location : ''));
+  });
+
+  const summaryContext = {
+    week_start: weekStr,
+    week_end: new Date().toISOString().slice(0, 10),
+    tasks_completed_this_week: stats.tasks_completed_this_week,
+    tasks_by_category: tasksByCategory,
+    current_streak_days: stats.current_streak_days,
+    longest_streak_ever: stats.longest_streak_ever,
+    all_time_tasks_completed: stats.all_time_tasks_completed,
+    top_category: stats.top_category,
+    time_of_day: stats.time_of_day_completions,
+    badges_earned_this_week: weekBadges.map(b => ({ name: b.name, tier: b.tier, description: b.description })),
+    recent_task_details: (weekTasks || []).slice(0, 10).map(t =>
+      `${t.title}${t.location ? ' @ ' + t.location : ''} [${t.tag || 'admin'}]`
+    ),
+  };
+
+  const summarySystemPrompt = `You are writing a weekly productivity summary email for Doug Cottington of Bryant neighborhood Seattle — husband of Ana, simultaneous fan of the Seattle SuperSonics/OKC Thunder AND the Chicago Bulls, which is a documented personality disorder.
+
+VOICE: Dave Chappelle doing a TED talk about someone else's to-do list. Sharp, specific, willing to go there. Reference real player names from either franchise when a stat or task warrants it. Not sanitized. Genuinely funny.
+
+STRUCTURE (raw HTML, no html/head/body tags, under 500 words):
+1. h2 subject line — arena announcer energy, reference "this week" and a specific stat
+2. The scoreboard: tasks completed, streak, top category — laid out like a box score, styled with inline CSS using green #00653A and gold #FFC200 on a dark background, table or structured divs
+3. Category breakdown — 2-3 sentences on what dominated the week. Use the actual task titles and locations to make it specific. Find the comedy in the mundane.
+4. Badges section — if any badges were earned this week, celebrate each one by name and tier. If none, acknowledge the drought with appropriate Chappelle energy.
+5. One sentence about the streak — make it sound more dramatic than it is
+6. Ana mention — one wry line
+7. Sign-off from a freshly invented fictional character, alternating Sonics and Bulls archetypes. New name every time.
+
+TONE: The user explicitly said dirty jokes are fine. Innuendo around streaks, personal bests, location-based comedy (Home Depot has different energy than Orangetheory). Everything up to truly explicit is on the table. Under 500 words. Raw HTML only.`;
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model: AI_MODEL, max_tokens: 1200, system: summarySystemPrompt, messages: [{ role:'user', content: JSON.stringify(summaryContext) }] })
+  });
+  const data = await res.json();
+  const emailBody = data.content?.[0]?.text || '';
+  if (!emailBody) throw new Error('No summary generated');
+
+  // Build styled email
+  const tierColor = '#FFC200';
+  const badgeSection = weekBadges.length
+    ? weekBadges.map(b => `<div style="background:#003d1e;border:1px solid #FFC200;border-radius:6px;padding:8px 12px;margin:6px 0;"><strong style="color:#FFC200;font-family:Arial Black;">${escHtml(b.name)}</strong> <span style="color:#a0c8a0;font-size:11px;font-family:Arial;">${(b.tier||'').toUpperCase()} · ${escHtml(b.description||'')}</span></div>`).join('')
+    : '<div style="color:rgba(255,255,255,0.5);font-size:13px;font-style:italic;">No badges earned this week.</div>';
+
+  const fullHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#FFF8E7;border:3px solid #00653A;border-radius:8px;overflow:hidden;">
+<div style="background:#00653A;padding:18px 24px;text-align:center;border-bottom:4px solid #FFC200;">
+<div style="font-family:Arial Black,Arial;font-size:10px;font-weight:900;letter-spacing:4px;color:#FFC200;text-transform:uppercase;margin-bottom:4px;">Seattle SuperSonics · Chicago Bulls</div>
+<div style="font-family:Arial Black,Arial;font-size:9px;font-weight:700;letter-spacing:3px;color:rgba(255,194,0,0.7);text-transform:uppercase;">Weekly Productivity Dispatch</div>
+</div>
+<div style="background:#00653A;padding:16px 24px;border-bottom:2px solid #FFC200;">
+${emailBody}
+</div>
+<div style="background:#004225;padding:14px 24px;border-bottom:2px solid rgba(255,194,0,0.3);">
+<div style="font-family:Arial Black;font-size:11px;color:#FFC200;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">🏆 Badges This Week</div>
+${badgeSection}
+</div>
+<div style="background:#003d1e;padding:10px 24px;text-align:center;">
+<div style="font-family:Arial,sans-serif;font-size:10px;color:#FFC200;letter-spacing:2px;opacity:0.7;text-transform:uppercase;">Official Weekly Dispatch · Kingdome Basement Suite 7 · Seattle, WA 98104</div>
+</div></div>`;
+
+  const subject = `📊 Doug's Weekly Planner Report — ${(weekTasks||[]).length} tasks, ${stats.current_streak_days}-day streak`;
+  const mime = [
+    'MIME-Version: 1.0',
+    `To: ${calId}`,
+    `From: ${calId}`,
+    `Subject: ${subject}`,
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    fullHtml
+  ].join('\r\n');
+
+  const encoded = btoa(unescape(encodeURIComponent(mime)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+  const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { 'Authorization':'Bearer '+accessToken, 'Content-Type':'application/json' },
+    body: JSON.stringify({ raw: encoded })
+  });
+  const sendData = await sendRes.json();
+  if (sendData.error) throw new Error(sendData.error.message);
+
+  // Record send time
+  localStorage.setItem(KEYS.lastSummary, Date.now().toString());
+  if (manual) showToast('📊 Weekly summary sent to ' + calId);
+  console.log('Weekly summary sent');
+  return true;
 }
 
 // ── Manual resend — triggered from toast button or settings ───────────────
