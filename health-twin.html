@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doug's Health Twin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00653A;
+    --gold: #FFC200;
+    --gold-dim: rgba(255,194,0,0.15);
+    --green-dim: rgba(0,101,58,0.2);
+    --bg: #090d09;
+    --surface: #0f160f;
+    --surface2: #151f15;
+    --border: rgba(0,101,58,0.25);
+    --text: #e2e8df;
+    --muted: rgba(226,232,223,0.45);
+    --good: #22c55e;
+    --warn: #FFC200;
+    --bad: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Court lines background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,101,58,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,101,58,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .everything { position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    background: var(--green);
+    border-bottom: 3px solid var(--gold);
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+  .header-left .eyebrow {
+    font-family: 'Bebas Neue', sans-serif;
+    color: var(--gold);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+  }
+  .header-left .name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: #fff;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+  .overall-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .overall-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .overall-label {
+    font-size: 9px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Tabs */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 60px;
+    z-index: 99;
+  }
+  .nav-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 12px 8px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    background: rgba(255,194,0,0.05);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* Content */
+  .content {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px 16px 100px;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Section labels */
+  .section-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card-accent-green { border-left: 3px solid var(--good); }
+  .card-accent-gold  { border-left: 3px solid var(--gold); }
+  .card-accent-red   { border-left: 3px solid var(--bad); }
+
+  /* Score grid */
+  .score-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .score-card {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid var(--border);
+    transition: transform 0.15s;
+  }
+  .score-card:hover { transform: translateY(-1px); }
+  .score-card.good  { border-left-color: var(--good); }
+  .score-card.warn  { border-left-color: var(--gold); }
+  .score-card.bad   { border-left-color: var(--bad); }
+  .score-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 3px;
+  }
+  .score-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+  }
+  .score-num { font-size: 20px; font-weight: 500; }
+  .score-num.good { color: var(--good); }
+  .score-num.warn { color: var(--gold); }
+  .score-num.bad  { color: var(--bad); }
+  .score-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .score-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+  .score-tip {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* Metric grid */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .metric-cell {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 11px 10px;
+  }
+  .metric-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .metric-val { font-size: 20px; font-weight: 500; line-height: 1; }
+  .metric-val.good { color: var(--good); }
+  .metric-val.warn { color: var(--gold); }
+  .metric-val.bad  { color: var(--bad); }
+  .metric-val span { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+  .metric-note { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* OTF session rows */
+  .session-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .session-row:last-child { border-bottom: none; }
+  .session-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    width: 44px;
+    flex-shrink: 0;
+  }
+  .session-stats {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .stat-pair { font-size: 12px; }
+  .stat-pair .sl { color: var(--muted); font-size: 10px; }
+  .session-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--green-dim);
+    color: var(--good);
+    border: 1px solid rgba(34,197,94,0.2);
+    flex-shrink: 0;
+  }
+  .session-badge.warn {
+    background: rgba(255,194,0,0.1);
+    color: var(--gold);
+    border-color: rgba(255,194,0,0.2);
+  }
+
+  /* CPAP card */
+  .cpap-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .cpap-stat { }
+  .cpap-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .cpap-val { font-size: 26px; font-weight: 500; line-height: 1; }
+  .cpap-bench { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* Chat */
+  .chat-wrap {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 200px);
+    min-height: 400px;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 12px;
+    scroll-behavior: smooth;
+  }
+  .bubble-wrap {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+  .bubble-wrap.user { flex-direction: row-reverse; }
+  .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .avatar.ai   { background: var(--green); color: var(--gold); }
+  .avatar.user { background: var(--gold); color: var(--green); }
+  .bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .bubble.ai {
+    background: rgba(0,101,58,0.2);
+    border: 1px solid rgba(0,101,58,0.35);
+    border-radius: 4px 12px 12px 12px;
+  }
+  .bubble.user {
+    background: rgba(255,194,0,0.12);
+    border: 1px solid rgba(255,194,0,0.25);
+    border-radius: 12px 4px 12px 12px;
+  }
+  .typing {
+    display: flex;
+    gap: 4px;
+    padding: 12px 14px;
+    align-items: center;
+  }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--good);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+  .quick-prompts {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .quick-btn {
+    background: rgba(0,101,58,0.2);
+    border: 1px solid var(--border);
+    color: rgba(255,255,255,0.6);
+    border-radius: 20px;
+    padding: 5px 11px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .quick-btn:hover {
+    background: rgba(0,101,58,0.35);
+    color: var(--text);
+    border-color: var(--green);
+  }
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus { border-color: var(--green); }
+  .send-btn {
+    background: var(--green);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { background: #007a45; }
+  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Settings */
+  .settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .settings-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 13px; }
+  .toggle {
+    width: 38px;
+    height: 20px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on {
+    background: var(--green);
+    border-color: var(--gold);
+  }
+  .toggle-knob {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: all 0.2s;
+  }
+  .toggle.on .toggle-knob {
+    left: 20px;
+    background: var(--gold);
+  }
+  .weight-row { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .weight-row:last-child { border-bottom: none; }
+  .weight-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+  .weight-pct { color: var(--gold); font-family: 'DM Mono', monospace; }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--green);
+    cursor: pointer;
+  }
+  .tone-grid { display: flex; gap: 8px; }
+  .tone-btn {
+    flex: 1;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    text-transform: capitalize;
+    transition: all 0.15s;
+  }
+  .tone-btn.active {
+    background: var(--green-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .weight-total {
+    text-align: right;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    margin-top: 8px;
+  }
+  .weight-total.ok   { color: var(--good); }
+  .weight-total.over { color: var(--bad); }
+
+  /* Bloodwork table */
+  .bw-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .bw-cell {
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .bw-cell:nth-child(odd) { padding-right: 12px; }
+  .bw-cell:nth-child(even) {
+    padding-left: 12px;
+    border-left: 1px solid rgba(255,255,255,0.04);
+  }
+  .bw-name { font-size: 10px; color: var(--muted); }
+  .bw-val  { font-size: 16px; font-weight: 500; }
+  .bw-val.good { color: var(--good); }
+  .bw-bench { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* Statin story */
+  .statin-box {
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .statin-box p { font-size: 13px; line-height: 1.6; color: rgba(226,232,223,0.8); }
+  .statin-box strong { color: var(--good); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card, .score-card, .metric-cell { animation: fadeIn 0.4s ease both; }
+</style>
+</head>
+<body>
+<div class="everything">
+
+<header>
+  <div class="header-inner">
+    <div class="header-left">
+      <div class="eyebrow">Seattle SuperSonics · Health Twin</div>
+      <div class="name">Doug Cottington</div>
+    </div>
+    <div class="overall-badge">
+      <div class="overall-num" id="overall-display">78</div>
+      <div class="overall-label">Overall</div>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-inner">
+    <button class="tab-btn active" onclick="showTab('dashboard',this)">Dashboard</button>
+    <button class="tab-btn" onclick="showTab('bloodwork',this)">Bloodwork</button>
+    <button class="tab-btn" onclick="showTab('chat',this)">Ask twin</button>
+    <button class="tab-btn" onclick="showTab('settings',this)">Settings</button>
+  </div>
+</nav>
+
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div class="tab-panel active" id="tab-dashboard">
+
+    <div class="section-label">Score breakdown</div>
+    <div class="score-grid" id="score-grid"></div>
+
+    <div class="section-label">Key metrics</div>
+    <div class="metric-grid" id="metric-grid"></div>
+
+    <div class="section-label">Recent OTF sessions</div>
+    <div class="card" id="otf-sessions"></div>
+
+    <div class="section-label">CPAP sleep therapy</div>
+    <div class="card card-accent-green">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace">Mar 25 – Apr 23, 2026 · AirSense 10 Respond</div>
+      <div class="cpap-grid">
+        <div class="cpap-stat">
+          <div class="cpap-label">breathing interruptions/hr (AHI)</div>
+          <div class="cpap-val" style="color:var(--good)">0.33 <span style="font-size:12px;color:var(--muted)">events/hr</span></div>
+          <div class="cpap-bench">Exceptional — normal is under 5 (AASM)</div>
+        </div>
+        <div class="cpap-stat">
+          <div class="cpap-label">time wearing mask per night</div>
+          <div class="cpap-val" style="color:var(--gold)">6h 41m</div>
+          <div class="cpap-bench">Target: 7+ hours</div>
+        </div>
+        <div class="cpap-stat" style="margin-top:10px">
+          <div class="cpap-label">mask seal quality (leak rate 95th %)</div>
+          <div class="cpap-val" style="color:var(--good);font-size:20px">19.8 <span style="font-size:11px;color:var(--muted)">L/min</span></div>
+          <div class="cpap-bench">Good — target under 24 L/min</div>
+        </div>
+        <div class="cpap-stat" style="margin-top:10px">
+          <div class="cpap-label">nights used ≥ 4 hours</div>
+          <div class="cpap-val" style="color:var(--good);font-size:20px">79%</div>
+          <div class="cpap-bench">23 of 29 nights</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">Apple Watch</div>
+    <div class="card" id="apple-grid"></div>
+  </div>
+
+  <!-- BLOODWORK -->
+  <div class="tab-panel" id="tab-bloodwork">
+    <div class="statin-box">
+      <p>Your statin is <strong>absolutely crushing it</strong> — total fat in blood (total cholesterol) dropped from 224 down to 141, a 37% reduction. The American Heart Association says under 200 is optimal. You're at 141. Your liver enzymes (ALT, AST) are completely normal, confirming no liver stress from the medication.</p>
+    </div>
+    <div class="section-label">Lipid panel — Apr 14, 2026</div>
+    <div class="card">
+      <div class="bw-grid" id="lipid-grid"></div>
+    </div>
+    <div class="section-label">General chemistry — Feb 12, 2026</div>
+    <div class="card">
+      <div class="bw-grid" id="chem-grid"></div>
+    </div>
+    <div class="card" style="margin-top:4px;background:rgba(255,194,0,0.06);border-color:rgba(255,194,0,0.2)">
+      <p style="font-size:12px;color:rgba(226,232,223,0.7);line-height:1.6">
+        <strong style="color:var(--gold)">One thing missing:</strong> Ask your doctor for a <strong style="color:var(--gold)">CK (creatine kinase / muscle enzyme)</strong> test at your next physical. Standard of care for active statin users who exercise vigorously — rules out statin-induced muscle irritation. Virginia Mason switching to CommonSpirit/MyChart on May 2, 2026.
+      </p>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="tab-panel" id="tab-chat">
+    <div class="chat-wrap">
+      <div class="chat-messages" id="chat-messages">
+        <div class="bubble-wrap">
+          <div class="avatar ai">AI</div>
+          <div class="bubble ai">Hey Doug! I'm your health twin — I have all your data loaded: OTF sessions, Apple Watch stats, bloodwork from Virginia Mason, and CPAP numbers from your AirSense 10. Ask me anything about your health, or tap a quick question below.</div>
+        </div>
+      </div>
+      <div class="quick-prompts" id="quick-prompts">
+        <button class="quick-btn" onclick="sendQuick(this)">How's my heart health?</button>
+        <button class="quick-btn" onclick="sendQuick(this)">Should I worry about my weight?</button>
+        <button class="quick-btn" onclick="sendQuick(this)">What's my biggest health lever?</button>
+        <button class="quick-btn" onclick="sendQuick(this)">Is my CPAP working?</button>
+        <button class="quick-btn" onclick="sendQuick(this)">How do I improve VO2 max?</button>
+        <button class="quick-btn" onclick="sendQuick(this)">What does my HRV tell you?</button>
+        <button class="quick-btn" onclick="sendQuick(this)">Is my statin dose right?</button>
+      </div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chat-input" placeholder="Ask anything about your health..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" />
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="tab-panel" id="tab-settings">
+    <div class="section-label">Email sections</div>
+    <div class="settings-card">
+      <div class="settings-title">Toggle report sections</div>
+      <div id="toggle-rows"></div>
+    </div>
+
+    <div class="section-label">Score weights</div>
+    <div class="settings-card">
+      <div class="settings-title">Adjust how each component affects your overall score</div>
+      <div id="weight-rows"></div>
+      <div class="weight-total" id="weight-total">Total: 100%</div>
+    </div>
+
+    <div class="section-label">Email tone</div>
+    <div class="settings-card">
+      <div class="settings-title">How should the report be written?</div>
+      <div class="tone-grid" id="tone-grid"></div>
+    </div>
+
+    <div class="section-label">Data sources</div>
+    <div class="settings-card">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>OTF sessions (Gmail label:otbeat)</span>
+          <span style="color:var(--good)">Active</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>Apple Health (Health Auto Export)</span>
+          <span style="color:var(--good)">Active · syncs every 7 days</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>Bloodwork (Virginia Mason)</span>
+          <span style="color:var(--gold)">Manual · update after lab visits</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>CPAP (ResMed MyAir PDF)</span>
+          <span style="color:var(--gold)">Manual · upload PDF here</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>Weekly report delivery</span>
+          <span style="color:var(--good)">Every Friday 7am PT</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /everything -->
+
+<script>
+// ─── Data ──────────────────────────────────────────────────────────────────────
+
+const ANTHROPIC_KEY = 'YOUR_ANTHROPIC_API_KEY_HERE'; // Replace before deploying
+
+const SYSTEM_PROMPT = `You are Doug's personal health AI assistant — a knowledgeable friend who explains things casually and clearly. You have full access to his health data.
+
+DOUG'S PROFILE:
+- Age 52, DOB 12/27/1973, 5'10", 198.4 lbs, BMI ~28.4, Seattle WA (Bryant neighborhood)
+- Wife: Ana. OTF Studio: U District
+- Medications: Atorvastatin 40mg (statin — does NOT suppress HR, so all OTF heart rate data is valid)
+
+HEALTH SCORES (overall 78/100):
+Heart engine (cardio fitness): 76/100 — 20% weight
+Gym work (weekly activity): 65/100 — 20% weight
+Blood chemistry (heart health): 91/100 — 20% weight
+Bounce back (recovery): 72/100 — 15% weight
+Sleep therapy (CPAP): 88/100 — 15% weight
+Body shape (body composition): 50/100 — 5% weight
+Daily hustle (daily movement): 44/100 — 5% weight
+
+APPLE HEALTH (16-month baseline Jan 2025 – Apr 2026):
+Resting HR: 58 bpm (excellent — US avg 68-72, AHA)
+HRV avg: 47.7 ms (good for age 52 — AHA avg 40-60ms)
+VO2 Max: 36.5 ml/kg/min (fair — ACSM "good" for men 50-59 is 42+, this is the main fitness lever)
+Daily steps avg: 4,024 (below 7,500 target — weakest daily metric)
+Active calories: 597 kcal/day (strong)
+Sleep avg: 7.1 hrs/night
+Weight: 198.4 lbs (was 185 in Jan 2025 — trending up 13 lbs over 16 months)
+Blood oxygen: 97.9% (excellent)
+Cardio recovery: 31 bpm drop (solid — above 20 bpm threshold)
+Recent 30-day step avg: 5,004 (improving vs 16-month avg of 4,024)
+
+CPAP — ResMed AirSense 10 Respond (Mar 25 – Apr 23, 2026):
+AHI: 0.33 events/hr — EXCEPTIONAL. Normal is under 5. This is essentially zero apnea events.
+Usage: 6 hrs 41 min avg/night (target: 7+ hours)
+Leak rate 95th %: 19.80 L/min (good — under 24 is acceptable)
+Days ≥ 4 hours: 23/29 = 79%
+Days ≥ 6 hours: 19/29 = 66%
+Device started: around Jan 2026 (no usage data before that in 365-day view)
+
+BLOODWORK — Virginia Mason Franciscan Health:
+Lipid panel Apr 14, 2026 (on 40mg atorvastatin):
+  Total cholesterol: 141 mg/dL (was 224 May 2022 pre-statin — 37% reduction — excellent)
+  Triglycerides: 72 mg/dL (optimal — under 150)
+  HDL: 56 mg/dL (good — men should be above 40)
+  LDL estimated: 71 mg/dL (near optimal — AHA target under 70)
+  Total:HDL ratio: ~2.5 (AHA considers under 3.5 low CV risk — excellent)
+General chemistry Feb 12, 2026:
+  Fasting glucose: 87 mg/dL (normal — pre-diabetes starts at 100)
+  ALT: 19 U/L (normal ≤55 — statin liver safety confirmed)
+  AST: 28 U/L (normal 10-40 — statin liver safety confirmed)
+  Creatinine: 0.95 mg/dL (normal)
+  eGFR: 96 mL/min (excellent kidney function — above 60 is healthy)
+  HbA1c last done 2019: 5.1% (excellent, but worth repeating at next visit)
+  CK (muscle enzyme): NOT YET TESTED — recommend requesting at next physical (standard for active statin users)
+
+OTF RECENT SESSIONS (6-week avg: 779 kcal, 9 splat pts):
+Apr 16: 695 kcal, 3 splats, avg HR 128, peak 169, coach Coree, 3G, 3,112 steps
+Apr 14: 705 kcal, 5 splats, avg HR 123, peak 169, coach Ryan, 3G, 2,750 steps
+Apr 9:  889 kcal, 18 splats, avg HR 143, peak 175, coach Coree, 3G (best session — the blueprint)
+Apr 7:  736 kcal, 16 splats, avg HR 134, peak 174, coach Ryan, 2G
+Apr 2:  766 kcal, 8 splats, avg HR 132
+Mar 31: 843 kcal, 13 splats, avg HR 142
+
+BENCHMARKS:
+CDC NHANES: avg male BMI 29.1, avg cholesterol ~200 mg/dL
+AHA: resting HR 68-72 bpm | total:HDL <3.5 = low CV risk | HRV avg 40-60ms
+ACSM: VO2 max >42 = good for men 50-59 | aerobic zone 64-91% max HR
+AASM: AHI <5 = normal | 5-15 = mild | 15-30 = moderate | >30 = severe
+OTF: 12+ splat points/session target | 3 sessions/week recommended
+
+TONE: Casual and friendly. Plain English first, technical term in parentheses when relevant. Be honest — not just cheerleading. Mention Ana or Seattle occasionally when natural. Keep responses conversational and under 200 words unless detail is needed.`;
+
+const scores = {
+  overall: 78,
+  cardioFitness: 76,
+  weeklyActivity: 65,
+  heartHealth: 91,
+  recovery: 72,
+  sleepTherapy: 88,
+  bodyComposition: 50,
+  dailyMovement: 44,
+};
+
+const subScores = [
+  { key:'cardioFitness',   label:'Heart engine',   tech:'cardio fitness',   pct:20, tip:'Add 1 outdoor run/week — VO2 max of 36.5 needs to hit 42+' },
+  { key:'weeklyActivity',  label:'Gym work',        tech:'weekly activity',  pct:20, tip:'Push orange/red earlier in class — target 12+ splat points' },
+  { key:'heartHealth',     label:'Blood chemistry', tech:'heart health',     pct:20, tip:'Request a CK test at your next physical — the one missing marker' },
+  { key:'recovery',        label:'Bounce back',     tech:'recovery',         pct:15, tip:'Nudge sleep from 7.1 to 7.5 hrs — consistency beats quantity' },
+  { key:'sleepTherapy',    label:'Sleep therapy',   tech:'CPAP compliance',  pct:15, tip:'Nudge nightly use from 6h 41m toward 7hrs — AHI is already elite' },
+  { key:'bodyComposition', label:'Body shape',      tech:'body composition', pct:5,  tip:'Weight up 13 lbs since Jan 2025 — evening walks with Ana help' },
+  { key:'dailyMovement',   label:'Daily hustle',    tech:'daily movement',   pct:5,  tip:'Steps avg 4,024/day — Bryant to U Village = ~3,000 steps' },
+];
+
+const keyMetrics = [
+  { label:'Resting HR',    value:'58',    unit:'bpm',      note:'vs avg 68-72 (AHA)',   cls:'good' },
+  { label:'HRV avg',       value:'47.7',  unit:'ms',       note:'healthy for age 52',   cls:'good' },
+  { label:'VO2 Max',       value:'36.5',  unit:'ml/kg',    note:'target: 42+ (ACSM)',   cls:'warn' },
+  { label:'CPAP AHI',      value:'0.33',  unit:'/hr',      note:'exceptional control',  cls:'good' },
+  { label:'Cholesterol',   value:'141',   unit:'mg/dL',    note:'was 224 pre-statin',   cls:'good' },
+  { label:'Daily steps',   value:'4,024', unit:'',         note:'target: 7,500+',       cls:'bad'  },
+  { label:'Sleep avg',     value:'7.1',   unit:'hrs',      note:'near 7.5 target',      cls:'good' },
+  { label:'Blood O2',      value:'97.9',  unit:'%',        note:'excellent (95-100%)',  cls:'good' },
+  { label:'BMI',           value:'28.4',  unit:'',         note:'US male avg: 29.1',    cls:'warn' },
+];
+
+const otfSessions = [
+  { date:'Apr 16', cal:695,  splats:3,  hr:128, peak:169, coach:'Coree', type:'3G' },
+  { date:'Apr 14', cal:705,  splats:5,  hr:123, peak:169, coach:'Ryan',  type:'3G' },
+  { date:'Apr 9',  cal:889,  splats:18, hr:143, peak:175, coach:'Coree', type:'3G' },
+  { date:'Apr 7',  cal:736,  splats:16, hr:134, peak:174, coach:'Ryan',  type:'2G' },
+];
+
+const lipidData = [
+  { name:'Total cholesterol',  val:'141',  unit:'mg/dL', bench:'was 224 pre-statin', cls:'good' },
+  { name:'Good cholesterol (HDL)', val:'56', unit:'mg/dL', bench:'good ≥40 for men', cls:'good' },
+  { name:'Triglycerides',      val:'72',   unit:'mg/dL', bench:'optimal <150',       cls:'good' },
+  { name:'Bad cholesterol (LDL est.)', val:'~71', unit:'mg/dL', bench:'near optimal <70', cls:'good' },
+];
+
+const chemData = [
+  { name:'Blood sugar fasting (glucose)', val:'87',   unit:'mg/dL', bench:'pre-diabetes starts at 100', cls:'good' },
+  { name:'Liver marker (ALT)',   val:'19',   unit:'U/L',   bench:'normal ≤55 — statin safe', cls:'good' },
+  { name:'Liver marker (AST)',   val:'28',   unit:'U/L',   bench:'normal 10-40',              cls:'good' },
+  { name:'Kidney filter speed (eGFR)', val:'96', unit:'mL/min', bench:'excellent ≥60',       cls:'good' },
+  { name:'Kidney waste (creatinine)', val:'0.95', unit:'mg/dL', bench:'normal 0.72-1.25',    cls:'good' },
+  { name:'Muscle enzyme (CK)', val:'—', unit:'', bench:'not yet tested — request it', cls:'warn' },
+];
+
+const appleData = [
+  { label:'Resting heart rate', tech:'resting HR', value:'58 bpm', bench:'Below avg of 68-72 (AHA)', cls:'good' },
+  { label:'Beat-to-beat variation', tech:'HRV', value:'47.7 ms', bench:'Healthy for 52 (AHA avg 40-60)', cls:'good' },
+  { label:'Oxygen efficiency', tech:'VO2 Max', value:'36.5 ml/kg/min', bench:'Target 42+ for age (ACSM)', cls:'warn' },
+  { label:'Daily steps', tech:'step count', value:'4,024/day', bench:'Below 7,500 target', cls:'bad' },
+  { label:'Active burn', tech:'active calories', value:'597 kcal/day', bench:'Strong output', cls:'good' },
+  { label:'Nightly sleep', tech:'sleep analysis', value:'7.1 hrs/night', bench:'Near 7.5 target', cls:'good' },
+  { label:'Blood oxygen level', tech:'SpO2', value:'97.9%', bench:'Healthy range 95-100%', cls:'good' },
+  { label:'Heart recovery speed', tech:'cardio recovery', value:'31 bpm drop', bench:'Good — above 20 threshold', cls:'good' },
+];
+
+const emailToggles = [
+  { key:'showCPAP',        label:'CPAP / sleep therapy card' },
+  { key:'showBloodwork',   label:'Blood work card' },
+  { key:'showAppleHealth', label:'Apple Watch card' },
+  { key:'anaMode',         label:'Include Ana mentions' },
+  { key:'seattleRefs',     label:'Seattle references' },
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+const state = {
+  tone: 'casual',
+  toggles: { showCPAP:true, showBloodwork:true, showAppleHealth:true, anaMode:true, seattleRefs:true },
+  weights: { cardioFitness:20, weeklyActivity:20, heartHealth:20, recovery:15, sleepTherapy:15, bodyComposition:5, dailyMovement:5 },
+};
+
+const chatHistory = [];
+let chatLoading = false;
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
+function scoreClass(s) { return s >= 80 ? 'good' : s >= 60 ? 'warn' : 'bad'; }
+function scoreColor(s) { return s >= 80 ? '#22c55e' : s >= 60 ? '#FFC200' : '#ef4444'; }
+
+function renderScoreGrid() {
+  const el = document.getElementById('score-grid');
+  el.innerHTML = subScores.map((sc, i) => {
+    const sv = scores[sc.key];
+    const cls = scoreClass(sv);
+    const color = scoreColor(sv);
+    return `<div class="score-card ${cls}" style="animation-delay:${i*0.07}s">
+      <div class="score-top">
+        <span class="score-name">${sc.label}</span>
+        <span class="score-num ${cls}">${sv}<span style="font-size:10px;opacity:0.5">/100</span></span>
+      </div>
+      <div class="score-sub">(${sc.tech}) · ${sc.pct}% of score</div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:${sv}%;background:${color}"></div></div>
+      <div class="score-tip">${sc.tip}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderMetricGrid() {
+  const el = document.getElementById('metric-grid');
+  el.innerHTML = keyMetrics.map((m, i) => `
+    <div class="metric-cell" style="animation-delay:${i*0.06}s">
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-val ${m.cls}">${m.value}<span>${m.unit}</span></div>
+      <div class="metric-note">${m.note}</div>
+    </div>`).join('');
+}
+
+function renderOTFSessions() {
+  const el = document.getElementById('otf-sessions');
+  el.innerHTML = otfSessions.map(s => `
+    <div class="session-row">
+      <div class="session-date">${s.date}</div>
+      <div class="session-stats">
+        <div class="stat-pair"><div class="sl">kcal</div>${s.cal}</div>
+        <div class="stat-pair"><div class="sl">splats</div><span style="color:${s.splats>=12?'#22c55e':'#FFC200'}">${s.splats}</span></div>
+        <div class="stat-pair"><div class="sl">avg HR</div>${s.hr}</div>
+        <div class="stat-pair"><div class="sl">coach</div>${s.coach}</div>
+      </div>
+      <div class="session-badge ${s.splats>=12?'':'warn'}">${s.type}</div>
+    </div>`).join('');
+}
+
+function renderAppleGrid() {
+  const el = document.getElementById('apple-grid');
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` +
+    appleData.map(a => `
+      <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div style="font-size:10px;color:var(--muted)">${a.label} <span style="opacity:0.6">(${a.tech})</span></div>
+        <div style="font-size:15px;font-weight:500;color:${a.cls==='good'?'#22c55e':a.cls==='warn'?'#FFC200':'#ef4444'};margin:3px 0">${a.value}</div>
+        <div style="font-size:10px;color:var(--muted)">${a.bench}</div>
+      </div>`).join('') + `</div>`;
+}
+
+function renderBloodwork() {
+  document.getElementById('lipid-grid').innerHTML = lipidData.map(b => `
+    <div class="bw-cell">
+      <div class="bw-name">${b.name}</div>
+      <div class="bw-val ${b.cls}">${b.val} <span style="font-size:10px;font-weight:400;opacity:0.5">${b.unit}</span></div>
+      <div class="bw-bench">${b.bench}</div>
+    </div>`).join('');
+  document.getElementById('chem-grid').innerHTML = chemData.map(b => `
+    <div class="bw-cell">
+      <div class="bw-name">${b.name}</div>
+      <div class="bw-val ${b.cls}">${b.val} <span style="font-size:10px;font-weight:400;opacity:0.5">${b.unit}</span></div>
+      <div class="bw-bench">${b.bench}</div>
+    </div>`).join('');
+}
+
+function renderToggles() {
+  document.getElementById('toggle-rows').innerHTML = emailToggles.map(t => `
+    <div class="toggle-row">
+      <span class="toggle-label">${t.label}</span>
+      <div class="toggle ${state.toggles[t.key]?'on':''}" onclick="toggleSetting('${t.key}',this)">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderWeights() {
+  document.getElementById('weight-rows').innerHTML = subScores.map(sc => `
+    <div class="weight-row">
+      <div class="weight-top">
+        <span>${sc.label}</span>
+        <span class="weight-pct" id="wpct-${sc.key}">${state.weights[sc.key]}%</span>
+      </div>
+      <input type="range" min="0" max="40" step="5" value="${state.weights[sc.key]}"
+        oninput="updateWeight('${sc.key}',this.value)">
+    </div>`).join('');
+  updateWeightTotal();
+}
+
+function renderTones() {
+  document.getElementById('tone-grid').innerHTML = ['casual','detailed','brief'].map(t => `
+    <button class="tone-btn ${state.tone===t?'active':''}" onclick="setTone('${t}',this)">${t}</button>`).join('');
+}
+
+// ─── Interactions ─────────────────────────────────────────────────────────────
+
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+function toggleSetting(key, el) {
+  state.toggles[key] = !state.toggles[key];
+  el.classList.toggle('on');
+  el.querySelector('.toggle-knob').style.left = state.toggles[key] ? '20px' : '2px';
+}
+
+function updateWeight(key, val) {
+  state.weights[key] = parseInt(val);
+  document.getElementById('wpct-'+key).textContent = val + '%';
+  updateWeightTotal();
+}
+
+function updateWeightTotal() {
+  const total = Object.values(state.weights).reduce((a,b)=>a+b,0);
+  const el = document.getElementById('weight-total');
+  el.textContent = 'Total: ' + total + '%';
+  el.className = 'weight-total ' + (total === 100 ? 'ok' : 'over');
+}
+
+function setTone(t, btn) {
+  state.tone = t;
+  document.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+function addBubble(role, content) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap ' + role;
+  wrap.innerHTML = `
+    <div class="avatar ${role}">${role==='user'?'D':'AI'}</div>
+    <div class="bubble ${role}">${content}</div>`;
+  document.getElementById('chat-messages').appendChild(wrap);
+  wrap.scrollIntoView({ behavior:'smooth', block:'end' });
+  return wrap;
+}
+
+function addTyping() {
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap';
+  wrap.id = 'typing-indicator';
+  wrap.innerHTML = `
+    <div class="avatar ai">AI</div>
+    <div class="bubble ai typing"><span></span><span></span><span></span></div>`;
+  document.getElementById('chat-messages').appendChild(wrap);
+  wrap.scrollIntoView({ behavior:'smooth', block:'end' });
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+function sendQuick(btn) {
+  document.getElementById('chat-input').value = btn.textContent;
+  sendMessage();
+}
+
+async function sendMessage() {
+  if (chatLoading) return;
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  addBubble('user', text);
+  chatHistory.push({ role:'user', content:text });
+  chatLoading = true;
+  document.getElementById('send-btn').disabled = true;
+  addTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        system: SYSTEM_PROMPT,
+        messages: chatHistory,
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'Something went wrong — please try again.';
+    removeTyping();
+    addBubble('ai', reply);
+    chatHistory.push({ role:'assistant', content:reply });
+  } catch(e) {
+    removeTyping();
+    addBubble('ai', 'Connection error — check your API key in the settings and try again.');
+  }
+  chatLoading = false;
+  document.getElementById('send-btn').disabled = false;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+renderScoreGrid();
+renderMetricGrid();
+renderOTFSessions();
+renderAppleGrid();
+renderBloodwork();
+renderToggles();
+renderWeights();
+renderTones();
+</script>
+</body>
+</html>
