@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Doug's Health Twin</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Health Twin">
+<meta name="theme-color" content="#00653A">
+<title>Health Twin</title>
+<link rel="manifest" id="manifest-link">
+<link rel="apple-touch-icon" id="apple-icon">
+<link rel="icon" type="image/svg+xml" id="favicon">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -14,23 +20,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,101,58,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,101,58,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
 .z1{position:relative;z-index:1}
 header{background:var(--green);border-bottom:3px solid var(--gold);padding:0 16px;position:sticky;top:0;z-index:100}
-.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:12px;padding:10px 0}
-.eyebrow{font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:10px;letter-spacing:.18em}
-.hname{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#fff;letter-spacing:.06em;line-height:1}
-.header-sub{font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px}
-.header-right{display:flex;gap:10px;align-items:stretch;flex:1;justify-content:flex-end}
-.overall-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.3);border-radius:10px;padding:8px 16px;min-width:70px}
+.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:72px;gap:12px;padding:10px 0}
+.header-left{flex:0 0 auto}
+.app-title{font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:20px;letter-spacing:.2em;line-height:1}
+.hname{font-size:14px;font-weight:600;color:#fff;line-height:1.2;margin-top:3px;letter-spacing:.01em}
+.header-sub{font-size:11px;color:rgba(255,255,255,0.45);margin-top:1px}
+.header-right{display:flex;gap:10px;align-items:stretch;flex:1;justify-content:flex-end;min-width:0}
+.overall-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.3);border-radius:10px;padding:8px 14px;flex-shrink:0}
 .overall-num{font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--gold);line-height:1}
 .overall-lbl{font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
-.actions-box{background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.2);border-radius:10px;padding:8px 12px;max-width:220px;min-width:160px;display:flex;flex-direction:column;justify-content:center}
+.actions-box{background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.2);border-radius:10px;padding:8px 12px;max-width:210px;min-width:140px;display:flex;flex-direction:column;justify-content:center}
 .actions-title{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.12em;color:var(--gold);margin-bottom:5px}
 .action-item{display:flex;gap:6px;align-items:flex-start;margin-bottom:4px}
 .action-item:last-child{margin-bottom:0}
 .action-num{font-family:'Bebas Neue',sans-serif;font-size:11px;color:var(--gold);flex-shrink:0;line-height:1.3}
 .action-text{font-size:10px;color:rgba(255,255,255,0.75);line-height:1.4}
-nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:99;overflow-x:auto}
-.nav-inner{max-width:720px;margin:0 auto;display:flex;min-width:380px}
-.tab-btn{flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
+nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:72px;z-index:99;overflow-x:auto}
+.nav-inner{max-width:720px;margin:0 auto;display:flex;min-width:500px}
+.tab-btn{flex:1;padding:10px 4px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
 .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,194,0,0.04)}
 .content{max-width:720px;margin:0 auto;padding:18px 16px 100px}
 .tab-panel{display:none}.tab-panel.active{display:block}
@@ -75,19 +82,19 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .bw-bench{font-size:10px;color:var(--muted);margin-top:2px}
 .statin-box{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:12px 14px;margin-bottom:12px}
 .upload-zone{border:2px dashed var(--border);border-radius:10px;padding:24px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:10px}
-.upload-zone:hover{border-color:var(--gold);background:rgba(255,194,0,0.04)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:rgba(255,194,0,0.04)}
 .upload-icon{font-size:26px;margin-bottom:6px;opacity:.6}
 .upload-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;color:var(--gold);font-size:13px;margin-bottom:3px}
 .upload-sub{font-size:11px;color:var(--muted)}
 .upload-result{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:10px}
 .upload-result-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;font-size:12px;margin-bottom:8px}
-.upload-result-title.good{color:var(--good)}.upload-result-title.warn{color:var(--gold)}
+.upload-result-title.good{color:var(--good)}.upload-result-title.warn{color:var(--gold)}.upload-result-title.bad{color:var(--bad)}
 .upload-result pre{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:pre-wrap;line-height:1.6;max-height:180px;overflow-y:auto}
 .sql-box{background:rgba(0,101,58,0.1);border:1px solid rgba(0,101,58,0.3);border-radius:8px;padding:12px;margin-top:10px}
 .sql-title{font-size:10px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace}
 .sql-box pre{font-family:'DM Mono',monospace;font-size:10px;color:rgba(226,232,223,0.55);white-space:pre-wrap;max-height:160px;overflow-y:auto}
 .copy-btn{background:var(--green-dim);border:1px solid var(--border);color:var(--good);border-radius:6px;padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;margin-top:8px}
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 220px);min-height:400px}
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 230px);min-height:380px}
 .chat-msgs{flex:1;overflow-y:auto;padding-bottom:12px}
 .bwrap{display:flex;gap:10px;margin-bottom:14px;align-items:flex-start}
 .bwrap.user{flex-direction:row-reverse}
@@ -127,16 +134,26 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 .weight-total.ok{color:var(--good)}.weight-total.over{color:var(--bad)}
 .source-row{display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
 .source-row:last-child{border-bottom:none}
+.history-week{background:var(--surface2);border-radius:8px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border)}
+.history-week-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.history-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.history-bars{display:flex;gap:3px;align-items:flex-end;height:36px;margin-bottom:4px}
+.history-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.history-bar{width:100%;border-radius:2px 2px 0 0;min-height:2px}
+.history-bar-lbl{font-size:8px;color:var(--muted);text-align:center;line-height:1}
+.history-delta{font-size:11px;font-family:'DM Mono',monospace;margin-left:6px}
+.history-delta.up{color:var(--good)}.history-delta.down{color:var(--bad)}.history-delta.flat{color:var(--muted)}
+.contrib-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;margin:2px 3px 2px 0;border:1px solid}
 </style>
 </head>
 <body>
 <div class="z1">
 <header>
   <div class="header-inner">
-    <div>
-      <div class="eyebrow">Seattle SuperSonics &middot; Health Twin</div>
-      <div class="hname">Doug Cottington</div>
-      <div class="header-sub">Age 52 &middot; Bryant, Seattle &middot; OTF U District</div>
+    <div class="header-left">
+      <div class="app-title">Health Twin</div>
+      <div class="hname">Dug See</div>
+      <div class="header-sub">Age 52 &middot; Bryant, Seattle</div>
     </div>
     <div class="header-right">
       <div class="overall-badge">
@@ -156,6 +173,7 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
     <button class="tab-btn" onclick="showTab('bloodwork',this)">Bloodwork</button>
     <button class="tab-btn" onclick="showTab('uploads',this)">Upload data</button>
     <button class="tab-btn" onclick="showTab('chat',this)">Ask twin</button>
+    <button class="tab-btn" onclick="showTab('history',this)">History</button>
     <button class="tab-btn" onclick="showTab('settings',this)">Settings</button>
   </div>
 </nav>
@@ -164,13 +182,21 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
   <div class="tab-panel active" id="tab-dashboard">
     <div class="slabel">Score breakdown</div>
     <div class="score-grid" id="score-grid"></div>
+
+    <div class="slabel">Weekend Planner contributions</div>
+    <div class="card card-green">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Completed tasks from Weekend Planner that contributed to this week's health scores</div>
+      <div id="contrib-badges"></div>
+      <div id="contrib-detail" style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px"></div>
+    </div>
+
     <div class="slabel">Key metrics</div>
     <div class="metric-grid" id="metric-grid"></div>
     <div class="slabel">Recent OTF sessions</div>
     <div class="card" id="otf-sessions"></div>
     <div class="slabel">CPAP sleep therapy</div>
     <div class="card card-green">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace">Mar 25 - Apr 23, 2026 &middot; AirSense 10 &middot; Upload new PDF monthly</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace">Mar 25 - Apr 23, 2026 &middot; AirSense 10 Respond &middot; Upload PDF monthly (Thursday nights)</div>
       <div class="cpap-grid">
         <div><div class="cpap-label">breathing interruptions/hr (AHI)</div><div class="cpap-val" style="color:var(--good)">0.33 <span style="font-size:12px;color:var(--muted)">/hr</span></div><div class="cpap-bench">Exceptional - normal under 5 (AASM)</div></div>
         <div><div class="cpap-label">mask time per night</div><div class="cpap-val" style="color:var(--gold)">6h 41m</div><div class="cpap-bench">Target: 7+ hours</div></div>
@@ -184,7 +210,7 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 
   <div class="tab-panel" id="tab-bloodwork">
     <div class="statin-box">
-      <p style="font-size:13px;line-height:1.6;color:rgba(226,232,223,0.8)">Your statin is <strong style="color:var(--good)">absolutely crushing it</strong> - total cholesterol dropped from 224 to 141, a 37% reduction. AHA says under 200 is optimal. Liver enzymes are completely normal.</p>
+      <p style="font-size:13px;line-height:1.6;color:rgba(226,232,223,0.8)">Your statin is <strong style="color:var(--good)">absolutely crushing it</strong> - total cholesterol dropped from 224 to 141, a 37% reduction. AHA says under 200 is optimal. Liver enzymes completely normal.</p>
     </div>
     <div class="slabel">Lipid panel - Apr 14, 2026</div>
     <div class="card"><div class="bw-grid" id="lipid-grid"></div></div>
@@ -197,33 +223,39 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 
   <div class="tab-panel" id="tab-uploads">
     <div class="slabel">Upload health data</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Drop files here to update your dashboard. CPAP PDF best uploaded Thursday nights for Friday report.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Select or drag files from your desktop. Each file type is automatically detected and routed to the correct data store. CPAP best uploaded Thursday nights for Friday report.</p>
+
     <div class="settings-card">
       <div class="settings-title">ResMed MyAir - sleep therapy PDF (monthly)</div>
-      <div class="upload-zone" onclick="document.getElementById('file-cpap').click()">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Download from <strong style="color:rgba(255,255,255,0.6)">myair.resmed.com</strong> - History - Export PDF</p>
+      <div class="upload-zone" id="drop-cpap" onclick="document.getElementById('file-cpap').click()" ondragover="onDragOver(event,'drop-cpap')" ondragleave="onDragLeave('drop-cpap')" ondrop="onDrop(event,'cpap')">
         <div class="upload-icon">&#x1FAB4;</div>
-        <div class="upload-title">Drop MyAir PDF here or click to browse</div>
-        <div class="upload-sub">Download from myair.resmed.com - History - Export PDF</div>
+        <div class="upload-title">Click to select or drag PDF here</div>
+        <div class="upload-sub">Routes to Supabase cpap_sessions &rarr; updates Sleep Therapy score</div>
       </div>
       <input type="file" id="file-cpap" accept=".pdf,.csv" style="display:none" onchange="handleFile(this.files[0],'cpap')">
       <div id="result-cpap"></div>
     </div>
+
     <div class="settings-card">
       <div class="settings-title">Lab results - Virginia Mason / CommonSpirit</div>
-      <div class="upload-zone" onclick="document.getElementById('file-lab').click()">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Export from MyVirginiaMason or CommonSpirit portal</p>
+      <div class="upload-zone" id="drop-lab" onclick="document.getElementById('file-lab').click()" ondragover="onDragOver(event,'drop-lab')" ondragleave="onDragLeave('drop-lab')" ondrop="onDrop(event,'lab')">
         <div class="upload-icon">&#x1FA78;</div>
-        <div class="upload-title">Drop lab results PDF here or click to browse</div>
-        <div class="upload-sub">Export from MyVirginiaMason or CommonSpirit portal</div>
+        <div class="upload-title">Click to select or drag PDF here</div>
+        <div class="upload-sub">Routes to bloodwork constants &rarr; updates Blood Chemistry score</div>
       </div>
       <input type="file" id="file-lab" accept=".pdf" style="display:none" onchange="handleFile(this.files[0],'lab')">
       <div id="result-lab"></div>
     </div>
+
     <div class="settings-card">
-      <div class="settings-title">Apple Health - historical export</div>
-      <div class="upload-zone" onclick="document.getElementById('file-apple').click()">
+      <div class="settings-title">Apple Health - JSON export</div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Export from Health Auto Export app - calculates 7-day weight average automatically</p>
+      <div class="upload-zone" id="drop-apple" onclick="document.getElementById('file-apple').click()" ondragover="onDragOver(event,'drop-apple')" ondragleave="onDragLeave('drop-apple')" ondrop="onDrop(event,'apple')">
         <div class="upload-icon">&#x1F34E;</div>
-        <div class="upload-title">Drop Health Auto Export JSON here</div>
-        <div class="upload-sub">Parses 7-day weight average, steps, HR, HRV, VO2 max, sleep</div>
+        <div class="upload-title">Click to select or drag JSON here</div>
+        <div class="upload-sub">Routes to Apps Script snapshot &rarr; updates Cardio, Recovery, Movement scores</div>
       </div>
       <input type="file" id="file-apple" accept=".json,.csv" style="display:none" onchange="handleFile(this.files[0],'apple')">
       <div id="result-apple"></div>
@@ -235,7 +267,7 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
       <div class="chat-msgs" id="chat-messages">
         <div class="bwrap">
           <div class="avatar ai">AI</div>
-          <div class="bubble ai">Hey Doug! I am your health twin - loaded with your OTF sessions, Apple Watch stats, bloodwork from Virginia Mason, and CPAP data. Ask me anything.</div>
+          <div class="bubble ai">Hey Doug! I am your health twin - loaded with your OTF sessions, Apple Watch stats, bloodwork, CPAP data, and your Weekend Planner task history. Ask me anything.</div>
         </div>
       </div>
       <div class="quick-prompts">
@@ -253,6 +285,12 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
         <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
       </div>
     </div>
+  </div>
+
+  <div class="tab-panel" id="tab-history">
+    <div class="slabel">Weekly score history</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Scores saved automatically each week. Green arrow = improving vs prior week. Bars show each sub-score relative to 100.</p>
+    <div id="history-list"></div>
   </div>
 
   <div class="tab-panel" id="tab-settings">
@@ -276,9 +314,10 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
     <div class="settings-card">
       <div class="source-row"><span>OTF sessions (Gmail label:otbeat)</span><span style="color:var(--good)">Active</span></div>
       <div class="source-row"><span>Apple Health (Health Auto Export)</span><span style="color:var(--good)">Active - syncs every 7 days</span></div>
-      <div class="source-row"><span>Body weight</span><span style="color:var(--good)">7-day avg from Apple Health</span></div>
+      <div class="source-row"><span>Body weight</span><span style="color:var(--good)">7-day rolling avg</span></div>
+      <div class="source-row"><span>Weekend Planner tasks</span><span style="color:var(--good)">Live - health tasks tracked</span></div>
       <div class="source-row"><span>Bloodwork (Virginia Mason)</span><span style="color:var(--gold)">Manual - update after lab visits</span></div>
-      <div class="source-row"><span>CPAP (ResMed MyAir PDF)</span><span style="color:var(--gold)">Manual monthly - upload Thursday nights</span></div>
+      <div class="source-row"><span>CPAP (ResMed MyAir PDF)</span><span style="color:var(--gold)">Manual monthly - Thursday nights</span></div>
       <div class="source-row"><span>Weekly report delivery</span><span style="color:var(--good)">Every Friday 7am PT</span></div>
       <div class="source-row"><span>Claude proxy</span><span id="proxy-status" style="color:var(--muted)">Checking...</span></div>
     </div>
@@ -290,7 +329,38 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 <script>
 
 var PROXY_URL = 'https://rfhxoqrozteybreavedw.supabase.co/functions/v1/claude-proxy';
+var HISTORY_KEY = 'health_twin_history_v2';
 
+// ── App icon injection ────────────────────────────────────────────────────────
+(function() {
+  try {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+      + '<rect width="100" height="100" rx="18" fill="#00653A"/>'
+      + '<rect x="6" y="6" width="88" height="88" rx="14" fill="none" stroke="#FFC200" stroke-width="3.5"/>'
+      + '<text x="50" y="36" font-family="Arial Black,Arial,sans-serif" font-size="11" font-weight="900" fill="#FFC200" text-anchor="middle" letter-spacing="2">HEALTH</text>'
+      + '<text x="50" y="54" font-family="Arial Black,Arial,sans-serif" font-size="11" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="2">TWIN</text>'
+      + '<line x1="18" y1="65" x2="82" y2="65" stroke="#FFC200" stroke-width="1" opacity="0.4"/>'
+      + '<text x="50" y="78" font-family="Arial,sans-serif" font-size="10" fill="rgba(255,255,255,0.55)" text-anchor="middle">Dug See</text>'
+      + '</svg>';
+    var dataUrl = 'data:image/svg+xml;base64,' + btoa(svg);
+    document.getElementById('favicon').href = dataUrl;
+    document.getElementById('apple-icon').href = dataUrl;
+    var manifest = {
+      name: 'Health Twin',
+      short_name: 'Health Twin',
+      description: 'Personal health dashboard for Dug See',
+      start_url: './health-twin.html',
+      display: 'standalone',
+      background_color: '#090d09',
+      theme_color: '#00653A',
+      icons: [{src: dataUrl, sizes: 'any', type: 'image/svg+xml'}]
+    };
+    var blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    document.getElementById('manifest-link').href = URL.createObjectURL(blob);
+  } catch(e) {}
+})();
+
+// ── Health data ───────────────────────────────────────────────────────────────
 var scores = {
   overall: 80,
   cardioFitness: 76,
@@ -308,9 +378,28 @@ var topActions = [
   {num: '3', text: 'Request CK test at next physical - missing for statin users'}
 ];
 
+// Weekend Planner completed tasks with health relevance
+// Source: live Supabase tasks table (done=true), filtered for health impact
+var completedHealthTasks = [
+  {title: 'Sign up for OTF classes', date: 'Apr 20', score: 'Gym work', color: '#22c55e',
+   impact: 'Scheduled 2 OTF sessions this week - directly drove the 82/100 Gym Work score'},
+  {title: 'Orange 60 Min 2G', date: 'Apr 7', score: 'Gym work', color: '#22c55e',
+   impact: 'Completed OTF 2G class - 736 kcal, 16 splat pts, avg HR 134'},
+  {title: 'Morning walk', date: 'Recent', score: 'Daily hustle', color: '#FFC200',
+   impact: 'Contributed ~3,000+ steps toward 4,024/day average'},
+  {title: 'Mow the lawn', date: 'Recent', score: 'Daily hustle', color: '#FFC200',
+   impact: 'Physical activity outside OTF - boosts daily movement score'},
+  {title: 'Front yard work', date: 'Mar 29', score: 'Daily hustle', color: '#FFC200',
+   impact: 'Outdoor physical activity adds to non-OTF movement'},
+  {title: 'Grocery run', date: 'Recent', score: 'Daily hustle', color: '#FFC200',
+   impact: 'Walking errand - contributes to daily step count'},
+  {title: 'Schedule dinner with parents', date: 'Apr 24', score: 'Recovery', color: '#6c8ef4',
+   impact: 'Social connection reduces stress - positive for HRV and recovery score'}
+];
+
 var subScores = [
   {key:'cardioFitness',  label:'Heart engine',   tech:'cardio fitness',  pct:20, tip:'Add 1 outdoor run/week - VO2 max 36.5 needs to reach 42+'},
-  {key:'weeklyActivity', label:'Gym work',        tech:'weekly activity', pct:20, tip:'Apr 23: 916 kcal 26 splats - use Coree sessions as the blueprint'},
+  {key:'weeklyActivity', label:'Gym work',        tech:'weekly activity', pct:20, tip:'Apr 23: 916 kcal 26 splats - use Coree sessions as blueprint'},
   {key:'heartHealth',    label:'Blood chemistry', tech:'heart health',    pct:20, tip:'Request a CK (muscle enzyme) test at your next physical'},
   {key:'recovery',       label:'Bounce back',     tech:'recovery',        pct:15, tip:'Nudge sleep from 7.1 to 7.5 hrs - consistency beats one big night'},
   {key:'sleepTherapy',   label:'Sleep therapy',   tech:'CPAP compliance', pct:15, tip:'Nudge nightly use toward 7hrs - AHI of 0.33 is already elite'},
@@ -345,401 +434,464 @@ var lipidData = [
 ];
 
 var chemData = [
-  {name:'Blood sugar fasting',   val:'87',   unit:'mg/dL', cls:'good', bench:'pre-diabetes starts at 100'},
-  {name:'Liver marker (ALT)',    val:'19',   unit:'U/L',   cls:'good', bench:'normal <= 55 - statin safe'},
-  {name:'Liver marker (AST)',    val:'28',   unit:'U/L',   cls:'good', bench:'normal 10-40'},
-  {name:'Kidney filter (eGFR)', val:'96',   unit:'mL/min',cls:'good', bench:'excellent - >= 60 is healthy'},
-  {name:'Kidney waste (creatinine)',val:'0.95',unit:'mg/dL',cls:'good',bench:'normal 0.72-1.25'},
-  {name:'Muscle enzyme (CK)',    val:'--',   unit:'',      cls:'warn', bench:'not tested yet - request it'}
+  {name:'Blood sugar fasting',       val:'87',   unit:'mg/dL', cls:'good', bench:'pre-diabetes starts at 100'},
+  {name:'Liver marker (ALT)',        val:'19',   unit:'U/L',   cls:'good', bench:'normal <= 55 - statin safe'},
+  {name:'Liver marker (AST)',        val:'28',   unit:'U/L',   cls:'good', bench:'normal 10-40'},
+  {name:'Kidney filter (eGFR)',      val:'96',   unit:'mL/min',cls:'good', bench:'excellent - >= 60 is healthy'},
+  {name:'Kidney waste (creatinine)', val:'0.95', unit:'mg/dL', cls:'good', bench:'normal 0.72-1.25'},
+  {name:'Muscle enzyme (CK)',        val:'--',   unit:'',      cls:'warn', bench:'not tested yet - request it'}
 ];
 
 var appleData = [
-  {label:'How fast heart beats at rest',   tech:'resting HR',     value:'58 bpm',          bench:'Below avg 68-72 (AHA)',     cls:'good'},
-  {label:'Beat-to-beat variation',          tech:'HRV',            value:'47.7 ms',          bench:'Healthy for 52 (avg 40-60)', cls:'good'},
-  {label:'Oxygen efficiency',               tech:'VO2 Max',        value:'36.5 ml/kg/min',  bench:'Target 42+ for age (ACSM)', cls:'warn'},
-  {label:'Steps walked each day',           tech:'step count',     value:'4,024/day',        bench:'Below 7,500 target',        cls:'bad'},
-  {label:'Calories burned moving',          tech:'active calories',value:'597 kcal/day',     bench:'Strong output',             cls:'good'},
-  {label:'Sleep per night',                 tech:'sleep analysis', value:'7.1 hrs',          bench:'Near 7.5 hr target',        cls:'good'},
-  {label:'Oxygen in blood',                 tech:'SpO2',           value:'97.9%',            bench:'Healthy 95-100%',           cls:'good'},
-  {label:'Heart slowdown after effort',     tech:'cardio recovery',value:'31 bpm drop',      bench:'Good - above 20 threshold', cls:'good'}
+  {label:'How fast heart beats at rest',   tech:'resting HR',     value:'58 bpm',         bench:'Below avg 68-72 (AHA)',     cls:'good'},
+  {label:'Beat-to-beat variation',          tech:'HRV',            value:'47.7 ms',         bench:'Healthy for 52 (avg 40-60)', cls:'good'},
+  {label:'Oxygen efficiency',               tech:'VO2 Max',        value:'36.5 ml/kg/min', bench:'Target 42+ for age (ACSM)', cls:'warn'},
+  {label:'Steps walked each day',           tech:'step count',     value:'4,024/day',       bench:'Below 7,500 target',        cls:'bad'},
+  {label:'Calories burned moving',          tech:'active calories',value:'597 kcal/day',    bench:'Strong output',             cls:'good'},
+  {label:'Sleep per night',                 tech:'sleep analysis', value:'7.1 hrs',         bench:'Near 7.5 hr target',        cls:'good'},
+  {label:'Oxygen in blood',                 tech:'SpO2',           value:'97.9%',           bench:'Healthy 95-100%',           cls:'good'},
+  {label:'Heart slowdown after effort',     tech:'cardio recovery',value:'31 bpm drop',     bench:'Good - above 20 threshold', cls:'good'}
 ];
 
-var SYSTEM_PROMPT = 'You are Doug Cottington\'s personal health AI assistant. You know all his health data and answer like a knowledgeable friendly advisor. ' +
-  'Profile: Age 52, 5\'10\", ~198 lbs, BMI 28.4, Seattle WA (Bryant). Wife: Ana. OTF U District. Atorvastatin 40mg (statin - does NOT suppress HR). ' +
-  'Scores: overall 80, cardio fitness 76, gym work 82, heart health 91, recovery 72, CPAP 88, body comp 50, daily movement 44. ' +
-  'Apple Health: resting HR 58, HRV 47.7ms, VO2 max 36.5, steps 4024/day, sleep 7.1hrs, blood oxygen 97.9%, cardio recovery 31 bpm drop. ' +
-  'CPAP: AHI 0.33 (exceptional), usage 6h41m/night, leak 19.8 L/min. ' +
-  'Bloodwork Apr 2026: cholesterol 141 (was 224 pre-statin), triglycerides 72, HDL 56, LDL ~71, glucose 87, ALT 19, AST 28, eGFR 96. ' +
-  'OTF best: Apr 23 - 916 kcal 26 splats HR151 (Coree). Recent avg 779 kcal 9 splats. ' +
-  'Tone: casual friendly honest. Plain English first then technical term in parentheses. Under 200 words unless needed.';
+// Seed history - weeks before automated tracking started
+var seedHistory = [
+  {week:'Apr 14-21, 2026',  date:'2026-04-21', overall:77, cardioFitness:76, weeklyActivity:65, heartHealth:91, recovery:70, sleepTherapy:88, bodyComposition:50, dailyMovement:40},
+  {week:'Apr 7-14, 2026',   date:'2026-04-14', overall:75, cardioFitness:75, weeklyActivity:60, heartHealth:88, recovery:68, sleepTherapy:86, bodyComposition:51, dailyMovement:38},
+  {week:'Mar 31-Apr 7, 2026',date:'2026-04-07',overall:76, cardioFitness:74, weeklyActivity:72, heartHealth:88, recovery:70, sleepTherapy:85, bodyComposition:52, dailyMovement:42},
+  {week:'Mar 24-31, 2026',  date:'2026-03-31', overall:73, cardioFitness:73, weeklyActivity:58, heartHealth:85, recovery:66, sleepTherapy:82, bodyComposition:52, dailyMovement:38}
+];
+
+var SYSTEM_PROMPT = 'You are Doug (Dug See) Cottington\'s personal health AI assistant. You know all his health data and answer like a knowledgeable friendly advisor. '
+  + 'Profile: Age 52, 5\'10", ~198 lbs, BMI 28.4, Seattle WA (Bryant). Wife: Ana. OTF U District. Atorvastatin 40mg (statin - does NOT suppress HR). '
+  + 'Scores: overall 80, cardio fitness 76, gym work 82, heart health 91, recovery 72, CPAP 88, body comp 50, daily movement 44. '
+  + 'Weekend Planner completed health tasks: Signed up for OTF (Apr 20), OTF Orange 60 2G (Apr 7), Morning walk, Mow the lawn, Front yard work, Grocery run. '
+  + 'Apple Health: resting HR 58, HRV 47.7ms, VO2 max 36.5, steps 4024/day, sleep 7.1hrs, blood oxygen 97.9%, cardio recovery 31 bpm drop. '
+  + 'CPAP: AHI 0.33 (exceptional), usage 6h41m/night, leak 19.8 L/min. Updated monthly from MyAir PDF. '
+  + 'Bloodwork Apr 2026: cholesterol 141 (was 224 pre-statin), triglycerides 72, HDL 56, LDL ~71, glucose 87, ALT 19, AST 28, eGFR 96. '
+  + 'OTF: Apr 23 - 916 kcal 26 splats HR151 (Coree, best ever). Apr 21 - 791 kcal 14 splats HR138 (Ryan). Recent avg 779 kcal 9 splats. '
+  + 'History: trending up - 73 four weeks ago, 77 last week, 80 this week. '
+  + 'Tone: casual friendly honest. Plain English first then technical term in parentheses. Under 200 words unless needed. Mention Ana or Seattle when natural.';
 
 var state = {
   tone: 'casual',
   toggles: {showCPAP:true, showBloodwork:true, showAppleHealth:true, anaMode:true, seattleRefs:true},
   weights: {cardioFitness:20, weeklyActivity:20, heartHealth:20, recovery:15, sleepTherapy:15, bodyComposition:5, dailyMovement:5}
 };
-
 var chatHistory = [];
 var chatLoading = false;
 var weightReadings7d = [198.4];
 
 function get7DayWeightAvg() {
   if (!weightReadings7d.length) { return 198.4; }
-  var sum = 0;
-  for (var i = 0; i < weightReadings7d.length; i++) { sum += weightReadings7d[i]; }
-  return Math.round((sum / weightReadings7d.length) * 10) / 10;
+  var s = 0; for (var i=0;i<weightReadings7d.length;i++){s+=weightReadings7d[i];}
+  return Math.round((s/weightReadings7d.length)*10)/10;
 }
-
-function scoreClass(s) { return s >= 80 ? 'good' : s >= 60 ? 'warn' : 'bad'; }
-function scoreColor(s) { return s >= 80 ? '#22c55e' : s >= 60 ? '#FFC200' : '#ef4444'; }
+function scoreClass(s) { return s>=80?'good':s>=60?'warn':'bad'; }
+function scoreColor(s) { return s>=80?'#22c55e':s>=60?'#FFC200':'#ef4444'; }
 
 function showTab(id, btn) {
   var panels = document.querySelectorAll('.tab-panel');
-  for (var i = 0; i < panels.length; i++) { panels[i].classList.remove('active'); }
+  for (var i=0;i<panels.length;i++){panels[i].classList.remove('active');}
   var btns = document.querySelectorAll('.tab-btn');
-  for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); }
-  document.getElementById('tab-' + id).classList.add('active');
-  if (btn) { btn.classList.add('active'); }
+  for (var i=0;i<btns.length;i++){btns[i].classList.remove('active');}
+  document.getElementById('tab-'+id).classList.add('active');
+  if (btn){btn.classList.add('active');}
+  if (id==='history'){renderHistory();}
 }
 
 function renderActions() {
-  var html = '';
-  for (var i = 0; i < topActions.length; i++) {
-    html += '<div class="action-item"><span class="action-num">' + topActions[i].num + '.</span><span class="action-text">' + topActions[i].text + '</span></div>';
+  var h='';
+  for (var i=0;i<topActions.length;i++){
+    h+='<div class="action-item"><span class="action-num">'+topActions[i].num+'.</span><span class="action-text">'+topActions[i].text+'</span></div>';
   }
-  document.getElementById('action-items').innerHTML = html;
+  document.getElementById('action-items').innerHTML=h;
+}
+
+function renderContributions() {
+  var badges='', details=[];
+  for (var i=0;i<completedHealthTasks.length;i++){
+    var t=completedHealthTasks[i];
+    badges+='<span class="contrib-badge" style="color:'+t.color+';border-color:'+t.color+'40;background:'+t.color+'12">'
+      +'&#x2713; '+t.title+' <span style="opacity:.6;font-size:9px">('+t.date+')</span></span>';
+    details.push('<span style="color:'+t.color+'">'+t.title+'</span>: '+t.impact);
+  }
+  document.getElementById('contrib-badges').innerHTML=badges;
+  document.getElementById('contrib-detail').innerHTML=details.slice(0,4).join('<br>');
 }
 
 function renderScoreGrid() {
-  var html = '';
-  for (var i = 0; i < subScores.length; i++) {
-    var sc = subScores[i];
-    var sv = scores[sc.key];
-    var cls = scoreClass(sv);
-    var color = scoreColor(sv);
-    html += '<div class="score-card ' + cls + '">';
-    html += '<div class="score-top"><span class="score-name">' + sc.label + '</span>';
-    html += '<span class="score-num ' + cls + '">' + sv + '<span style="font-size:10px;opacity:.5">/100</span></span></div>';
-    html += '<div class="score-sub">(' + sc.tech + ') &middot; ' + sc.pct + '%</div>';
-    html += '<div class="score-bar"><div class="score-bar-fill" style="width:' + sv + '%;background:' + color + '"></div></div>';
-    html += '<div class="score-tip">' + sc.tip + '</div>';
-    html += '</div>';
+  var h='';
+  for (var i=0;i<subScores.length;i++){
+    var sc=subScores[i], sv=scores[sc.key], cls=scoreClass(sv), color=scoreColor(sv);
+    h+='<div class="score-card '+cls+'">';
+    h+='<div class="score-top"><span class="score-name">'+sc.label+'</span>';
+    h+='<span class="score-num '+cls+'">'+sv+'<span style="font-size:10px;opacity:.5">/100</span></span></div>';
+    h+='<div class="score-sub">('+sc.tech+') &middot; '+sc.pct+'%</div>';
+    h+='<div class="score-bar"><div class="score-bar-fill" style="width:'+sv+'%;background:'+color+'"></div></div>';
+    h+='<div class="score-tip">'+sc.tip+'</div></div>';
   }
-  document.getElementById('score-grid').innerHTML = html;
+  document.getElementById('score-grid').innerHTML=h;
 }
 
 function renderMetricGrid() {
-  var currentWeight = get7DayWeightAvg();
-  var html = '';
-  for (var i = 0; i < keyMetrics.length; i++) {
-    var m = keyMetrics[i];
-    var val = (m.label === 'Weight 7d') ? currentWeight.toString() : m.value;
-    html += '<div class="metric-cell">';
-    html += '<div class="metric-label">' + m.label + '</div>';
-    html += '<div class="metric-val ' + m.cls + '">' + val + '<span>' + m.unit + '</span></div>';
-    html += '<div class="metric-note">' + m.note + '</div>';
-    html += '</div>';
+  var wt=get7DayWeightAvg(), h='';
+  for (var i=0;i<keyMetrics.length;i++){
+    var m=keyMetrics[i], val=(m.label==='Weight 7d')?wt.toString():m.value;
+    h+='<div class="metric-cell">';
+    h+='<div class="metric-label">'+m.label+'</div>';
+    h+='<div class="metric-val '+m.cls+'">'+val+'<span>'+m.unit+'</span></div>';
+    h+='<div class="metric-note">'+m.note+'</div></div>';
   }
-  document.getElementById('metric-grid').innerHTML = html;
+  document.getElementById('metric-grid').innerHTML=h;
 }
 
 function renderOTF() {
-  var html = '';
-  for (var i = 0; i < otfSessions.length; i++) {
-    var s = otfSessions[i];
-    var splatColor = s.splats >= 12 ? '#22c55e' : '#FFC200';
-    html += '<div class="session-row">';
-    html += '<div class="sdate">' + s.date + '</div>';
-    html += '<div class="sstats">';
-    html += '<div class="stat-pair"><div class="sl">kcal</div>' + s.cal + '</div>';
-    html += '<div class="stat-pair"><div class="sl">splats</div><span style="color:' + splatColor + '">' + s.splats + '</span></div>';
-    html += '<div class="stat-pair"><div class="sl">avg HR</div>' + s.hr + '</div>';
-    html += '<div class="stat-pair"><div class="sl">coach</div>' + s.coach + '</div>';
-    html += '</div>';
-    html += '<div class="sbadge ' + (s.splats >= 12 ? '' : 'warn') + '">' + s.type + '</div>';
-    html += '</div>';
+  var h='';
+  for (var i=0;i<otfSessions.length;i++){
+    var s=otfSessions[i], sc=s.splats>=12?'#22c55e':'#FFC200';
+    h+='<div class="session-row"><div class="sdate">'+s.date+'</div>';
+    h+='<div class="sstats">';
+    h+='<div class="stat-pair"><div class="sl">kcal</div>'+s.cal+'</div>';
+    h+='<div class="stat-pair"><div class="sl">splats</div><span style="color:'+sc+'">'+s.splats+'</span></div>';
+    h+='<div class="stat-pair"><div class="sl">avg HR</div>'+s.hr+'</div>';
+    h+='<div class="stat-pair"><div class="sl">coach</div>'+s.coach+'</div></div>';
+    h+='<div class="sbadge '+(s.splats>=12?'':'warn')+'">'+s.type+'</div></div>';
   }
-  document.getElementById('otf-sessions').innerHTML = html;
+  document.getElementById('otf-sessions').innerHTML=h;
 }
 
 function renderAppleGrid() {
-  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">';
-  for (var i = 0; i < appleData.length; i++) {
-    var a = appleData[i];
-    var color = a.cls === 'good' ? '#22c55e' : a.cls === 'warn' ? '#FFC200' : '#ef4444';
-    html += '<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
-    html += '<div style="font-size:10px;color:var(--muted)">' + a.label + ' <span style="opacity:.6">(' + a.tech + ')</span></div>';
-    html += '<div style="font-size:15px;font-weight:500;color:' + color + ';margin:3px 0">' + a.value + '</div>';
-    html += '<div style="font-size:10px;color:var(--muted)">' + a.bench + '</div>';
-    html += '</div>';
+  var h='<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">';
+  for (var i=0;i<appleData.length;i++){
+    var a=appleData[i], c=a.cls==='good'?'#22c55e':a.cls==='warn'?'#FFC200':'#ef4444';
+    h+='<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+    h+='<div style="font-size:10px;color:var(--muted)">'+a.label+' <span style="opacity:.6">('+a.tech+')</span></div>';
+    h+='<div style="font-size:15px;font-weight:500;color:'+c+';margin:3px 0">'+a.value+'</div>';
+    h+='<div style="font-size:10px;color:var(--muted)">'+a.bench+'</div></div>';
   }
-  html += '</div>';
-  document.getElementById('apple-grid').innerHTML = html;
+  h+='</div>';
+  document.getElementById('apple-grid').innerHTML=h;
 }
 
 function renderBloodwork() {
-  function buildGrid(id, data) {
-    var html = '';
-    for (var i = 0; i < data.length; i++) {
-      var b = data[i];
-      html += '<div class="bw-cell">';
-      html += '<div class="bw-name">' + b.name + '</div>';
-      html += '<div class="bw-val ' + b.cls + '">' + b.val + ' <span style="font-size:10px;font-weight:400;opacity:.5">' + b.unit + '</span></div>';
-      html += '<div class="bw-bench">' + b.bench + '</div>';
-      html += '</div>';
+  function grid(id,data){
+    var h='';
+    for(var i=0;i<data.length;i++){
+      var b=data[i];
+      h+='<div class="bw-cell"><div class="bw-name">'+b.name+'</div>';
+      h+='<div class="bw-val '+b.cls+'">'+b.val+' <span style="font-size:10px;font-weight:400;opacity:.5">'+b.unit+'</span></div>';
+      h+='<div class="bw-bench">'+b.bench+'</div></div>';
     }
-    document.getElementById(id).innerHTML = html;
+    document.getElementById(id).innerHTML=h;
   }
-  buildGrid('lipid-grid', lipidData);
-  buildGrid('chem-grid', chemData);
+  grid('lipid-grid',lipidData); grid('chem-grid',chemData);
 }
 
-function renderToggles() {
-  var items = [
-    {key:'showCPAP',        label:'CPAP / sleep therapy card'},
-    {key:'showBloodwork',   label:'Blood work card'},
-    {key:'showAppleHealth', label:'Apple Watch card'},
-    {key:'anaMode',         label:'Include Ana mentions'},
-    {key:'seattleRefs',     label:'Seattle references'}
-  ];
-  var html = '';
-  for (var i = 0; i < items.length; i++) {
-    var t = items[i];
-    html += '<div class="toggle-row">';
-    html += '<span style="font-size:13px">' + t.label + '</span>';
-    html += '<div class="toggle ' + (state.toggles[t.key] ? 'on' : '') + '" onclick="flipToggle(\'' + t.key + '\',this)">';
-    html += '<div class="toggle-knob"></div></div>';
-    html += '</div>';
+// ── History ───────────────────────────────────────────────────────────────────
+function getHistory() {
+  var stored=[];
+  try{ var raw=localStorage.getItem(HISTORY_KEY); if(raw){stored=JSON.parse(raw);} }catch(e){}
+  var all={};
+  for(var i=0;i<seedHistory.length;i++){all[seedHistory[i].date]=seedHistory[i];}
+  for(var i=0;i<stored.length;i++){all[stored[i].date]=stored[i];}
+  // Current week
+  all['2026-04-24']={week:'Apr 21-24, 2026',date:'2026-04-24',
+    overall:scores.overall,cardioFitness:scores.cardioFitness,weeklyActivity:scores.weeklyActivity,
+    heartHealth:scores.heartHealth,recovery:scores.recovery,sleepTherapy:scores.sleepTherapy,
+    bodyComposition:scores.bodyComposition,dailyMovement:scores.dailyMovement};
+  var arr=Object.values(all);
+  arr.sort(function(a,b){return b.date.localeCompare(a.date);});
+  return arr;
+}
+
+function saveCurrentWeek() {
+  try{
+    var raw=localStorage.getItem(HISTORY_KEY); var stored=raw?JSON.parse(raw):[];
+    var today=new Date().toISOString().split('T')[0];
+    var exists=false; for(var i=0;i<stored.length;i++){if(stored[i].date===today){exists=true;break;}}
+    if(!exists){
+      var d=new Date(); var prev=new Date(d); prev.setDate(d.getDate()-6);
+      var ms=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var label=ms[prev.getMonth()]+' '+prev.getDate()+'-'+d.getDate()+', '+d.getFullYear();
+      stored.push({week:label,date:today,overall:scores.overall,cardioFitness:scores.cardioFitness,
+        weeklyActivity:scores.weeklyActivity,heartHealth:scores.heartHealth,recovery:scores.recovery,
+        sleepTherapy:scores.sleepTherapy,bodyComposition:scores.bodyComposition,dailyMovement:scores.dailyMovement});
+      localStorage.setItem(HISTORY_KEY,JSON.stringify(stored));
+    }
+  }catch(e){}
+}
+
+function renderHistory() {
+  var history=getHistory();
+  var scoreKeys=['cardioFitness','weeklyActivity','heartHealth','recovery','sleepTherapy','bodyComposition','dailyMovement'];
+  var scoreLabels=['Heart','Gym','Blood','Bounce','Sleep','Body','Hustle'];
+  var h='';
+  for(var i=0;i<history.length;i++){
+    var w=history[i], prev=history[i+1];
+    var delta=prev?w.overall-prev.overall:null;
+    var deltaStr=delta!==null?(delta>0?'+'+delta:delta<0?''+delta:'='):null;
+    var deltaCls=delta>0?'up':delta<0?'down':'flat';
+    var isCurrent=(i===0);
+    h+='<div class="history-week"'+(isCurrent?' style="border-color:rgba(255,194,0,0.4);border-left:3px solid var(--gold)"':' style="border-left:3px solid '+(delta>0?'var(--good)':delta<0?'var(--bad)':'var(--border)')+'"')+'>'; 
+    h+='<div class="history-week-header">';
+    h+='<div>';
+    if(isCurrent){h+='<span style="font-size:9px;background:rgba(255,194,0,0.12);color:var(--gold);padding:1px 6px;border-radius:4px;margin-right:6px;font-family:\'DM Mono\',monospace;letter-spacing:.06em">CURRENT</span>';}
+    h+='<span class="history-date">'+w.week+'</span></div>';
+    h+='<div style="display:flex;align-items:center">';
+    h+='<span style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:'+scoreColor(w.overall)+'">'+w.overall+'</span>';
+    if(deltaStr!==null){h+='<span class="history-delta '+deltaCls+'">'+deltaStr+'</span>';}
+    h+='</div></div>';
+    // Bar chart
+    h+='<div class="history-bars">';
+    for(var j=0;j<scoreKeys.length;j++){
+      var sv=w[scoreKeys[j]]||0;
+      h+='<div class="history-bar-wrap">';
+      h+='<div class="history-bar" style="height:'+Math.round(sv*0.32)+'px;background:'+scoreColor(sv)+';opacity:0.75"></div>';
+      h+='<div class="history-bar-lbl">'+scoreLabels[j]+'</div>';
+      h+='</div>';
+    }
+    h+='</div>';
+    // Notable changes vs prior week
+    if(prev){
+      var changes=[];
+      for(var j=0;j<scoreKeys.length;j++){
+        var d2=(w[scoreKeys[j]]||0)-(prev[scoreKeys[j]]||0);
+        if(Math.abs(d2)>=3){changes.push({label:scoreLabels[j],delta:d2});}
+      }
+      if(changes.length){
+        h+='<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap">';
+        for(var j=0;j<changes.length&&j<4;j++){
+          var c2=changes[j], cc=c2.delta>0?'#22c55e':'#ef4444';
+          h+='<span style="font-size:10px;color:'+cc+';background:'+cc+'14;padding:1px 8px;border-radius:8px;border:1px solid '+cc+'30">';
+          h+=(c2.delta>0?'&#x2191; ':'&#x2193; ')+c2.label+' '+(c2.delta>0?'+':'')+c2.delta;
+          h+='</span>';
+        }
+        h+='</div>';
+      }
+    }
+    h+='</div>';
   }
-  document.getElementById('toggle-rows').innerHTML = html;
+  document.getElementById('history-list').innerHTML=h;
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function renderToggles() {
+  var items=[
+    {key:'showCPAP',label:'CPAP / sleep therapy card'},
+    {key:'showBloodwork',label:'Blood work card'},
+    {key:'showAppleHealth',label:'Apple Watch card'},
+    {key:'anaMode',label:'Include Ana mentions'},
+    {key:'seattleRefs',label:'Seattle references'}
+  ];
+  var h='';
+  for(var i=0;i<items.length;i++){
+    var t=items[i];
+    h+='<div class="toggle-row"><span style="font-size:13px">'+t.label+'</span>';
+    h+='<div class="toggle '+(state.toggles[t.key]?'on':'')+'" onclick="flipToggle(\''+t.key+'\',this)">';
+    h+='<div class="toggle-knob"></div></div></div>';
+  }
+  document.getElementById('toggle-rows').innerHTML=h;
 }
 
 function renderWeights() {
-  var html = '';
-  for (var i = 0; i < subScores.length; i++) {
-    var sc = subScores[i];
-    html += '<div class="weight-row">';
-    html += '<div class="weight-top"><span>' + sc.label + '</span><span class="weight-pct" id="wp-' + sc.key + '">' + state.weights[sc.key] + '%</span></div>';
-    html += '<input type="range" min="0" max="40" step="5" value="' + state.weights[sc.key] + '" oninput="updateWeight(\'' + sc.key + '\',this.value)">';
-    html += '</div>';
+  var h='';
+  for(var i=0;i<subScores.length;i++){
+    var sc=subScores[i];
+    h+='<div class="weight-row"><div class="weight-top"><span>'+sc.label+'</span>';
+    h+='<span class="weight-pct" id="wp-'+sc.key+'">'+state.weights[sc.key]+'%</span></div>';
+    h+='<input type="range" min="0" max="40" step="5" value="'+state.weights[sc.key]+'" oninput="updateWeight(\''+sc.key+'\',this.value)"></div>';
   }
-  document.getElementById('weight-rows').innerHTML = html;
+  document.getElementById('weight-rows').innerHTML=h;
   updateWeightTotal();
 }
 
 function renderTones() {
-  var tones = ['casual', 'detailed', 'brief'];
-  var html = '';
-  for (var i = 0; i < tones.length; i++) {
-    var t = tones[i];
-    html += '<button class="tone-btn ' + (state.tone === t ? 'active' : '') + '" onclick="setTone(\'' + t + '\',this)">' + t + '</button>';
+  var tones=['casual','detailed','brief'], h='';
+  for(var i=0;i<tones.length;i++){
+    var t=tones[i];
+    h+='<button class="tone-btn '+(state.tone===t?'active':'')+'" onclick="setTone(\''+t+'\',this)">'+t+'</button>';
   }
-  document.getElementById('tone-grid').innerHTML = html;
+  document.getElementById('tone-grid').innerHTML=h;
 }
 
-function flipToggle(key, el) {
-  state.toggles[key] = !state.toggles[key];
+function flipToggle(key,el){
+  state.toggles[key]=!state.toggles[key];
   el.classList.toggle('on');
-  el.querySelector('.toggle-knob').style.left = state.toggles[key] ? '20px' : '2px';
+  el.querySelector('.toggle-knob').style.left=state.toggles[key]?'20px':'2px';
   saveState();
 }
-
-function updateWeight(key, val) {
-  state.weights[key] = parseInt(val);
-  document.getElementById('wp-' + key).textContent = val + '%';
-  updateWeightTotal();
-  saveState();
+function updateWeight(key,val){
+  state.weights[key]=parseInt(val);
+  document.getElementById('wp-'+key).textContent=val+'%';
+  updateWeightTotal(); saveState();
+}
+function updateWeightTotal(){
+  var total=0,keys=Object.keys(state.weights);
+  for(var i=0;i<keys.length;i++){total+=state.weights[keys[i]];}
+  var el=document.getElementById('weight-total');
+  el.textContent='Total: '+total+'%';
+  el.className='weight-total '+(total===100?'ok':'over');
+}
+function setTone(t,btn){
+  state.tone=t;
+  var btns=document.querySelectorAll('.tone-btn');
+  for(var i=0;i<btns.length;i++){btns[i].classList.remove('active');}
+  btn.classList.add('active'); saveState();
+}
+function saveState(){ try{localStorage.setItem('health_twin_state',JSON.stringify(state));}catch(e){} }
+function loadState(){
+  try{
+    var raw=localStorage.getItem('health_twin_state'); if(!raw){return;}
+    var s=JSON.parse(raw);
+    if(s.tone){state.tone=s.tone;}
+    if(s.toggles){var k=Object.keys(s.toggles);for(var i=0;i<k.length;i++){state.toggles[k[i]]=s.toggles[k[i]];}}
+    if(s.weights){var k=Object.keys(s.weights);for(var i=0;i<k.length;i++){state.weights[k[i]]=s.weights[k[i]];}}
+  }catch(e){}
 }
 
-function updateWeightTotal() {
-  var total = 0;
-  var keys = Object.keys(state.weights);
-  for (var i = 0; i < keys.length; i++) { total += state.weights[keys[i]]; }
-  var el = document.getElementById('weight-total');
-  el.textContent = 'Total: ' + total + '%';
-  el.className = 'weight-total ' + (total === 100 ? 'ok' : 'over');
-}
+// ── File upload ───────────────────────────────────────────────────────────────
+function onDragOver(e,id){e.preventDefault();document.getElementById(id).classList.add('drag');}
+function onDragLeave(id){document.getElementById(id).classList.remove('drag');}
+function onDrop(e,type){e.preventDefault();document.getElementById('drop-'+type).classList.remove('drag');var f=e.dataTransfer.files[0];if(f){handleFile(f,type);}}
 
-function setTone(t, btn) {
-  state.tone = t;
-  var btns = document.querySelectorAll('.tone-btn');
-  for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); }
-  btn.classList.add('active');
-  saveState();
-}
+function handleFile(file,type){
+  if(!file){return;}
+  var el=document.getElementById('result-'+type);
+  el.innerHTML='<div class="upload-result"><div class="upload-result-title warn">Reading '+file.name+'...</div></div>';
 
-function saveState() {
-  try { localStorage.setItem('health_twin_state', JSON.stringify(state)); } catch(e) {}
-}
+  if((file.name.endsWith('.json')||file.name.endsWith('.csv'))&&type==='apple'){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      try{
+        var data=JSON.parse(e.target.result);
+        var metrics=(data.data&&data.data.metrics)?data.data.metrics:(Array.isArray(data)?data:[]);
+        var snap={}, w7d=[], sevenAgo=new Date();
+        sevenAgo.setDate(sevenAgo.getDate()-7);
 
-function loadState() {
-  try {
-    var saved = localStorage.getItem('health_twin_state');
-    if (!saved) { return; }
-    var s = JSON.parse(saved);
-    if (s.tone) { state.tone = s.tone; }
-    if (s.toggles) { var k = Object.keys(s.toggles); for (var i=0;i<k.length;i++){state.toggles[k[i]]=s.toggles[k[i]];} }
-    if (s.weights) { var k = Object.keys(s.weights); for (var i=0;i<k.length;i++){state.weights[k[i]]=s.weights[k[i]];} }
-  } catch(e) {}
-}
-
-function handleFile(file, type) {
-  if (!file) { return; }
-  var resultEl = document.getElementById('result-' + type);
-  resultEl.innerHTML = '<div class="upload-result"><div class="upload-result-title warn">Reading ' + file.name + '...</div></div>';
-  if (file.name.endsWith('.json') && type === 'apple') {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        var data = JSON.parse(e.target.result);
-        var metrics = (data.data && data.data.metrics) ? data.data.metrics : [];
-        var snap = {};
-        var weightVals7d = [];
-        var sevenAgo = new Date();
-        sevenAgo.setDate(sevenAgo.getDate() - 7);
-        for (var i = 0; i < metrics.length; i++) {
-          var m = metrics[i];
-          var name = (m.name || '').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-          var entries = m.data || [];
-          if (name === 'weight_body_mass') {
-            for (var j = 0; j < entries.length; j++) {
-              var v = parseFloat(entries[j].qty || entries[j].value || 0);
-              if (v > 0) {
-                var d = new Date(entries[j].date || 0);
-                if (d >= sevenAgo) { weightVals7d.push(v); }
-                else { snap.weightLbs = Math.round(v * 10) / 10; }
-              }
+        for(var i=0;i<metrics.length;i++){
+          var m=metrics[i];
+          var name=(m.name||'').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+          var entries=m.data||[];
+          if(name==='weight_body_mass'){
+            for(var j=0;j<entries.length;j++){
+              var v=parseFloat(entries[j].qty||entries[j].value||0);
+              if(v>0){var d=new Date(entries[j].date||0);if(d>=sevenAgo){w7d.push(v);}else{snap.weightLbs=Math.round(v*10)/10;}}
             }
-            if (weightVals7d.length > 0) {
-              var sum = 0; for (var j=0;j<weightVals7d.length;j++){sum+=weightVals7d[j];}
-              snap.weightLbs = Math.round((sum/weightVals7d.length)*10)/10;
-              weightReadings7d = weightVals7d;
-              renderMetricGrid();
-            }
+            if(w7d.length>0){var sum=0;for(var j=0;j<w7d.length;j++){sum+=w7d[j];}snap.weightLbs=Math.round((sum/w7d.length)*10)/10;weightReadings7d=w7d;renderMetricGrid();}
             continue;
           }
-          var vals = [];
-          for (var j=0;j<entries.length;j++){var v=parseFloat(entries[j].qty||entries[j].value||0);if(!isNaN(v)&&v>0){vals.push(v);}}
-          if (!vals.length) { continue; }
-          var avg = 0; for(var j=0;j<vals.length;j++){avg+=vals[j];} avg/=vals.length;
-          var latest = vals[vals.length-1];
-          if (name==='resting_heart_rate'){snap.restingHR=Math.round(latest);}
+          var vals=[];
+          for(var j=0;j<entries.length;j++){var v2=parseFloat(entries[j].qty||entries[j].value||0);if(!isNaN(v2)&&v2>0){vals.push(v2);}}
+          if(!vals.length){continue;}
+          var avg=0;for(var j=0;j<vals.length;j++){avg+=vals[j];}avg/=vals.length;
+          var latest=vals[vals.length-1];
+          if(name==='resting_heart_rate'){snap.restingHR=Math.round(latest);}
           else if(name==='heart_rate_variability'){snap.hrv=Math.round(avg*10)/10;}
           else if(name==='vo2_max'){snap.vo2max=Math.round(latest*10)/10;}
           else if(name==='step_count'){snap.stepsAvg=Math.round(avg);}
           else if(name==='active_energy'){snap.activeCalories=Math.round(avg);}
           else if(name==='sleep_analysis'){snap.sleepHrsAvg=Math.round(avg*10)/10;}
+          else if(name==='blood_oxygen_saturation'){snap.bloodOxygen=Math.round(avg*10)/10;}
+          else if(name==='cardio_recovery'){snap.cardioRecovery=Math.round(avg);}
         }
-        snap.receivedAt = new Date().toISOString();
-        var summary = [];
-        if (snap.restingHR){summary.push('Resting HR: '+snap.restingHR+' bpm');}
-        if (snap.hrv){summary.push('HRV: '+snap.hrv+' ms');}
-        if (snap.vo2max){summary.push('VO2 Max: '+snap.vo2max+' ml/kg/min');}
-        if (snap.stepsAvg){summary.push('Steps avg: '+snap.stepsAvg+'/day');}
-        if (snap.sleepHrsAvg){summary.push('Sleep: '+snap.sleepHrsAvg+' hrs/night');}
-        if (snap.weightLbs){summary.push('Weight 7d avg: '+snap.weightLbs+' lbs ('+weightVals7d.length+' readings)');}
-        var snapStr = JSON.stringify(snap, null, 2);
-        resultEl.innerHTML = '<div class="upload-result"><div class="upload-result-title good">Parsed: '+file.name+'</div><pre>'+summary.join('\n')+'</pre><div class="sql-box"><div class="sql-title">Paste into Apps Script loadHistoricalData() snapshot:</div><pre>'+snapStr+'</pre><button class="copy-btn" onclick="navigator.clipboard.writeText('+JSON.stringify(snapStr)+');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',2000)">Copy</button></div></div>';
-      } catch(err) {
-        resultEl.innerHTML = '<div class="upload-result"><div class="upload-result-title warn">Error: '+err.message+'</div></div>';
-      }
+        snap.receivedAt=new Date().toISOString();
+        try{localStorage.setItem('health_twin_apple',JSON.stringify(snap));}catch(e2){}
+
+        var summary=[];
+        if(snap.restingHR){summary.push('Resting HR: '+snap.restingHR+' bpm');}
+        if(snap.hrv){summary.push('HRV: '+snap.hrv+' ms');}
+        if(snap.vo2max){summary.push('VO2 Max: '+snap.vo2max+' ml/kg/min');}
+        if(snap.stepsAvg){summary.push('Steps avg: '+snap.stepsAvg+'/day');}
+        if(snap.sleepHrsAvg){summary.push('Sleep: '+snap.sleepHrsAvg+' hrs/night');}
+        if(snap.weightLbs){summary.push('Weight 7-day avg: '+snap.weightLbs+' lbs ('+w7d.length+' readings)');}
+
+        var snapStr=JSON.stringify(snap,null,2);
+        el.innerHTML='<div class="upload-result">'
+          +'<div class="upload-result-title good">Parsed: '+file.name+' - data updated live</div>'
+          +'<pre>'+summary.join('\n')+'</pre>'
+          +'<div class="sql-box"><div class="sql-title">Copy this JSON into Apps Script loadHistoricalData() to update weekly report:</div>'
+          +'<pre>'+snapStr+'</pre>'
+          +'<button class="copy-btn" id="cp-apple">Copy JSON</button></div></div>';
+        document.getElementById('cp-apple').onclick=function(){
+          navigator.clipboard.writeText(snapStr);
+          this.textContent='Copied!';var self=this;setTimeout(function(){self.textContent='Copy JSON';},2000);
+        };
+      }catch(err){el.innerHTML='<div class="upload-result"><div class="upload-result-title bad">Error: '+err.message+'</div></div>';}
     };
     reader.readAsText(file);
-  } else if (file.name.endsWith('.pdf')) {
-    var msg = type === 'cpap'
-      ? 'To load CPAP data:\n1. Drop this PDF into the Claude chat at claude.ai\n2. Ask: "Parse my MyAir PDF and give me the SQL to load into Supabase cpap_sessions"\n3. Paste the SQL into Supabase SQL Editor and run it\n\nYour CPAP sleep therapy score updates on the next Friday report.'
-      : 'To load lab results:\n1. Drop this PDF into the Claude chat at claude.ai\n2. Ask: "Parse my lab results and update my health twin bloodwork data"\n3. Claude will give you updated values to paste into health-twin.html';
-    resultEl.innerHTML = '<div class="upload-result"><div class="upload-result-title warn">PDF received: '+file.name+' ('+Math.round(file.size/1024)+' KB)</div><pre>'+msg+'</pre></div>';
+
+  } else if(file.name.endsWith('.pdf')){
+    var instructions='';
+    if(type==='cpap'){
+      instructions='CPAP PDF received.\n\nNext steps to load into Supabase:\n1. Open Claude at claude.ai\n2. Drop this PDF into the chat\n3. Say: "Parse my MyAir PDF and give me the SQL to load into my Supabase cpap_sessions table"\n4. Paste the SQL into Supabase SQL Editor and run it\n\nSleep Therapy score updates on next Friday report.\n\nFile: '+file.name+' ('+Math.round(file.size/1024)+' KB)';
+    } else if(type==='lab'){
+      instructions='Lab results PDF received.\n\nNext steps to update bloodwork:\n1. Open Claude at claude.ai\n2. Drop this PDF into the chat\n3. Say: "Parse my lab results and update my health twin bloodwork values"\n4. Claude will give you exact numbers to paste into health-twin.html\n\nBlood Chemistry score updates immediately after you update the file.\n\nFile: '+file.name+' ('+Math.round(file.size/1024)+' KB)';
+    }
+    el.innerHTML='<div class="upload-result"><div class="upload-result-title warn">PDF received: '+file.name+'</div><pre>'+instructions+'</pre></div>';
   } else {
-    resultEl.innerHTML = '<div class="upload-result"><div class="upload-result-title warn">Try the JSON export from Health Auto Export app.</div></div>';
+    el.innerHTML='<div class="upload-result"><div class="upload-result-title bad">Unsupported format. Supported: JSON (Apple Health), PDF (MyAir, lab results)</div></div>';
   }
 }
 
-function addBubble(role, content) {
-  var area = document.getElementById('chat-messages');
-  var div = document.createElement('div');
-  div.className = 'bwrap ' + role;
-  div.innerHTML = '<div class="avatar ' + role + '">' + (role === 'user' ? 'D' : 'AI') + '</div><div class="bubble ' + role + '">' + content + '</div>';
-  area.appendChild(div);
-  area.scrollTop = area.scrollHeight;
+// ── Chat ──────────────────────────────────────────────────────────────────────
+function addBubble(role,content){
+  var area=document.getElementById('chat-messages');
+  var div=document.createElement('div');
+  div.className='bwrap '+role;
+  div.innerHTML='<div class="avatar '+role+'">'+(role==='user'?'D':'AI')+'</div><div class="bubble '+role+'">'+content+'</div>';
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
 }
-
-function addTyping() {
-  var area = document.getElementById('chat-messages');
-  var div = document.createElement('div');
-  div.className = 'bwrap';
-  div.id = 'typing-ind';
-  div.innerHTML = '<div class="avatar ai">AI</div><div class="bubble ai typing"><span></span><span></span><span></span></div>';
-  area.appendChild(div);
-  area.scrollTop = area.scrollHeight;
+function addTyping(){
+  var area=document.getElementById('chat-messages');
+  var div=document.createElement('div');
+  div.className='bwrap'; div.id='typing-ind';
+  div.innerHTML='<div class="avatar ai">AI</div><div class="bubble ai typing"><span></span><span></span><span></span></div>';
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
 }
+function sendQuick(btn){document.getElementById('chat-input').value=btn.textContent;sendMessage();}
 
-function sendQuick(btn) {
-  document.getElementById('chat-input').value = btn.textContent;
-  sendMessage();
-}
-
-document.getElementById('chat-input').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-
-function sendMessage() {
-  if (chatLoading) { return; }
-  var input = document.getElementById('chat-input');
-  var text = input.value.trim();
-  if (!text) { return; }
-  input.value = '';
-  addBubble('user', text);
-  chatHistory.push({role: 'user', content: text});
-  chatLoading = true;
-  document.getElementById('send-btn').disabled = true;
+function sendMessage(){
+  if(chatLoading){return;}
+  var input=document.getElementById('chat-input');
+  var text=input.value.trim(); if(!text){return;}
+  input.value='';
+  addBubble('user',text);
+  chatHistory.push({role:'user',content:text});
+  chatLoading=true;
+  document.getElementById('send-btn').disabled=true;
   addTyping();
-  fetch(PROXY_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 800,
-      system: SYSTEM_PROMPT,
-      messages: chatHistory
-    })
-  }).then(function(res) {
-    return res.json();
-  }).then(function(data) {
-    var reply = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : 'Something went wrong - check the proxy function is deployed with JWT verification OFF.';
-    var t = document.getElementById('typing-ind');
-    if (t) { t.remove(); }
-    addBubble('ai', reply);
-    chatHistory.push({role: 'assistant', content: reply});
-  }).catch(function(e) {
-    var t = document.getElementById('typing-ind');
-    if (t) { t.remove(); }
-    addBubble('ai', 'Connection error - make sure the claude-proxy Edge Function is deployed in Supabase with JWT verification turned OFF in its Settings tab.');
-  }).finally(function() {
-    chatLoading = false;
-    document.getElementById('send-btn').disabled = false;
-  });
+  fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:SYSTEM_PROMPT,messages:chatHistory})
+  }).then(function(r){return r.json();}).then(function(data){
+    var reply=(data.content&&data.content[0]&&data.content[0].text)?data.content[0].text:'Something went wrong - check the proxy function is deployed with JWT verification OFF.';
+    var t=document.getElementById('typing-ind'); if(t){t.remove();}
+    addBubble('ai',reply);
+    chatHistory.push({role:'assistant',content:reply});
+  }).catch(function(){
+    var t=document.getElementById('typing-ind'); if(t){t.remove();}
+    addBubble('ai','Connection error - make sure the claude-proxy Edge Function is deployed in Supabase with JWT verification turned OFF.');
+  }).finally(function(){chatLoading=false;document.getElementById('send-btn').disabled=false;});
 }
 
-function checkProxy() {
-  fetch(PROXY_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:5, messages:[{role:'user',content:'hi'}]})
-  }).then(function(res){return res.json();}).then(function(data){
-    var el = document.getElementById('proxy-status');
-    if (el) {
-      if (data.content) { el.textContent = 'Connected'; el.style.color = 'var(--good)'; }
-      else { el.textContent = 'Error - check Edge Function'; el.style.color = 'var(--bad)'; }
-    }
-  }).catch(function(){
-    var el = document.getElementById('proxy-status');
-    if (el) { el.textContent = 'Not reachable'; el.style.color = 'var(--bad)'; }
-  });
+function checkProxy(){
+  fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:5,messages:[{role:'user',content:'hi'}]})
+  }).then(function(r){return r.json();}).then(function(data){
+    var el=document.getElementById('proxy-status');
+    if(el){if(data.content){el.textContent='Connected';el.style.color='var(--good)';}else{el.textContent='Error';el.style.color='var(--bad)';}}
+  }).catch(function(){var el=document.getElementById('proxy-status');if(el){el.textContent='Not reachable';el.style.color='var(--bad)';}});
 }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('chat-input').addEventListener('keydown', function(e) {
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+  });
+});
 
 loadState();
 renderActions();
+renderContributions();
 renderScoreGrid();
 renderMetricGrid();
 renderOTF();
@@ -748,6 +900,7 @@ renderBloodwork();
 renderToggles();
 renderWeights();
 renderTones();
+saveCurrentWeek();
 setTimeout(checkProxy, 1200);
 
 </script>
