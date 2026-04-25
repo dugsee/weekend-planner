@@ -349,6 +349,7 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 <script>
 
 var PROXY_URL = "https://rfhxoqrozteybreavedw.supabase.co/functions/v1/claude-proxy";
+var PARSE_URL = "https://rfhxoqrozteybreavedw.supabase.co/functions/v1/parse-health-data";
 var HISTORY_KEY = "health_twin_history_v2";
 var VERSION = "v26-apr25";
 
@@ -992,16 +993,96 @@ function processMFPCSV(file, resultId) {
 }
 
 function processPDF(file, type, resultId) {
-  var instructions = type==="cpap"
-    ? "1. Open claude.ai in a new tab\n2. Drop this PDF into the chat\n3. Say: Parse my ResMed MyAir PDF and give me the SQL to load into my Supabase cpap_sessions table\n4. Paste the SQL into Supabase SQL Editor and run it\n\nSleep Therapy score updates on next Friday report."
-    : "1. Open claude.ai in a new tab\n2. Drop this PDF into the chat\n3. Say: Parse my lab results and give me the bloodwork values to update in health-twin.html\n4. Update the lipidData and chemData arrays with the returned values\n\nBlood Chemistry score updates immediately after you update the file.";
-  showStatus(resultId, "pending", (type==="cpap"?"MyAir":"Lab Results")+" PDF received - action required", [
-    {ok:true,text:"File valid: PDF"},{ok:true,text:"Size OK: "+Math.round(file.size/1024)+" KB"},
-    {ok:null,text:"PDF requires Claude to extract structured data - see instructions below"},
-    {ok:null,text:"Once SQL/values returned, paste into Supabase or health-twin.html"}
-  ], "<pre style=\"white-space:pre-wrap;font-size:10px\">"+instructions+"</pre>",
-  "<button class=\"copy-btn\" onclick=\"navigator.clipboard.writeText("+JSON.stringify(instructions)+");this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy instructions';},2000)\">Copy instructions</button>");
-  logUpload(file.name, type, "ok", "PDF received - needs Claude parse step");
+  // Convert file to base64 then send to Edge Function for automatic parsing
+  showStatus(resultId, "pending", "Reading " + (type==="cpap"?"MyAir PDF":"Lab Results PDF"), [
+    {ok:true,  text:"File valid: PDF"},
+    {ok:true,  text:"Size OK: " + Math.round(file.size/1024) + " KB"},
+    {ok:null,  text:"Sending to parser..."},
+    {ok:null,  text:"Claude will extract data and write directly to Supabase"}
+  ], null, null);
+
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    // Strip the data URL prefix to get raw base64
+    var base64 = ev.target.result.split(",")[1];
+
+    showStatus(resultId, "pending", "Parsing with Claude AI...", [
+      {ok:true, text:"File valid: PDF"},
+      {ok:true, text:"Size OK: " + Math.round(file.size/1024) + " KB"},
+      {ok:null, text:"Claude is reading the document..."},
+      {ok:null, text:"Writing parsed data to Supabase automatically"}
+    ], null, null);
+
+    fetch(PARSE_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type: type, file: base64, filename: file.name})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        showStatus(resultId, "error", "Parse failed", [
+          {ok:true,  text:"File received and sent to parser"},
+          {ok:false, text:"Error: " + data.error},
+          {ok:false, text:"Check that parse-health-data Edge Function is deployed"}
+        ], null, null);
+        logUpload(file.name, type, "error", data.error);
+        return;
+      }
+
+      if (type === "cpap") {
+        var s = data.summary || {};
+        var ph = "";
+        if (s.avg_ahi !== undefined)        { ph += "Avg AHI: <span class=\"val-good\">" + s.avg_ahi + " events/hr</span><br>"; }
+        if (s.avg_usage_hours !== undefined) { ph += "Avg usage: " + s.avg_usage_hours + " hrs/night<br>"; }
+        if (s.days_used !== undefined)       { ph += "Days used: " + s.days_used + "/" + (s.total_days||"?") + "<br>"; }
+        if (s.period)                        { ph += "Period: " + s.period + "<br>"; }
+
+        showStatus(resultId, "success", "CPAP data loaded to Supabase", [
+          {ok:true, text:"File parsed by Claude"},
+          {ok:true, text:data.sessions_loaded + " session(s) written to cpap_sessions table"},
+          {ok:true, text:"Sleep Therapy score updates on next Friday report"},
+          {ok:true, text:"No manual steps required"}
+        ], ph || null, null);
+        logUpload(file.name, "cpap", "ok", data.sessions_loaded + " sessions loaded to Supabase");
+
+      } else if (type === "lab") {
+        var d = data.data || {};
+        var ph2 = "";
+        if (d.totalCholesterol) { ph2 += "Total cholesterol: <span class=\"val-good\">" + d.totalCholesterol + " mg/dL</span><br>"; }
+        if (d.hdl)              { ph2 += "HDL: " + d.hdl + " mg/dL<br>"; }
+        if (d.ldl)              { ph2 += "LDL: " + d.ldl + " mg/dL<br>"; }
+        if (d.triglycerides)    { ph2 += "Triglycerides: " + d.triglycerides + " mg/dL<br>"; }
+        if (d.glucoseFasting)   { ph2 += "Glucose: " + d.glucoseFasting + " mg/dL<br>"; }
+        if (d.alt)              { ph2 += "ALT: " + d.alt + " U/L<br>"; }
+        if (d.ast)              { ph2 += "AST: " + d.ast + " U/L<br>"; }
+        if (d.egfr)             { ph2 += "eGFR: " + d.egfr + " mL/min<br>"; }
+        if (d.ck)               { ph2 += "CK: " + d.ck + " U/L<br>"; }
+
+        var snapStr = JSON.stringify(d, null, 2);
+        window._labSnap = snapStr;
+
+        showStatus(resultId, "success", "Lab results extracted", [
+          {ok:true, text:"PDF parsed by Claude"},
+          {ok:true, text:"Values extracted from " + (d.date || "document")},
+          {ok:null, text:"One manual step: copy values below into health-twin.html lipidData/chemData arrays"},
+          {ok:null, text:"Then also update PROFILE.bloodwork in weekly-fitness-report.gs"}
+        ], ph2,
+        "<button class=\"copy-btn\" onclick=\"navigator.clipboard.writeText(window._labSnap);this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy JSON';},2000)\">Copy JSON values</button>");
+        logUpload(file.name, "lab", "ok", "Lab values extracted - needs manual update to HTML");
+      }
+    })
+    .catch(function(err) {
+      showStatus(resultId, "error", "Connection error", [
+        {ok:true,  text:"File received"},
+        {ok:false, text:"Could not reach parse-health-data Edge Function"},
+        {ok:false, text:"Make sure it is deployed in Supabase with JWT verification OFF"},
+        {ok:false, text:"Error: " + err.message}
+      ], null, null);
+      logUpload(file.name, type, "error", err.message);
+    });
+  };
+  reader.readAsDataURL(file);
 }
 
 function addBubble(role, content) {
