@@ -246,13 +246,13 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
     </div>
     <div class="settings-card">
       <div class="settings-title">MyFitnessPal - nutrition CSV export (monthly)</div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">In MFP: <strong style="color:rgba(255,255,255,0.6)">More &rarr; Settings &rarr; Data Export</strong> - extract Nutrition Summary CSV from the ZIP</p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">In MFP: tap <strong style="color:rgba(255,255,255,0.6)">More &rarr; Diary &rarr; Print</strong> to get the PDF (preferred), or <strong style="color:rgba(255,255,255,0.6)">Settings &rarr; Data Export</strong> for CSV</p>
       <div class="upload-zone" id="drop-mfp" onclick="document.getElementById('file-mfp').click()" ondragover="onDragOver(event,'drop-mfp')" ondragleave="onDragLeave('drop-mfp')" ondrop="onDrop(event,'mfp')">
         <div class="upload-icon">&#x1F966;</div>
-        <div class="upload-title">Click to select or drag MFP Nutrition CSV here</div>
-        <div class="upload-sub">Parses calories, protein, carbs, fat, fiber, sodium &rarr; Body Shape score</div>
+        <div class="upload-title">Click to select or drag MFP file here</div>
+        <div class="upload-sub">PDF (Printable Diary) preferred &rarr; includes food names. CSV also accepted. Routes to nutrition score.</div>
       </div>
-      <input type="file" id="file-mfp" accept=".csv" style="display:none" onchange="handleFile(this.files[0],'mfp')">
+      <input type="file" id="file-mfp" accept=".csv,.pdf" style="display:none" onchange="handleFile(this.files[0],'mfp')">
       <div id="result-mfp"></div>
     </div>
     <div class="settings-card">
@@ -822,7 +822,9 @@ function handleFile(file, type) {
       return;
     }
     if (type === "apple") { processAppleJSON(file, resultId); }
-    else if (type === "mfp") { processMFPCSV(file, resultId); }
+    else if (type === "mfp" && ext === "pdf") { processMFPPDF(file, resultId); }
+    else if (type === "mfp" && ext === "csv") { processMFPCSV(file, resultId); }
+    else if (type === "mfp") { processMFPPDF(file, resultId); }
     else { processPDF(file, type, resultId); }
   }, 300);
 }
@@ -906,6 +908,97 @@ function processAppleJSON(file, resultId) {
     }
   };
   reader.readAsText(file);
+}
+
+function processMFPPDF(file, resultId) {
+  showStatus(resultId, "pending", "Reading MyFitnessPal diary PDF", [
+    {ok:true, text:"File type valid: PDF"},
+    {ok:true, text:"Size OK: " + Math.round(file.size/1024) + " KB"},
+    {ok:null, text:"Sending to Claude AI parser..."},
+    {ok:null, text:"Extracting food items, macros, and daily totals"}
+  ], null, null);
+
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var base64 = ev.target.result.split(",")[1];
+    showStatus(resultId, "pending", "Claude is reading your food diary...", [
+      {ok:true, text:"File received and sent"},
+      {ok:null, text:"Parsing daily entries, meal breakdowns, food items..."},
+      {ok:null, text:"This takes 10-15 seconds for multi-day PDFs"}
+    ], null, null);
+
+    fetch(PARSE_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type: "nutrition_pdf", file: base64, filename: file.name})
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        showStatus(resultId, "error", "Parse failed", [
+          {ok:true, text:"File received"},
+          {ok:false, text:"Error: " + data.error}
+        ], null, null);
+        logUpload(file.name, "mfp", "error", data.error);
+        return;
+      }
+
+      var s = data.summary || {};
+      var ph = "";
+      if (s.avg_calories)     { ph += "Calories/day: " + s.avg_calories + " kcal<br>"; }
+      if (s.avg_protein_g)    { ph += "Protein/day: <span class=\"" + (s.avg_protein_g >= 145 ? "val-good" : "val-warn") + "\">" + s.avg_protein_g + "g</span> (target: 145g)<br>"; }
+      if (s.avg_carbs_g)      { ph += "Carbs/day: " + s.avg_carbs_g + "g<br>"; }
+      if (s.avg_fat_g)        { ph += "Fat/day: " + s.avg_fat_g + "g<br>"; }
+      if (s.avg_fiber_g)      { ph += "Fiber/day: <span class=\"" + (s.avg_fiber_g >= 20 ? "val-good" : "val-warn") + "\">" + s.avg_fiber_g + "g</span><br>"; }
+      if (s.avg_sodium_mg)    { ph += "Sodium/day: <span class=\"" + (s.avg_sodium_mg <= 2300 ? "val-good" : "val-bad") + "\">" + s.avg_sodium_mg + "mg</span><br>"; }
+      if (s.avg_cholesterol_mg){ ph += "Cholesterol/day: " + s.avg_cholesterol_mg + "mg<br>"; }
+
+      // Show food breakdown for each day
+      var foodDetail = "";
+      if (data.days && data.days.length) {
+        data.days.forEach(function(day) {
+          foodDetail += "<div style=\"margin-top:8px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px\">";
+          foodDetail += "<div style=\"color:var(--gold);font-size:11px;margin-bottom:4px\">" + day.date + " &middot; " + (day.totals ? day.totals.calories : "?") + " kcal</div>";
+          var allMeals = Object.keys(day.meals || {});
+          allMeals.forEach(function(meal) {
+            var items = day.meals[meal];
+            if (items && items.length) {
+              foodDetail += "<div style=\"font-size:10px;color:var(--muted);text-transform:capitalize;margin-top:3px\">" + meal + "</div>";
+              items.forEach(function(item) {
+                foodDetail += "<div style=\"font-size:11px;color:rgba(226,232,223,0.7);padding-left:8px\">";
+                foodDetail += item.food + " <span style=\"color:var(--muted)\">" + (item.quantity || "") + " &mdash; " + (item.calories || 0) + " cal, " + (item.protein_g || 0) + "g protein</span></div>";
+              });
+            }
+          });
+          foodDetail += "</div>";
+        });
+      }
+
+      var snapStr = JSON.stringify(data.snapshot || {}, null, 2);
+      window._mfpSnap = snapStr;
+
+      var steps = [
+        {ok:true, text:"PDF parsed by Claude AI"},
+        {ok:true, text:data.days_parsed + " day(s) extracted from diary"},
+        {ok:true, text:"Food items, meal breakdown, and macros captured"},
+        {ok:!data.flags || !data.flags.length, text:data.flags && data.flags.length ? data.flags.join(" | ") : "No nutritional flags - all targets met"}
+      ];
+
+      showStatus(resultId,
+        !data.flags || !data.flags.length ? "success" : "pending",
+        data.days_parsed + " day(s) parsed - nutrition data captured",
+        steps, ph + foodDetail,
+        "<button class=\"copy-btn\" onclick=\"navigator.clipboard.writeText(window._mfpSnap);this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy JSON';},2000)\">Copy JSON for Apps Script</button>"
+      );
+      logUpload(file.name, "mfp", "ok", data.days_parsed + " days, " + (s.avg_calories || "?") + " kcal/day avg");
+    }).catch(function(err) {
+      showStatus(resultId, "error", "Connection error", [
+        {ok:false, text:"Could not reach parse-health-data Edge Function"},
+        {ok:false, text:err.message}
+      ], null, null);
+      logUpload(file.name, "mfp", "error", err.message);
+    });
+  };
+  reader.readAsDataURL(file);
 }
 
 function processMFPCSV(file, resultId) {
