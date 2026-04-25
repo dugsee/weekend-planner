@@ -20,16 +20,26 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,101,58,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,101,58,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
 .z1{position:relative;z-index:1}
 /* Header */
-header{background:var(--green);border-bottom:3px solid var(--gold);padding:0 20px;position:sticky;top:0;z-index:100}
-.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px}
-.eyebrow{font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:11px;letter-spacing:.18em}
-.hname{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;letter-spacing:.06em;line-height:1}
-.overall-badge{display:flex;flex-direction:column;align-items:center;cursor:pointer}
-.overall-num{font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--gold);line-height:1}
-.overall-lbl{font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:.1em;text-transform:uppercase}
+header{background:var(--green);border-bottom:3px solid var(--gold);padding:0 16px;position:sticky;top:0;z-index:100}
+.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:12px;padding:10px 0}
+.header-left{flex:0 0 auto}
+.eyebrow{font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:10px;letter-spacing:.18em}
+.hname{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#fff;letter-spacing:.06em;line-height:1}
+.header-sub{font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px}
+/* Score + Actions side by side in header */
+.header-right{display:flex;gap:10px;align-items:stretch;flex:1;justify-content:flex-end}
+.overall-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.3);border-radius:10px;padding:8px 16px;min-width:70px}
+.overall-num{font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--gold);line-height:1}
+.overall-lbl{font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+.actions-box{background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.2);border-radius:10px;padding:8px 12px;max-width:220px;min-width:160px;display:flex;flex-direction:column;justify-content:center}
+.actions-title{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.12em;color:var(--gold);margin-bottom:5px}
+.action-item{display:flex;gap:6px;align-items:flex-start;margin-bottom:4px}
+.action-item:last-child{margin-bottom:0}
+.action-num{font-family:'Bebas Neue',sans-serif;font-size:11px;color:var(--gold);flex-shrink:0;line-height:1.3}
+.action-text{font-size:10px;color:rgba(255,255,255,0.75);line-height:1.4}
 /* Nav */
-nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:60px;z-index:99;overflow-x:auto}
-.nav-inner{max-width:720px;margin:0 auto;display:flex;min-width:400px}
+nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:99;overflow-x:auto}
+.nav-inner{max-width:720px;margin:0 auto;display:flex;min-width:380px}
 .tab-btn{flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
 .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,194,0,0.04)}
 /* Content */
@@ -70,8 +80,9 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 /* CPAP */
 .cpap-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .cpap-label{font-size:10px;color:var(--muted);margin-bottom:3px}
-.cpap-val{font-size:26px;font-weight:500;line-height:1}
+.cpap-val{font-size:24px;font-weight:500;line-height:1}
 .cpap-bench{font-size:10px;color:var(--muted);margin-top:3px}
+.cpap-updated{font-size:10px;color:rgba(255,194,0,0.6);font-family:'DM Mono',monospace;margin-bottom:10px}
 /* Bloodwork */
 .bw-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
 .bw-cell{padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
@@ -83,10 +94,10 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .statin-box{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:12px 14px;margin-bottom:12px}
 .statin-box p{font-size:13px;line-height:1.6;color:rgba(226,232,223,0.8)}
 /* Upload */
-.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:rgba(255,194,0,0.05)}
-.upload-icon{font-size:28px;margin-bottom:8px;opacity:.6}
-.upload-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;color:var(--gold);font-size:14px;margin-bottom:4px}
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:24px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:10px}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:rgba(255,194,0,0.04)}
+.upload-icon{font-size:26px;margin-bottom:6px;opacity:.6}
+.upload-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;color:var(--gold);font-size:13px;margin-bottom:3px}
 .upload-sub{font-size:11px;color:var(--muted)}
 .upload-result{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:10px}
 .upload-result-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;font-size:12px;margin-bottom:8px}
@@ -98,7 +109,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .copy-btn{background:var(--green-dim);border:1px solid var(--border);color:var(--good);border-radius:6px;padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;margin-top:8px;transition:all .15s}
 .copy-btn:hover{background:rgba(0,101,58,0.3)}
 /* Chat */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 210px);min-height:400px}
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 220px);min-height:400px}
 .chat-msgs{flex:1;overflow-y:auto;padding-bottom:12px}
 .bwrap{display:flex;gap:10px;margin-bottom:14px;align-items:flex-start}
 .bwrap.user{flex-direction:row-reverse}
@@ -150,14 +161,22 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 
 <header>
   <div class="header-inner">
-    <div>
+    <div class="header-left">
       <div class="eyebrow">Seattle SuperSonics · Health Twin</div>
       <div class="hname">Doug Cottington</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.4)">Age 52 · Bryant, Seattle · OTF U District</div>
+      <div class="header-sub">Age 52 · Bryant, Seattle · OTF U District</div>
     </div>
-    <div class="overall-badge" onclick="showTab('settings',document.querySelectorAll('.tab-btn')[4])">
-      <div class="overall-num">78</div>
-      <div class="overall-lbl">Overall</div>
+    <div class="header-right">
+      <!-- Overall score — left side -->
+      <div class="overall-badge">
+        <div class="overall-num" id="overall-display">78</div>
+        <div class="overall-lbl">Overall</div>
+      </div>
+      <!-- Actionable steps — right side -->
+      <div class="actions-box" id="actions-box">
+        <div class="actions-title">Top moves this week</div>
+        <div id="action-items"></div>
+      </div>
     </div>
   </div>
 </header>
@@ -183,13 +202,13 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
     <div class="slabel">Recent OTF sessions</div>
     <div class="card" id="otf-sessions"></div>
     <div class="slabel">CPAP sleep therapy</div>
-    <div class="card card-green">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace">Mar 25–Apr 23, 2026 · AirSense 10 Respond · Upload new PDF to update</div>
+    <div class="card card-green" id="cpap-card">
+      <div class="cpap-updated" id="cpap-date-label">Mar 25–Apr 23, 2026 · AirSense 10 · Upload new PDF monthly to update</div>
       <div class="cpap-grid">
-        <div><div class="cpap-label">breathing interruptions/hr (AHI)</div><div class="cpap-val" style="color:var(--good)" id="cpap-ahi">0.33<span style="font-size:12px;color:var(--muted)"> events/hr</span></div><div class="cpap-bench">Exceptional — normal is under 5 (AASM)</div></div>
-        <div><div class="cpap-label">time wearing mask per night</div><div class="cpap-val" style="color:var(--gold)" id="cpap-hours">6h 41m</div><div class="cpap-bench">Target: 7+ hours</div></div>
-        <div style="margin-top:10px"><div class="cpap-label">mask leak rate 95th %</div><div class="cpap-val" style="color:var(--good);font-size:20px" id="cpap-leak">19.8<span style="font-size:11px;color:var(--muted)"> L/min</span></div><div class="cpap-bench">Good — under 24 L/min target</div></div>
-        <div style="margin-top:10px"><div class="cpap-label">nights used ≥ 4 hours</div><div class="cpap-val" style="color:var(--good);font-size:20px" id="cpap-compliance">79%</div><div class="cpap-bench">23 of 29 nights</div></div>
+        <div><div class="cpap-label">breathing interruptions/hr (AHI)</div><div class="cpap-val" style="color:var(--good)" id="cpap-ahi">0.33<span style="font-size:12px;color:var(--muted)"> /hr</span></div><div class="cpap-bench">Exceptional — normal under 5 (AASM)</div></div>
+        <div><div class="cpap-label">mask time per night</div><div class="cpap-val" style="color:var(--gold)" id="cpap-hours">6h 41m</div><div class="cpap-bench">Target: 7+ hours</div></div>
+        <div style="margin-top:10px"><div class="cpap-label">leak rate 95th %</div><div class="cpap-val" style="color:var(--good);font-size:20px" id="cpap-leak">19.8<span style="font-size:11px;color:var(--muted)"> L/min</span></div><div class="cpap-bench">Good — under 24 target</div></div>
+        <div style="margin-top:10px"><div class="cpap-label">nights ≥ 4 hours</div><div class="cpap-val" style="color:var(--good);font-size:20px" id="cpap-compliance">79%</div><div class="cpap-bench">23 of 29 nights</div></div>
       </div>
     </div>
     <div class="slabel">Apple Watch</div>
@@ -199,7 +218,7 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
   <!-- BLOODWORK -->
   <div class="tab-panel" id="tab-bloodwork">
     <div class="statin-box">
-      <p>Your statin is <strong style="color:var(--good)">absolutely crushing it</strong> — total cholesterol dropped from 224 → 141, a 37% reduction. AHA says under 200 is optimal. You're at 141. Liver enzymes are completely normal — no stress from the medication.</p>
+      <p>Your statin is <strong style="color:var(--good)">absolutely crushing it</strong> — total cholesterol dropped from 224 → 141, a 37% reduction. AHA says under 200 is optimal. Liver enzymes are normal — no stress from the medication.</p>
     </div>
     <div class="slabel">Lipid panel — Apr 14, 2026</div>
     <div class="card"><div class="bw-grid" id="lipid-grid"></div></div>
@@ -213,14 +232,15 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
   <!-- UPLOADS -->
   <div class="tab-panel" id="tab-uploads">
     <div class="slabel">Upload health data</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Drop files here to update your dashboard. I'll parse the data and generate the SQL to paste into Supabase to keep your weekly report current.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Drop files here to update your dashboard. CPAP data updates monthly — best uploaded Thursday nights so Friday's report has fresh data.</p>
 
     <div class="settings-card">
-      <div class="settings-title">ResMed MyAir — sleep therapy PDF</div>
+      <div class="settings-title">ResMed MyAir — sleep therapy PDF · Upload monthly</div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Download from <strong style="color:rgba(255,255,255,0.6)">myair.resmed.com</strong> → History → Export PDF. Upload Thursday night for Friday's report.</p>
       <div class="upload-zone" id="drop-cpap" onclick="document.getElementById('file-cpap').click()" ondragover="onDragOver(event,'drop-cpap')" ondragleave="onDragLeave('drop-cpap')" ondrop="onDrop(event,'cpap')">
         <div class="upload-icon">🫁</div>
         <div class="upload-title">Drop MyAir PDF here or click to browse</div>
-        <div class="upload-sub">Download from myair.resmed.com → History → Export PDF</div>
+        <div class="upload-sub">Parses AHI, usage hours, mask seal, leak rate</div>
       </div>
       <input type="file" id="file-cpap" accept=".pdf,.csv" style="display:none" onchange="handleFile(this.files[0],'cpap')">
       <div id="result-cpap"></div>
@@ -241,8 +261,8 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
       <div class="settings-title">Apple Health — historical export</div>
       <div class="upload-zone" id="drop-apple" onclick="document.getElementById('file-apple').click()" ondragover="onDragOver(event,'drop-apple')" ondragleave="onDragLeave('drop-apple')" ondrop="onDrop(event,'apple')">
         <div class="upload-icon">🍎</div>
-        <div class="upload-title">Drop Health Auto Export JSON/CSV here</div>
-        <div class="upload-sub">From Health Auto Export app — any date range</div>
+        <div class="upload-title">Drop Health Auto Export JSON here</div>
+        <div class="upload-sub">Parses 7-day weight average, steps, HR, HRV, VO2 max, sleep</div>
       </div>
       <input type="file" id="file-apple" accept=".json,.csv" style="display:none" onchange="handleFile(this.files[0],'apple')">
       <div id="result-apple"></div>
@@ -277,60 +297,92 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 
   <!-- SETTINGS -->
   <div class="tab-panel" id="tab-settings">
-
     <div class="slabel">Email sections</div>
     <div class="settings-card">
       <div class="settings-title">Toggle weekly report sections on/off</div>
       <div id="toggle-rows"></div>
     </div>
-
     <div class="slabel">Score weights</div>
     <div class="settings-card">
       <div class="settings-title">How much each component affects your overall score</div>
       <div id="weight-rows"></div>
       <div class="weight-total ok" id="weight-total">Total: 100%</div>
     </div>
-
     <div class="slabel">Email tone</div>
     <div class="settings-card">
       <div class="settings-title">How the weekly report is written</div>
       <div class="tone-grid" id="tone-grid"></div>
     </div>
-
     <div class="slabel">Data sources</div>
     <div class="settings-card">
       <div class="source-row"><span>OTF sessions (Gmail label:otbeat)</span><span style="color:var(--good)">Active</span></div>
       <div class="source-row"><span>Apple Health (Health Auto Export)</span><span style="color:var(--good)">Active · syncs every 7 days</span></div>
+      <div class="source-row"><span>Body weight</span><span style="color:var(--good)">7-day avg from Apple Health</span></div>
       <div class="source-row"><span>Bloodwork (Virginia Mason)</span><span style="color:var(--gold)">Manual · update after lab visits</span></div>
-      <div class="source-row"><span>CPAP (ResMed MyAir PDF)</span><span style="color:var(--gold)">Manual · upload PDF above</span></div>
+      <div class="source-row"><span>CPAP (ResMed MyAir PDF)</span><span style="color:var(--gold)">Manual monthly · upload Thursday nights</span></div>
       <div class="source-row"><span>Weekly report delivery</span><span style="color:var(--good)">Every Friday 7am PT</span></div>
-      <div class="source-row"><span>Claude proxy</span><span style="color:var(--good)" id="proxy-status">Checking...</span></div>
+      <div class="source-row"><span>Claude proxy</span><span id="proxy-status" style="color:var(--muted)">Checking...</span></div>
     </div>
-
   </div>
 
-</div><!-- /content -->
-</div><!-- /z1 -->
+</div>
+</div>
 
 <script>
 // ─── Config ───────────────────────────────────────────────────────────────────
 const PROXY_URL = 'https://rfhxoqrozteybreavedw.supabase.co/functions/v1/claude-proxy';
-const SUPABASE_URL = 'https://rfhxoqrozteybreavedw.supabase.co';
-const SUPABASE_ANON = localStorage.getItem('sb_anon_key') || '';
+
+// ─── CPAP data — updated manually monthly (Thursday nights) ──────────────────
+// Last updated: Apr 23, 2026 from MyAir PDF (Mar 25–Apr 23, 2026)
+const cpapData = {
+  periodLabel: 'Mar 25–Apr 23, 2026',
+  avgAHI: 0.33,
+  avgUsageHours: 6.68,   // 6h 41m
+  avgUsageLabel: '6h 41m',
+  maskSealPct: 97,
+  leakRate: 19.8,
+  compliancePct: 79,
+  complianceLabel: '23/29 nights',
+  lastUpdated: '2026-04-23'
+};
+
+// ─── Apple Health — 7-day weight average logic ────────────────────────────────
+// Weight readings from Apple Health (most recent 7 days)
+// Updated automatically when Apple Health JSON is uploaded
+// Falls back to historical average if no recent readings available
+let weightReadings7d = [198.4]; // populated from file upload or Apple Health sync
+function get7DayWeightAvg() {
+  if (!weightReadings7d.length) return 198.4;
+  const avg = weightReadings7d.reduce((a,b)=>a+b,0) / weightReadings7d.length;
+  return Math.round(avg * 10) / 10;
+}
 
 // ─── Health data ──────────────────────────────────────────────────────────────
 const scores = {
-  overall:78, cardioFitness:76, weeklyActivity:65, heartHealth:91,
-  recovery:72, sleepTherapy:88, bodyComposition:50, dailyMovement:44
+  overall:80,        // updated: Apr 23 session (916 kcal, 26 splats) boosts gym work
+  cardioFitness:76,
+  weeklyActivity:82, // up from 65: 2 sessions with 26+14=40 splats this week
+  heartHealth:91,
+  recovery:72,
+  sleepTherapy:88,
+  bodyComposition:50,
+  dailyMovement:44
 };
 
+// Top 3 actionable items — derived from lowest scores and biggest opportunities
+const topActions = [
+  {num:'1', text:'Add 1 outdoor run this week — VO2 max of 36.5 needs 42+'},
+  {num:'2', text:'Evening walk with Ana — steps avg 4,024 vs 7,500 target'},
+  {num:'3', text:'Request CK test at next physical — missing for statin users'}
+];
+
 const subScores = [
-  {key:'cardioFitness',  label:'Heart engine',   tech:'cardio fitness',  pct:20, tip:'Add 1 outdoor run/week — VO2 max of 36.5 needs to hit 42+'},
-  {key:'weeklyActivity', label:'Gym work',        tech:'weekly activity', pct:20, tip:'Push orange/red earlier — target 12+ splat points/session'},
+  {key:'cardioFitness',  label:'Heart engine',   tech:'cardio fitness',  pct:20, tip:'Add 1 outdoor run/week — VO2 max 36.5 needs to reach 42+'},
+  {key:'weeklyActivity', label:'Gym work',        tech:'weekly activity', pct:20, tip:'Apr 23: 916 kcal, 26 splats — use Coree sessions as the blueprint'},
   {key:'heartHealth',    label:'Blood chemistry', tech:'heart health',    pct:20, tip:'Request a CK (muscle enzyme) test at your next physical'},
   {key:'recovery',       label:'Bounce back',     tech:'recovery',        pct:15, tip:'Nudge sleep from 7.1 → 7.5 hrs — consistency beats one big night'},
-  {key:'sleepTherapy',   label:'Sleep therapy',   tech:'CPAP compliance', pct:15, tip:'Nudge nightly use from 6h 41m toward 7hrs — AHI is elite at 0.33'},
-  {key:'bodyComposition',label:'Body shape',      tech:'body comp',       pct:5,  tip:'Weight up 13 lbs since Jan 2025 — evening walks with Ana help'},
+  {key:'sleepTherapy',   label:'Sleep therapy',   tech:'CPAP compliance', pct:15, tip:'Nudge nightly use toward 7hrs — AHI of 0.33 is already elite'},
+  {key:'bodyComposition',label:'Body shape',      tech:'body comp',       pct:5,  tip:'Weight up 13 lbs since Jan 2025 — 7-day avg tracked automatically'},
   {key:'dailyMovement',  label:'Daily hustle',    tech:'daily movement',  pct:5,  tip:'Steps avg 4,024/day — Bryant to U Village = ~3,000 steps'}
 ];
 
@@ -343,14 +395,14 @@ const keyMetrics = [
   {label:'Daily steps', value:'4,024',unit:'',      note:'target: 7,500+',      cls:'bad'},
   {label:'Sleep avg',   value:'7.1',  unit:'hrs',   note:'near 7.5 target',     cls:'good'},
   {label:'Blood O2',    value:'97.9', unit:'%',     note:'excellent 95-100%',   cls:'good'},
-  {label:'BMI',         value:'28.4', unit:'',      note:'US male avg: 29.1',   cls:'warn'}
+  {label:'Weight 7d',   value:'',     unit:'lbs',   note:'7-day avg · Apple Health', cls:'warn', dynamic:'weight'}
 ];
 
 const otfSessions = [
+  {date:'Apr 23',cal:916, splats:26,hr:151,peak:176,coach:'Coree',type:'3G'},
+  {date:'Apr 21',cal:791, splats:14,hr:138,peak:170,coach:'Ryan', type:'3G'},
   {date:'Apr 16',cal:695, splats:3, hr:128,peak:169,coach:'Coree',type:'3G'},
-  {date:'Apr 14',cal:705, splats:5, hr:123,peak:169,coach:'Ryan', type:'3G'},
-  {date:'Apr 9', cal:889, splats:18,hr:143,peak:175,coach:'Coree',type:'3G'},
-  {date:'Apr 7', cal:736, splats:16,hr:134,peak:174,coach:'Ryan', type:'2G'}
+  {date:'Apr 14',cal:705, splats:5, hr:123,peak:169,coach:'Ryan', type:'3G'}
 ];
 
 const lipidData = [
@@ -370,47 +422,45 @@ const chemData = [
 ];
 
 const appleData = [
-  {label:'How fast heart beats at rest',  tech:'resting HR', value:'58 bpm',         bench:'Below avg 68-72 (AHA)',      cls:'good'},
-  {label:'Beat-to-beat variation',         tech:'HRV',        value:'47.7 ms',         bench:'Healthy for 52 (avg 40-60)',  cls:'good'},
-  {label:'Oxygen efficiency — big one',    tech:'VO2 Max',    value:'36.5 ml/kg/min', bench:'Target 42+ for age (ACSM)',  cls:'warn'},
-  {label:'Steps walked each day',          tech:'step count', value:'4,024/day',       bench:'Below 7,500 target',         cls:'bad'},
-  {label:'Calories burned moving',         tech:'active cal', value:'597 kcal/day',    bench:'Strong output',              cls:'good'},
-  {label:'Sleep per night',                tech:'sleep',      value:'7.1 hrs',         bench:'Near 7.5 target',            cls:'good'},
-  {label:'Oxygen in blood',                tech:'SpO2',       value:'97.9%',           bench:'Healthy 95-100%',            cls:'good'},
-  {label:'Heart slowdown after effort',    tech:'cardio recovery',value:'31 bpm drop', bench:'Good — above 20 threshold', cls:'good'}
+  {label:'How fast heart beats at rest',  tech:'resting HR',     value:'58 bpm',         bench:'Below avg 68-72 (AHA)',      cls:'good'},
+  {label:'Beat-to-beat variation',         tech:'HRV',            value:'47.7 ms',         bench:'Healthy for 52 (avg 40-60)',  cls:'good'},
+  {label:'Oxygen efficiency',              tech:'VO2 Max',        value:'36.5 ml/kg/min', bench:'Target 42+ for age (ACSM)',  cls:'warn'},
+  {label:'Steps walked each day',          tech:'step count',     value:'4,024/day',       bench:'Below 7,500 target',         cls:'bad'},
+  {label:'Calories burned moving',         tech:'active calories',value:'597 kcal/day',    bench:'Strong output',              cls:'good'},
+  {label:'Sleep per night',                tech:'sleep analysis', value:'7.1 hrs',         bench:'Near 7.5 hr target',         cls:'good'},
+  {label:'Oxygen in blood',                tech:'SpO2',           value:'97.9%',           bench:'Healthy 95-100%',            cls:'good'},
+  {label:'Heart slowdown after effort',    tech:'cardio recovery',value:'31 bpm drop',     bench:'Good — above 20 threshold',  cls:'good'}
 ];
 
-const SYSTEM_PROMPT = `You are Doug's personal health AI assistant — a knowledgeable, candid friend who explains things casually and clearly. You have full access to his real health data and always reference actual numbers when answering.
+const SYSTEM_PROMPT = `You are Doug's personal health AI assistant — a knowledgeable, candid friend who explains things casually. You have full access to his real health data.
 
-PROFILE: Age 52 (DOB 12/27/1973), 5'10", 198.4 lbs, BMI 28.4, Seattle WA (Bryant neighborhood). Wife: Ana. OTF U District. Medications: Atorvastatin 40mg (statin — does NOT suppress HR, all OTF zone/HR data is valid).
+PROFILE: Age 52, 5'10", ~198 lbs (7-day avg from Apple Health), BMI ~28.4, Seattle WA (Bryant). Wife: Ana. OTF U District. Medications: Atorvastatin 40mg (statin — does NOT suppress HR).
 
-HEALTH SCORES (overall 78/100):
+HEALTH SCORES (overall 80/100):
 - Heart engine (cardio fitness): 76 — VO2 max 36.5 (target 42+), resting HR 58
-- Gym work (weekly activity): 65 — avg 9 splat pts (target 12+), 779 kcal/session
-- Blood chemistry (heart health): 91 — cholesterol 141 (was 224), excellent lipids
+- Gym work (weekly activity): 82 — Apr 23 session: 916 kcal 26 splats (best ever). Avg 9 splats/session
+- Blood chemistry (heart health): 91 — cholesterol 141 (was 224 pre-statin, 37% drop)
 - Bounce back (recovery): 72 — HRV 47.7 ms, sleep 7.1 hrs
 - Sleep therapy (CPAP): 88 — AHI 0.33 (exceptional), usage 6h 41m
-- Body shape (body composition): 50 — BMI 28.4, weight up 13 lbs since Jan 2025
+- Body shape (body composition): 50 — BMI 28.4, weight up ~13 lbs since Jan 2025
 - Daily hustle (daily movement): 44 — 4,024 steps/day avg (biggest gap)
 
-APPLE HEALTH (16-month baseline Jan 2025–Apr 2026):
-Resting HR 58 bpm · HRV 47.7 ms · VO2 Max 36.5 ml/kg/min · Steps 4,024/day · Active cal 597/day · Sleep 7.1 hrs · Weight 198.4 lbs · Blood oxygen 97.9% · Cardio recovery 31 bpm drop
+APPLE HEALTH (16-month baseline): Resting HR 58 · HRV 47.7 ms · VO2 Max 36.5 · Steps 4,024/day · Active cal 597/day · Sleep 7.1 hrs · Blood oxygen 97.9% · Cardio recovery 31 bpm drop · Weight tracked via 7-day rolling average from Apple Health
 
-CPAP — ResMed AirSense 10 (Mar 25–Apr 23 2026):
-AHI 0.33 events/hr (exceptional — normal <5) · Usage 6h 41m/night · Leak 19.8 L/min · Days ≥4hrs: 79% (23/29)
+CPAP — ResMed AirSense 10 (updated monthly from MyAir PDF, last Mar 25–Apr 23 2026):
+AHI 0.33/hr (exceptional — normal <5) · Usage 6h 41m/night · Leak 19.8 L/min · Days ≥4hrs: 79%
 
-BLOODWORK — Virginia Mason (Apr 14 2026):
-Total cholesterol 141 (was 224 pre-statin, 37% drop) · Triglycerides 72 · HDL 56 · LDL est 71 · Fasting glucose 87 · ALT 19 · AST 28 · Creatinine 0.95 · eGFR 96
+BLOODWORK — Virginia Mason (Apr 14 2026): Total cholesterol 141 (was 224) · Triglycerides 72 · HDL 56 · LDL ~71 · Fasting glucose 87 · ALT 19 · AST 28 · Creatinine 0.95 · eGFR 96
 
-OTF: Apr 16: 695 kcal 3 splats HR128 (Coree) · Apr 14: 705 kcal 5 splats HR123 (Ryan) · Apr 9: 889 kcal 18 splats HR143 (Coree — best session) · Apr 7: 736 kcal 16 splats HR134 (Ryan)
+OTF RECENT: Apr 23: 916 kcal 26 splats HR151 peak176 (Coree — best ever) · Apr 21: 791 kcal 14 splats HR138 (Ryan) · Apr 16: 695 kcal 3 splats HR128 (Coree) · Apr 14: 705 kcal 5 splats HR123 (Ryan)
 
-TONE: Casual, friendly, honest. Plain English first, technical term in parentheses. Under 200 words unless detail needed. Reference actual numbers. Occasional Ana or Seattle mention where natural.`;
+TONE: Casual, honest, plain English first then technical term in parentheses. Under 200 words unless detail needed. Reference actual numbers. Occasional Ana or Seattle mention where natural.`;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const state = {
   tone: 'casual',
-  toggles: {showCPAP:true, showBloodwork:true, showAppleHealth:true, anaMode:true, seattleRefs:true},
-  weights: {cardioFitness:20, weeklyActivity:20, heartHealth:20, recovery:15, sleepTherapy:15, bodyComposition:5, dailyMovement:5}
+  toggles: {showCPAP:true,showBloodwork:true,showAppleHealth:true,anaMode:true,seattleRefs:true},
+  weights: {cardioFitness:20,weeklyActivity:20,heartHealth:20,recovery:15,sleepTherapy:15,bodyComposition:5,dailyMovement:5}
 };
 const chatHistory = [];
 let chatLoading = false;
@@ -426,7 +476,17 @@ function showTab(id, btn) {
   if(btn) btn.classList.add('active');
 }
 
-// ─── Render ───────────────────────────────────────────────────────────────────
+// ─── Render header actions ────────────────────────────────────────────────────
+function renderActions() {
+  document.getElementById('action-items').innerHTML = topActions.map(a=>
+    `<div class="action-item">
+      <span class="action-num">${a.num}.</span>
+      <span class="action-text">${a.text}</span>
+    </div>`
+  ).join('');
+}
+
+// ─── Render dashboard ─────────────────────────────────────────────────────────
 function renderScoreGrid() {
   document.getElementById('score-grid').innerHTML = subScores.map((sc,i)=>{
     const sv=scores[sc.key], cls=scoreClass(sv), color=scoreColor(sv);
@@ -440,12 +500,15 @@ function renderScoreGrid() {
 }
 
 function renderMetricGrid() {
-  document.getElementById('metric-grid').innerHTML = keyMetrics.map((m,i)=>`
-    <div class="metric-cell" style="animation-delay:${i*.06}s">
+  const currentWeight = get7DayWeightAvg();
+  document.getElementById('metric-grid').innerHTML = keyMetrics.map((m,i)=>{
+    const val = m.dynamic === 'weight' ? currentWeight.toString() : m.value;
+    return `<div class="metric-cell" style="animation-delay:${i*.06}s">
       <div class="metric-label">${m.label}</div>
-      <div class="metric-val ${m.cls}">${m.value}<span>${m.unit}</span></div>
+      <div class="metric-val ${m.cls}">${val}<span>${m.unit}</span></div>
       <div class="metric-note">${m.note}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderOTF() {
@@ -473,11 +536,11 @@ function renderAppleGrid() {
 }
 
 function renderBloodwork() {
-  const renderGrid = (id,data)=>{
+  const renderGrid = (id,data) => {
     document.getElementById(id).innerHTML = data.map(b=>`
       <div class="bw-cell">
         <div class="bw-name">${b.name}</div>
-        <div class="bw-val ${b.cls}">${b.val} <span style="font-size:10px;font-weight:400;opacity:.5">${b.unit}</span></div>
+        <div class="bw-val ${b.cls}">${b.val}<span style="font-size:10px;font-weight:400;opacity:.5;margin-left:3px">${b.unit}</span></div>
         <div class="bw-bench">${b.bench}</div>
       </div>`).join('');
   };
@@ -516,63 +579,51 @@ function renderTones() {
     <button class="tone-btn ${state.tone===t?'active':''}" onclick="setTone('${t}',this)">${t}</button>`).join('');
 }
 
-// ─── Settings interactions ────────────────────────────────────────────────────
+// ─── Settings ────────────────────────────────────────────────────────────────
 function flipToggle(key, el) {
   state.toggles[key]=!state.toggles[key];
   el.classList.toggle('on');
   el.querySelector('.toggle-knob').style.left=state.toggles[key]?'20px':'2px';
   saveState();
 }
-
 function updateWeight(key, val) {
   state.weights[key]=parseInt(val);
   document.getElementById('wp-'+key).textContent=val+'%';
   updateWeightTotal();
   saveState();
 }
-
 function updateWeightTotal() {
   const total=Object.values(state.weights).reduce((a,b)=>a+b,0);
   const el=document.getElementById('weight-total');
   el.textContent='Total: '+total+'%';
   el.className='weight-total '+(total===100?'ok':'over');
 }
-
 function setTone(t, btn) {
   state.tone=t;
   document.querySelectorAll('.tone-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   saveState();
 }
-
 function saveState() {
   localStorage.setItem('health_twin_state', JSON.stringify(state));
 }
-
 function loadState() {
   const saved = localStorage.getItem('health_twin_state');
-  if (saved) {
-    try {
-      const s = JSON.parse(saved);
-      if (s.tone) state.tone = s.tone;
-      if (s.toggles) Object.assign(state.toggles, s.toggles);
-      if (s.weights) Object.assign(state.weights, s.weights);
-    } catch(e) {}
-  }
+  if (!saved) return;
+  try {
+    const s = JSON.parse(saved);
+    if (s.tone) state.tone=s.tone;
+    if (s.toggles) Object.assign(state.toggles, s.toggles);
+    if (s.weights) Object.assign(state.weights, s.weights);
+  } catch(e) {}
 }
 
 // ─── File uploads ─────────────────────────────────────────────────────────────
-function onDragOver(e, id) {
-  e.preventDefault();
-  document.getElementById(id).classList.add('drag');
-}
-function onDragLeave(id) {
-  document.getElementById(id).classList.remove('drag');
-}
+function onDragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('drag'); }
+function onDragLeave(id) { document.getElementById(id).classList.remove('drag'); }
 function onDrop(e, type) {
   e.preventDefault();
-  const id = 'drop-'+type;
-  document.getElementById(id).classList.remove('drag');
+  document.getElementById('drop-'+type).classList.remove('drag');
   const file = e.dataTransfer.files[0];
   if (file) handleFile(file, type);
 }
@@ -583,67 +634,96 @@ async function handleFile(file, type) {
   resultEl.innerHTML = `<div class="upload-result"><div class="upload-result-title warn">Reading ${file.name}...</div></div>`;
 
   try {
-    let content = '';
-    if (file.name.endsWith('.json')) {
-      content = await file.text();
-      // Try to parse JSON and summarize
+    if (file.name.endsWith('.json') && type === 'apple') {
+      const content = await file.text();
       const data = JSON.parse(content);
       const metrics = (data.data && data.data.metrics) ? data.data.metrics : [];
-      const summary = metrics.map(m => `${m.name}: ${m.data ? m.data.length : 0} data points`).join('\n');
-      showUploadResult(resultEl, type, file.name, summary, data, content);
-    } else if (file.name.endsWith('.csv')) {
-      content = await file.text();
-      const lines = content.split('\n').slice(0, 5).join('\n');
-      showUploadResult(resultEl, type, file.name, 'Preview:\n' + lines, null, content);
-    } else if (file.name.endsWith('.pdf')) {
-      // For PDFs, show upload confirmation and use Claude to parse via proxy
+
+      const snap = {};
+      const weightVals7d = [];
+
+      metrics.forEach(m => {
+        const name = (m.name||'').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+        const entries = m.data || [];
+
+        // For weight: collect last 7 days of readings specifically
+        if (name === 'weight_body_mass') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          entries.forEach(e => {
+            const entryDate = new Date(e.date || 0);
+            const val = parseFloat(e.qty || e.value || 0);
+            if (val > 0 && entryDate >= sevenDaysAgo) weightVals7d.push(val);
+            else if (val > 0) snap.weightLbs = Math.round(val * 10) / 10; // fallback latest
+          });
+          if (weightVals7d.length > 0) {
+            const avg = weightVals7d.reduce((a,b)=>a+b,0) / weightVals7d.length;
+            snap.weightLbs = Math.round(avg * 10) / 10;
+            snap.weightReadings7d = weightVals7d;
+          }
+          return;
+        }
+
+        const vals = entries.map(e=>parseFloat(e.qty||e.value||0)).filter(v=>!isNaN(v)&&v>0);
+        if (!vals.length) return;
+        const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+        const latest = vals[vals.length-1];
+        if (name==='resting_heart_rate') snap.restingHR=Math.round(latest);
+        else if (name==='heart_rate_variability') snap.hrv=Math.round(avg*10)/10;
+        else if (name==='vo2_max') snap.vo2max=Math.round(latest*10)/10;
+        else if (name==='step_count') snap.stepsAvg=Math.round(avg);
+        else if (name==='active_energy') snap.activeCalories=Math.round(avg);
+        else if (name==='sleep_analysis') snap.sleepHrsAvg=Math.round(avg*10)/10;
+      });
+
+      // Update live weight display if we got 7-day data
+      if (snap.weightReadings7d && snap.weightReadings7d.length > 0) {
+        weightReadings7d = snap.weightReadings7d;
+        renderMetricGrid(); // refresh metric grid with new weight avg
+      }
+
+      snap.receivedAt = new Date().toISOString();
+      const weightSummary = weightVals7d.length > 0
+        ? `Weight 7-day avg: ${snap.weightLbs} lbs (${weightVals7d.length} readings)`
+        : `Weight (latest): ${snap.weightLbs||'no data'} lbs`;
+
+      const summary = [
+        snap.restingHR ? `Resting HR: ${snap.restingHR} bpm` : null,
+        snap.hrv ? `HRV: ${snap.hrv} ms` : null,
+        snap.vo2max ? `VO2 Max: ${snap.vo2max} ml/kg/min` : null,
+        snap.stepsAvg ? `Steps avg: ${snap.stepsAvg}/day` : null,
+        snap.activeCalories ? `Active calories: ${snap.activeCalories} kcal/day` : null,
+        snap.sleepHrsAvg ? `Sleep: ${snap.sleepHrsAvg} hrs/night` : null,
+        weightSummary
+      ].filter(Boolean).join('\n');
+
+      const jsonForScript = JSON.stringify(snap, null, 2);
       resultEl.innerHTML = `<div class="upload-result">
-        <div class="upload-result-title warn">PDF received: ${file.name}</div>
-        <pre>File size: ${(file.size/1024).toFixed(1)} KB\n\nTo parse this PDF, drop it in the Claude chat at claude.ai and ask:\n"Parse my ${type === 'cpap' ? 'ResMed MyAir' : 'lab results'} PDF and give me the updated SQL for my Supabase cpap_sessions table"\n\nThen paste the SQL into Supabase → SQL Editor → Run.</pre>
+        <div class="upload-result-title good">Parsed: ${file.name}</div>
+        <pre>${summary}</pre>
+        <div class="sql-box">
+          <div class="sql-title">Paste this into Apps Script → loadHistoricalData() snapshot value:</div>
+          <pre>${jsonForScript}</pre>
+          <button class="copy-btn" onclick="this.textContent='Copied!';navigator.clipboard.writeText(${JSON.stringify(jsonForScript)});setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
+        </div>
       </div>`;
+
+    } else if (file.name.endsWith('.pdf')) {
+      // PDF: show instructions since we can't parse binary in browser
+      const isPDF_CPAP = type === 'cpap';
+      resultEl.innerHTML = `<div class="upload-result">
+        <div class="upload-result-title warn">PDF received: ${file.name} (${(file.size/1024).toFixed(1)} KB)</div>
+        <pre>${isPDF_CPAP
+          ? 'To load CPAP data:\n1. Drop this PDF into the Claude chat at claude.ai\n2. Ask: "Parse my MyAir PDF and give me the SQL to load into my Supabase cpap_sessions table"\n3. Paste the SQL into Supabase → SQL Editor → Run\n\nYour CPAP sleep therapy score will update on next Friday\'s report.'
+          : 'To load lab results:\n1. Drop this PDF into the Claude chat at claude.ai\n2. Ask: "Parse my lab results and update my health twin bloodwork data"\n3. Claude will give you updated values to paste into health-twin.html'
+        }</pre>
+      </div>`;
+    } else {
+      resultEl.innerHTML = `<div class="upload-result"><div class="upload-result-title warn">File type not supported for auto-parsing. Try the JSON export from Health Auto Export.</div></div>`;
     }
   } catch(err) {
-    resultEl.innerHTML = `<div class="upload-result"><div class="upload-result-title warn">Error reading file: ${err.message}</div></div>`;
+    resultEl.innerHTML = `<div class="upload-result"><div class="upload-result-title warn">Error: ${err.message}</div></div>`;
   }
-}
-
-function showUploadResult(el, type, filename, summary, data, raw) {
-  let sql = '';
-
-  if (type === 'apple' && data) {
-    // Parse Apple Health JSON and generate snapshot SQL
-    const metrics = (data.data && data.data.metrics) ? data.data.metrics : [];
-    const snap = {};
-    metrics.forEach(m => {
-      const name = (m.name||'').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-      const vals = (m.data||[]).map(e=>parseFloat(e.qty||e.value||0)).filter(v=>!isNaN(v)&&v>0);
-      if (!vals.length) return;
-      const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
-      const latest = vals[vals.length-1];
-      if (name==='resting_heart_rate') snap.restingHR=Math.round(latest);
-      else if (name==='heart_rate_variability') snap.hrv=Math.round(avg*10)/10;
-      else if (name==='vo2_max') snap.vo2max=Math.round(latest*10)/10;
-      else if (name==='step_count') snap.stepsAvg=Math.round(avg);
-      else if (name==='active_energy') snap.activeCalories=Math.round(avg);
-      else if (name==='sleep_analysis') snap.sleepHrsAvg=Math.round(avg*10)/10;
-      else if (name==='weight_body_mass') snap.weightLbs=Math.round(latest*10)/10;
-    });
-    snap.receivedAt = new Date().toISOString();
-    summary = 'Parsed metrics:\n' + Object.entries(snap).filter(([k])=>k!=='receivedAt').map(([k,v])=>`${k}: ${v}`).join('\n');
-    sql = `-- Paste in Supabase SQL Editor:\n-- (This updates your Apps Script snapshot via loadHistoricalData)\n-- Copy this JSON and paste it as the snapshot value in loadHistoricalData():\n\n${JSON.stringify(snap, null, 2)}`;
-  }
-
-  el.innerHTML = `<div class="upload-result">
-    <div class="upload-result-title good">Parsed: ${filename}</div>
-    <pre>${summary}</pre>
-    ${sql ? `<div class="sql-box"><div class="sql-title">Update for Apps Script</div><pre>${sql}</pre><button class="copy-btn" onclick="copyText(this,'${encodeURIComponent(sql)}')">Copy</button></div>` : ''}
-  </div>`;
-}
-
-function copyText(btn, encoded) {
-  navigator.clipboard.writeText(decodeURIComponent(encoded));
-  btn.textContent = 'Copied!';
-  setTimeout(()=>btn.textContent='Copy', 2000);
 }
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
@@ -654,7 +734,6 @@ function addBubble(role, content) {
   document.getElementById('chat-messages').appendChild(wrap);
   wrap.scrollIntoView({behavior:'smooth', block:'end'});
 }
-
 function addTyping() {
   const wrap = document.createElement('div');
   wrap.className = 'bwrap'; wrap.id = 'typing';
@@ -662,12 +741,10 @@ function addTyping() {
   document.getElementById('chat-messages').appendChild(wrap);
   wrap.scrollIntoView({behavior:'smooth', block:'end'});
 }
-
 function sendQuick(btn) {
   document.getElementById('chat-input').value = btn.textContent;
   sendMessage();
 }
-
 async function sendMessage() {
   if (chatLoading) return;
   const input = document.getElementById('chat-input');
@@ -679,7 +756,6 @@ async function sendMessage() {
   chatLoading = true;
   document.getElementById('send-btn').disabled = true;
   addTyping();
-
   try {
     const res = await fetch(PROXY_URL, {
       method: 'POST',
@@ -698,7 +774,7 @@ async function sendMessage() {
     chatHistory.push({role:'assistant', content:reply});
   } catch(e) {
     document.getElementById('typing')?.remove();
-    addBubble('ai', 'Connection error — make sure the claude-proxy Edge Function is deployed in Supabase.');
+    addBubble('ai', 'Connection error — make sure the claude-proxy Edge Function is deployed and JWT verification is turned off.');
   }
   chatLoading = false;
   document.getElementById('send-btn').disabled = false;
@@ -710,19 +786,21 @@ async function checkProxy() {
     const res = await fetch(PROXY_URL, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:10, messages:[{role:'user',content:'ping'}]})
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:5,messages:[{role:'user',content:'hi'}]})
     });
     const data = await res.json();
     const el = document.getElementById('proxy-status');
-    if (el) el.textContent = data.content ? 'Connected' : 'Error — check Edge Function';
+    if (el) el.textContent = data.content ? 'Connected ✓';
+    if (el && data.content) el.style.color = 'var(--good)';
   } catch(e) {
     const el = document.getElementById('proxy-status');
-    if (el) el.textContent = 'Not reachable';
+    if (el) { el.textContent = 'Not reachable'; el.style.color = 'var(--bad)'; }
   }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 loadState();
+renderActions();
 renderScoreGrid();
 renderMetricGrid();
 renderOTF();
@@ -731,7 +809,7 @@ renderBloodwork();
 renderToggles();
 renderWeights();
 renderTones();
-setTimeout(checkProxy, 1000);
+setTimeout(checkProxy, 1200);
 </script>
 </body>
 </html>
