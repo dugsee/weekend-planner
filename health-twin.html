@@ -807,7 +807,7 @@ function handleFile(file, type) {
   showStatus(resultId, "pending", "Validating " + file.name, [{ok:null, text:"Checking file type and size..."}], null, null);
   setTimeout(function() {
     var ext = file.name.split(".").pop().toLowerCase();
-    var validTypes = {cpap:["pdf","csv"], mfp:["csv"], lab:["pdf"], apple:["json","csv"]};
+    var validTypes = {cpap:["pdf","csv"], mfp:["csv","pdf"], lab:["pdf"], apple:["json","csv"]};
     if (!validTypes[type] || validTypes[type].indexOf(ext) === -1) {
       showStatus(resultId, "error", "File rejected: wrong format", [
         {ok:false, text:"Got ." + ext + " - expected: " + (validTypes[type] ? validTypes[type].join(" or ") : "unknown")},
