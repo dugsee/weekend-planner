@@ -521,16 +521,19 @@ var seedHistory = [
   {week:'Mar 24-31, 2026',  date:'2026-03-31', overall:73, cardioFitness:73, weeklyActivity:58, heartHealth:85, recovery:66, sleepTherapy:82, bodyComposition:52, dailyMovement:38}
 ];
 
-var SYSTEM_PROMPT = 'You are Doug (Dug See) Cottington\'s personal health AI assistant. You know all his health data and answer like a knowledgeable friendly advisor. '
-  + 'Profile: Age 52, 5\'10", ~198 lbs, BMI 28.4, Seattle WA (Bryant). Wife: Ana. OTF U District. Atorvastatin 40mg (statin - does NOT suppress HR). '
-  + 'Scores: overall 80, cardio fitness 76, gym work 82, heart health 91, recovery 72, CPAP 88, body comp 50, daily movement 44. '
-  + 'Weekend Planner completed health tasks: Signed up for OTF (Apr 20), OTF Orange 60 2G (Apr 7), Morning walk, Mow the lawn, Front yard work, Grocery run. '
-  + 'Apple Health: resting HR 58, HRV 47.7ms, VO2 max 36.5, steps 4024/day, sleep 7.1hrs, blood oxygen 97.9%, cardio recovery 31 bpm drop. '
-  + 'CPAP: AHI 0.33 (exceptional), usage 6h41m/night, leak 19.8 L/min. Updated monthly from MyAir PDF. '
-  + 'Bloodwork Apr 2026: cholesterol 141 (was 224 pre-statin), triglycerides 72, HDL 56, LDL ~71, glucose 87, ALT 19, AST 28, eGFR 96. '
-  + 'OTF: Apr 23 - 916 kcal 26 splats HR151 (Coree, best ever). Apr 21 - 791 kcal 14 splats HR138 (Ryan). Recent avg 779 kcal 9 splats. '
-  + 'History: trending up - 73 four weeks ago, 77 last week, 80 this week. '
-  + 'Tone: casual friendly honest. Plain English first then technical term in parentheses. Under 200 words unless needed. Mention Ana or Seattle when natural.';
+var SYSTEM_PROMPT = [
+  "You are Doug (Dug See) Cottington's personal health AI assistant.",
+  "You know all his health data and answer like a knowledgeable friendly advisor.",
+  "Profile: Age 52, 5'10\", ~198 lbs, BMI 28.4, Seattle WA (Bryant). Wife: Ana. OTF U District. Atorvastatin 40mg (statin - does NOT suppress HR).",
+  "Scores: overall 80, cardio fitness 76, gym work 82, heart health 91, recovery 72, CPAP 88, body comp 50, daily movement 44.",
+  "Weekend Planner completed health tasks: Signed up for OTF (Apr 20), OTF Orange 60 2G (Apr 7), Morning walk, Mow the lawn, Front yard work, Grocery run.",
+  "Apple Health: resting HR 58, HRV 47.7ms, VO2 max 36.5, steps 4024/day, sleep 7.1hrs, blood oxygen 97.9%, cardio recovery 31 bpm drop.",
+  "CPAP: AHI 0.33 (exceptional), usage 6h41m/night, leak 19.8 L/min. Updated monthly from MyAir PDF.",
+  "Bloodwork Apr 2026: cholesterol 141 (was 224 pre-statin), triglycerides 72, HDL 56, LDL ~71, glucose 87, ALT 19, AST 28, eGFR 96.",
+  "OTF: Apr 23 - 916 kcal 26 splats HR151 (Coree, best ever). Apr 21 - 791 kcal 14 splats HR138 (Ryan). Recent avg 779 kcal 9 splats.",
+  "History: trending up - 73 four weeks ago, 77 last week, 80 this week.",
+  "Tone: casual friendly honest. Plain English first then technical term in parentheses. Under 200 words unless needed. Mention Ana or Seattle when natural."
+].join(" ");
 
 var state = {
   tone: 'casual',
@@ -699,10 +702,10 @@ function renderHistory() {
     h+='<div class="history-week"'+(isCurrent?' style="border-color:rgba(255,194,0,0.4);border-left:3px solid var(--gold)"':' style="border-left:3px solid '+(delta>0?'var(--good)':delta<0?'var(--bad)':'var(--border)')+'"')+'>'; 
     h+='<div class="history-week-header">';
     h+='<div>';
-    if(isCurrent){h+='<span style="font-size:9px;background:rgba(255,194,0,0.12);color:var(--gold);padding:1px 6px;border-radius:4px;margin-right:6px;font-family:\'DM Mono\',monospace;letter-spacing:.06em">CURRENT</span>';}
+    if(isCurrent){h+='<span style="font-size:9px;background:rgba(255,194,0,0.12);color:var(--gold);padding:1px 6px;border-radius:4px;margin-right:6px;font-family:'DM Mono',monospace;letter-spacing:.06em">CURRENT</span>';}
     h+='<span class="history-date">'+w.week+'</span></div>';
     h+='<div style="display:flex;align-items:center">';
-    h+='<span style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:'+scoreColor(w.overall)+'">'+w.overall+'</span>';
+    h+='<span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:'+scoreColor(w.overall)+'">'+w.overall+'</span>';
     if(deltaStr!==null){h+='<span class="history-delta '+deltaCls+'">'+deltaStr+'</span>';}
     h+='</div></div>';
     // Bar chart
@@ -751,7 +754,7 @@ function renderToggles() {
   for(var i=0;i<items.length;i++){
     var t=items[i];
     h+='<div class="toggle-row"><span style="font-size:13px">'+t.label+'</span>';
-    h+='<div class="toggle '+(state.toggles[t.key]?'on':'')+'" onclick="flipToggle(\''+t.key+'\',this)">';
+    h+='<div class="toggle '+(state.toggles[t.key]?'on':'')+'" onclick="flipToggle(''+t.key+'',this)">';
     h+='<div class="toggle-knob"></div></div></div>';
   }
   document.getElementById('toggle-rows').innerHTML=h;
@@ -763,7 +766,7 @@ function renderWeights() {
     var sc=subScores[i];
     h+='<div class="weight-row"><div class="weight-top"><span>'+sc.label+'</span>';
     h+='<span class="weight-pct" id="wp-'+sc.key+'">'+state.weights[sc.key]+'%</span></div>';
-    h+='<input type="range" min="0" max="40" step="5" value="'+state.weights[sc.key]+'" oninput="updateWeight(\''+sc.key+'\',this.value)"></div>';
+    h+='<input type="range" min="0" max="40" step="5" value="'+state.weights[sc.key]+'" oninput="updateWeight(''+sc.key+'',this.value)"></div>';
   }
   document.getElementById('weight-rows').innerHTML=h;
   updateWeightTotal();
@@ -773,7 +776,7 @@ function renderTones() {
   var tones=['casual','detailed','brief'], h='';
   for(var i=0;i<tones.length;i++){
     var t=tones[i];
-    h+='<button class="tone-btn '+(state.tone===t?'active':'')+'" onclick="setTone(\''+t+'\',this)">'+t+'</button>';
+    h+='<button class="tone-btn '+(state.tone===t?'active':'')+'" onclick="setTone(''+t+'',this)">'+t+'</button>';
   }
   document.getElementById('tone-grid').innerHTML=h;
 }
