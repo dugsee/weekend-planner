@@ -144,6 +144,44 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 .history-delta{font-size:11px;font-family:'DM Mono',monospace;margin-left:6px}
 .history-delta.up{color:var(--good)}.history-delta.down{color:var(--bad)}.history-delta.flat{color:var(--muted)}
 .contrib-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;margin:2px 3px 2px 0;border:1px solid}
+
+/* Upload status states */
+.status-box{border-radius:8px;padding:14px 16px;margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.status-box.pending{background:rgba(255,194,0,0.06);border:1px solid rgba(255,194,0,0.25)}
+.status-box.success{background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25)}
+.status-box.error{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25)}
+.status-header{display:flex;align-items:center;gap:10px}
+.status-icon{font-size:18px;flex-shrink:0}
+.status-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.1em}
+.status-title.pending{color:var(--gold)}
+.status-title.success{color:var(--good)}
+.status-title.error{color:var(--bad)}
+.status-steps{display:flex;flex-direction:column;gap:6px;padding-left:28px}
+.status-step{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5}
+.step-icon{flex-shrink:0;width:16px;text-align:center;margin-top:1px}
+.step-icon.ok{color:var(--good)}
+.step-icon.fail{color:var(--bad)}
+.step-icon.wait{color:var(--gold)}
+.step-icon.spin{display:inline-block;animation:spin .7s linear infinite;color:var(--gold)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.step-text{color:var(--muted)}
+.step-text.ok{color:rgba(226,232,223,0.8)}
+.step-text.fail{color:var(--bad)}
+.parsed-values{background:rgba(0,0,0,0.2);border-radius:6px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;color:rgba(226,232,223,0.6);line-height:1.7}
+.parsed-values .val-good{color:var(--good)}
+.parsed-values .val-warn{color:var(--gold)}
+.parsed-values .val-bad{color:var(--bad)}
+.action-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.copy-btn{background:var(--green-dim);border:1px solid var(--border);color:var(--good);border-radius:6px;padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer}
+.copy-btn:hover{background:rgba(0,101,58,0.3)}
+.upload-log-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px}
+.upload-log-row:last-child{border-bottom:none}
+.log-file{color:var(--text)}
+.log-status{font-size:10px;padding:2px 7px;border-radius:8px}
+.log-status.ok{background:rgba(34,197,94,0.12);color:var(--good)}
+.log-status.err{background:rgba(239,68,68,0.12);color:var(--bad)}
+.log-time{color:var(--muted);font-family:'DM Mono',monospace;font-size:10px}
+
 </style>
 </head>
 <body>
@@ -223,42 +261,64 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
 
   <div class="tab-panel" id="tab-uploads">
     <div class="slabel">Upload health data</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Select or drag files from your desktop. Each file type is automatically detected and routed to the correct data store. CPAP best uploaded Thursday nights for Friday report.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Select or drag files from your desktop. Each file is validated, parsed, and confirmed before being routed to the correct data store.</p>
 
+    <!-- CPAP -->
     <div class="settings-card">
       <div class="settings-title">ResMed MyAir - sleep therapy PDF (monthly)</div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Download from <strong style="color:rgba(255,255,255,0.6)">myair.resmed.com</strong> - History - Export PDF</p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Download from <strong style="color:rgba(255,255,255,0.6)">myair.resmed.com</strong> - History - Export PDF. Best uploaded Thursday nights.</p>
       <div class="upload-zone" id="drop-cpap" onclick="document.getElementById('file-cpap').click()" ondragover="onDragOver(event,'drop-cpap')" ondragleave="onDragLeave('drop-cpap')" ondrop="onDrop(event,'cpap')">
         <div class="upload-icon">&#x1FAB4;</div>
-        <div class="upload-title">Click to select or drag PDF here</div>
-        <div class="upload-sub">Routes to Supabase cpap_sessions &rarr; updates Sleep Therapy score</div>
+        <div class="upload-title">Click to select or drag MyAir PDF here</div>
+        <div class="upload-sub">Routes to: Supabase cpap_sessions table &rarr; Sleep Therapy score</div>
       </div>
       <input type="file" id="file-cpap" accept=".pdf,.csv" style="display:none" onchange="handleFile(this.files[0],'cpap')">
       <div id="result-cpap"></div>
     </div>
 
+    <!-- MFP CSV export -->
+    <div class="settings-card">
+      <div class="settings-title">MyFitnessPal - nutrition CSV export (monthly)</div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">In MFP: <strong style="color:rgba(255,255,255,0.6)">More &rarr; Settings &rarr; Data Export</strong>. Download the ZIP, extract the Nutrition CSV. Best uploaded same night as CPAP PDF.</p>
+      <div class="upload-zone" id="drop-mfp" onclick="document.getElementById('file-mfp').click()" ondragover="onDragOver(event,'drop-mfp')" ondragleave="onDragLeave('drop-mfp')" ondrop="onDrop(event,'mfp')">
+        <div class="upload-icon">&#x1F966;</div>
+        <div class="upload-title">Click to select or drag MFP Nutrition CSV here</div>
+        <div class="upload-sub">Routes to: Apps Script nutrition snapshot &rarr; Body Shape + Weekly Report</div>
+      </div>
+      <input type="file" id="file-mfp" accept=".csv,.zip" style="display:none" onchange="handleFile(this.files[0],'mfp')">
+      <div id="result-mfp"></div>
+    </div>
+
+    <!-- Lab results -->
     <div class="settings-card">
       <div class="settings-title">Lab results - Virginia Mason / CommonSpirit</div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Export from MyVirginiaMason or CommonSpirit portal</p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Export from MyVirginiaMason or CommonSpirit patient portal</p>
       <div class="upload-zone" id="drop-lab" onclick="document.getElementById('file-lab').click()" ondragover="onDragOver(event,'drop-lab')" ondragleave="onDragLeave('drop-lab')" ondrop="onDrop(event,'lab')">
         <div class="upload-icon">&#x1FA78;</div>
-        <div class="upload-title">Click to select or drag PDF here</div>
-        <div class="upload-sub">Routes to bloodwork constants &rarr; updates Blood Chemistry score</div>
+        <div class="upload-title">Click to select or drag lab PDF here</div>
+        <div class="upload-sub">Routes to: bloodwork constants &rarr; Blood Chemistry score</div>
       </div>
       <input type="file" id="file-lab" accept=".pdf" style="display:none" onchange="handleFile(this.files[0],'lab')">
       <div id="result-lab"></div>
     </div>
 
+    <!-- Apple Health JSON -->
     <div class="settings-card">
       <div class="settings-title">Apple Health - JSON export</div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Export from Health Auto Export app - calculates 7-day weight average automatically</p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Export from Health Auto Export app. Calculates 7-day weight average automatically.</p>
       <div class="upload-zone" id="drop-apple" onclick="document.getElementById('file-apple').click()" ondragover="onDragOver(event,'drop-apple')" ondragleave="onDragLeave('drop-apple')" ondrop="onDrop(event,'apple')">
         <div class="upload-icon">&#x1F34E;</div>
-        <div class="upload-title">Click to select or drag JSON here</div>
-        <div class="upload-sub">Routes to Apps Script snapshot &rarr; updates Cardio, Recovery, Movement scores</div>
+        <div class="upload-title">Click to select or drag Health Auto Export JSON here</div>
+        <div class="upload-sub">Routes to: Apps Script snapshot &rarr; Cardio, Recovery, Movement scores</div>
       </div>
       <input type="file" id="file-apple" accept=".json,.csv" style="display:none" onchange="handleFile(this.files[0],'apple')">
       <div id="result-apple"></div>
+    </div>
+
+    <!-- Upload log -->
+    <div class="slabel" style="margin-top:8px">Upload history</div>
+    <div class="card" id="upload-log">
+      <div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">No uploads this session</div>
     </div>
   </div>
 
@@ -753,88 +813,466 @@ function loadState(){
   }catch(e){}
 }
 
-// ── File upload ───────────────────────────────────────────────────────────────
-function onDragOver(e,id){e.preventDefault();document.getElementById(id).classList.add('drag');}
-function onDragLeave(id){document.getElementById(id).classList.remove('drag');}
-function onDrop(e,type){e.preventDefault();document.getElementById('drop-'+type).classList.remove('drag');var f=e.dataTransfer.files[0];if(f){handleFile(f,type);}}
 
-function handleFile(file,type){
-  if(!file){return;}
-  var el=document.getElementById('result-'+type);
-  el.innerHTML='<div class="upload-result"><div class="upload-result-title warn">Reading '+file.name+'...</div></div>';
+// ── Upload log ────────────────────────────────────────────────────────────────
+var uploadLog = [];
 
-  if((file.name.endsWith('.json')||file.name.endsWith('.csv'))&&type==='apple'){
-    var reader=new FileReader();
-    reader.onload=function(e){
-      try{
-        var data=JSON.parse(e.target.result);
-        var metrics=(data.data&&data.data.metrics)?data.data.metrics:(Array.isArray(data)?data:[]);
-        var snap={}, w7d=[], sevenAgo=new Date();
-        sevenAgo.setDate(sevenAgo.getDate()-7);
+function logUpload(filename, type, status, summary) {
+  var now = new Date();
+  var time = now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+  uploadLog.unshift({filename: filename, type: type, status: status, summary: summary, time: time});
+  renderUploadLog();
+}
 
-        for(var i=0;i<metrics.length;i++){
-          var m=metrics[i];
-          var name=(m.name||'').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-          var entries=m.data||[];
-          if(name==='weight_body_mass'){
-            for(var j=0;j<entries.length;j++){
-              var v=parseFloat(entries[j].qty||entries[j].value||0);
-              if(v>0){var d=new Date(entries[j].date||0);if(d>=sevenAgo){w7d.push(v);}else{snap.weightLbs=Math.round(v*10)/10;}}
-            }
-            if(w7d.length>0){var sum=0;for(var j=0;j<w7d.length;j++){sum+=w7d[j];}snap.weightLbs=Math.round((sum/w7d.length)*10)/10;weightReadings7d=w7d;renderMetricGrid();}
-            continue;
-          }
-          var vals=[];
-          for(var j=0;j<entries.length;j++){var v2=parseFloat(entries[j].qty||entries[j].value||0);if(!isNaN(v2)&&v2>0){vals.push(v2);}}
-          if(!vals.length){continue;}
-          var avg=0;for(var j=0;j<vals.length;j++){avg+=vals[j];}avg/=vals.length;
-          var latest=vals[vals.length-1];
-          if(name==='resting_heart_rate'){snap.restingHR=Math.round(latest);}
-          else if(name==='heart_rate_variability'){snap.hrv=Math.round(avg*10)/10;}
-          else if(name==='vo2_max'){snap.vo2max=Math.round(latest*10)/10;}
-          else if(name==='step_count'){snap.stepsAvg=Math.round(avg);}
-          else if(name==='active_energy'){snap.activeCalories=Math.round(avg);}
-          else if(name==='sleep_analysis'){snap.sleepHrsAvg=Math.round(avg*10)/10;}
-          else if(name==='blood_oxygen_saturation'){snap.bloodOxygen=Math.round(avg*10)/10;}
-          else if(name==='cardio_recovery'){snap.cardioRecovery=Math.round(avg);}
-        }
-        snap.receivedAt=new Date().toISOString();
-        try{localStorage.setItem('health_twin_apple',JSON.stringify(snap));}catch(e2){}
-
-        var summary=[];
-        if(snap.restingHR){summary.push('Resting HR: '+snap.restingHR+' bpm');}
-        if(snap.hrv){summary.push('HRV: '+snap.hrv+' ms');}
-        if(snap.vo2max){summary.push('VO2 Max: '+snap.vo2max+' ml/kg/min');}
-        if(snap.stepsAvg){summary.push('Steps avg: '+snap.stepsAvg+'/day');}
-        if(snap.sleepHrsAvg){summary.push('Sleep: '+snap.sleepHrsAvg+' hrs/night');}
-        if(snap.weightLbs){summary.push('Weight 7-day avg: '+snap.weightLbs+' lbs ('+w7d.length+' readings)');}
-
-        var snapStr=JSON.stringify(snap,null,2);
-        el.innerHTML='<div class="upload-result">'
-          +'<div class="upload-result-title good">Parsed: '+file.name+' - data updated live</div>'
-          +'<pre>'+summary.join('\n')+'</pre>'
-          +'<div class="sql-box"><div class="sql-title">Copy this JSON into Apps Script loadHistoricalData() to update weekly report:</div>'
-          +'<pre>'+snapStr+'</pre>'
-          +'<button class="copy-btn" id="cp-apple">Copy JSON</button></div></div>';
-        document.getElementById('cp-apple').onclick=function(){
-          navigator.clipboard.writeText(snapStr);
-          this.textContent='Copied!';var self=this;setTimeout(function(){self.textContent='Copy JSON';},2000);
-        };
-      }catch(err){el.innerHTML='<div class="upload-result"><div class="upload-result-title bad">Error: '+err.message+'</div></div>';}
-    };
-    reader.readAsText(file);
-
-  } else if(file.name.endsWith('.pdf')){
-    var instructions='';
-    if(type==='cpap'){
-      instructions='CPAP PDF received.\n\nNext steps to load into Supabase:\n1. Open Claude at claude.ai\n2. Drop this PDF into the chat\n3. Say: "Parse my MyAir PDF and give me the SQL to load into my Supabase cpap_sessions table"\n4. Paste the SQL into Supabase SQL Editor and run it\n\nSleep Therapy score updates on next Friday report.\n\nFile: '+file.name+' ('+Math.round(file.size/1024)+' KB)';
-    } else if(type==='lab'){
-      instructions='Lab results PDF received.\n\nNext steps to update bloodwork:\n1. Open Claude at claude.ai\n2. Drop this PDF into the chat\n3. Say: "Parse my lab results and update my health twin bloodwork values"\n4. Claude will give you exact numbers to paste into health-twin.html\n\nBlood Chemistry score updates immediately after you update the file.\n\nFile: '+file.name+' ('+Math.round(file.size/1024)+' KB)';
-    }
-    el.innerHTML='<div class="upload-result"><div class="upload-result-title warn">PDF received: '+file.name+'</div><pre>'+instructions+'</pre></div>';
-  } else {
-    el.innerHTML='<div class="upload-result"><div class="upload-result-title bad">Unsupported format. Supported: JSON (Apple Health), PDF (MyAir, lab results)</div></div>';
+function renderUploadLog() {
+  var el = document.getElementById('upload-log');
+  if (!el) { return; }
+  if (!uploadLog.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">No uploads this session</div>';
+    return;
   }
+  var h = '';
+  for (var i = 0; i < uploadLog.length; i++) {
+    var u = uploadLog[i];
+    var typeLabel = {cpap:'MyAir PDF', mfp:'MFP Nutrition', lab:'Lab Results', apple:'Apple Health'}[u.type] || u.type;
+    h += '<div class="upload-log-row">';
+    h += '<div><div class="log-file">' + u.filename + '</div><div style="font-size:10px;color:var(--muted)">' + typeLabel + '</div></div>';
+    h += '<div style="text-align:right">';
+    h += '<div class="log-status ' + (u.status === 'ok' ? 'ok' : 'err') + '">' + (u.status === 'ok' ? '&#x2713; Accepted' : '&#x26A0; Issues') + '</div>';
+    h += '<div class="log-time">' + u.time + '</div>';
+    h += '</div></div>';
+  }
+  el.innerHTML = h;
+}
+
+// ── Status box builder ────────────────────────────────────────────────────────
+function showStatus(elId, state, title, steps, parsedHtml, actionHtml) {
+  var icon = state === 'success' ? '&#x2705;' : state === 'error' ? '&#x274C;' : '&#x23F3;';
+  var h = '<div class="status-box ' + state + '">';
+  h += '<div class="status-header"><span class="status-icon">' + icon + '</span>';
+  h += '<span class="status-title ' + state + '">' + title + '</span></div>';
+  if (steps && steps.length) {
+    h += '<div class="status-steps">';
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      var ic = s.ok === true ? '&#x2713;' : s.ok === false ? '&#x2717;' : s.ok === 'spin' ? '&#x21BA;' : '&middot;';
+      var ic_cls = s.ok === true ? 'ok' : s.ok === false ? 'fail' : s.ok === 'spin' ? 'spin' : 'wait';
+      var txt_cls = s.ok === true ? 'ok' : s.ok === false ? 'fail' : '';
+      h += '<div class="status-step"><span class="step-icon ' + ic_cls + '">' + ic + '</span>';
+      h += '<span class="step-text ' + txt_cls + '">' + s.text + '</span></div>';
+    }
+    h += '</div>';
+  }
+  if (parsedHtml) { h += '<div class="parsed-values">' + parsedHtml + '</div>'; }
+  if (actionHtml) { h += '<div class="action-row">' + actionHtml + '</div>'; }
+  h += '</div>';
+  document.getElementById(elId).innerHTML = h;
+}
+
+// ── Validation helpers ────────────────────────────────────────────────────────
+function validateFileType(file, expected) {
+  var ext = file.name.split('.').pop().toLowerCase();
+  if (expected === 'cpap') { return ext === 'pdf' || ext === 'csv'; }
+  if (expected === 'mfp')  { return ext === 'csv' || ext === 'zip'; }
+  if (expected === 'lab')  { return ext === 'pdf'; }
+  if (expected === 'apple'){ return ext === 'json' || ext === 'csv'; }
+  return false;
+}
+
+function validateFileSize(file, maxMB) {
+  return file.size <= maxMB * 1024 * 1024;
+}
+
+function colVal(v, good, warn) {
+  if (v === null || v === undefined || v === '--') { return '<span class="val-warn">' + v + '</span>'; }
+  var n = parseFloat(v);
+  if (isNaN(n)) { return v; }
+  if (good !== undefined && n >= good) { return '<span class="val-good">' + v + '</span>'; }
+  if (warn !== undefined && n >= warn) { return '<span class="val-warn">' + v + '</span>'; }
+  return '<span class="val-bad">' + v + '</span>';
+}
+
+// ── Main file handler ─────────────────────────────────────────────────────────
+function handleFile(file, type) {
+  if (!file) { return; }
+  var resultId = 'result-' + type;
+
+  // Step 1: initial validation
+  showStatus(resultId, 'pending', 'Validating ' + file.name, [
+    {ok: 'spin', text: 'Checking file type and size...'}
+  ], null, null);
+
+  setTimeout(function() {
+    // File type check
+    if (!validateFileType(file, type)) {
+      var expected = {cpap:'PDF or CSV', mfp:'CSV or ZIP', lab:'PDF', apple:'JSON'}[type];
+      showStatus(resultId, 'error', 'File rejected: wrong format', [
+        {ok: false, text: 'Expected ' + expected + ' but got .' + file.name.split('.').pop()},
+        {ok: false, text: 'Download the correct export format and try again'}
+      ], null, null);
+      logUpload(file.name, type, 'error', 'Wrong file type');
+      return;
+    }
+
+    // File size check
+    if (!validateFileSize(file, 50)) {
+      showStatus(resultId, 'error', 'File rejected: too large', [
+        {ok: false, text: 'File is ' + Math.round(file.size/1024/1024) + ' MB - max 50 MB'},
+        {ok: false, text: 'Try exporting a shorter date range'}
+      ], null, null);
+      logUpload(file.name, type, 'error', 'File too large');
+      return;
+    }
+
+    // Type-specific processing
+    if (type === 'apple' && (file.name.endsWith('.json') || file.name.endsWith('.csv'))) {
+      processAppleHealth(file, resultId);
+    } else if (type === 'mfp' && file.name.endsWith('.csv')) {
+      processMFP(file, resultId);
+    } else if (file.name.endsWith('.pdf') || file.name.endsWith('.csv')) {
+      processPDF(file, type, resultId);
+    } else {
+      showStatus(resultId, 'error', 'Cannot process this file', [
+        {ok: false, text: 'Unsupported combination of type and format'}
+      ], null, null);
+      logUpload(file.name, type, 'error', 'Unsupported format');
+    }
+  }, 300);
+}
+
+// ── Apple Health JSON processor ───────────────────────────────────────────────
+function processAppleHealth(file, resultId) {
+  showStatus(resultId, 'pending', 'Reading Apple Health data', [
+    {ok: true,   text: 'File type valid: JSON export'},
+    {ok: true,   text: 'File size OK: ' + Math.round(file.size/1024) + ' KB'},
+    {ok: 'spin', text: 'Parsing metrics...'}
+  ], null, null);
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      var metrics = (data.data && data.data.metrics) ? data.data.metrics : (Array.isArray(data) ? data : []);
+
+      if (!metrics.length) {
+        showStatus(resultId, 'error', 'No metrics found in file', [
+          {ok: true,  text: 'File parsed successfully'},
+          {ok: false, text: 'No metric data found - check Health Auto Export format'},
+          {ok: false, text: 'Try re-exporting with "Previous 7 Days" selected'}
+        ], null, null);
+        logUpload(file.name, 'apple', 'error', 'No metrics found');
+        return;
+      }
+
+      var snap = {}, w7d = [], sevenAgo = new Date();
+      sevenAgo.setDate(sevenAgo.getDate() - 7);
+      var foundMetrics = [];
+
+      for (var i = 0; i < metrics.length; i++) {
+        var m = metrics[i];
+        var name = (m.name || '').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+        var entries = m.data || [];
+        if (!entries.length) { continue; }
+
+        if (name === 'weight_body_mass') {
+          for (var j = 0; j < entries.length; j++) {
+            var v = parseFloat(entries[j].qty || entries[j].value || 0);
+            if (v > 0) { var d = new Date(entries[j].date || 0); if (d >= sevenAgo) { w7d.push(v); } else { snap.weightLbs = Math.round(v*10)/10; } }
+          }
+          if (w7d.length > 0) { var wsum=0; for(var j=0;j<w7d.length;j++){wsum+=w7d[j];} snap.weightLbs=Math.round((wsum/w7d.length)*10)/10; weightReadings7d=w7d; renderMetricGrid(); }
+          foundMetrics.push('Weight (' + w7d.length + ' readings in last 7 days)');
+          continue;
+        }
+
+        var vals = [];
+        for (var j=0;j<entries.length;j++){var v2=parseFloat(entries[j].qty||entries[j].value||0);if(!isNaN(v2)&&v2>0){vals.push(v2);}}
+        if (!vals.length) { continue; }
+        var avg=0; for(var j=0;j<vals.length;j++){avg+=vals[j];} avg/=vals.length;
+        var latest=vals[vals.length-1];
+
+        if (name==='resting_heart_rate')           { snap.restingHR=Math.round(latest); foundMetrics.push('Resting HR'); }
+        else if(name==='heart_rate_variability')   { snap.hrv=Math.round(avg*10)/10; foundMetrics.push('HRV'); }
+        else if(name==='vo2_max')                  { snap.vo2max=Math.round(latest*10)/10; foundMetrics.push('VO2 Max'); }
+        else if(name==='step_count')               { snap.stepsAvg=Math.round(avg); foundMetrics.push('Steps'); }
+        else if(name==='active_energy')            { snap.activeCalories=Math.round(avg); foundMetrics.push('Active calories'); }
+        else if(name==='sleep_analysis')           { snap.sleepHrsAvg=Math.round(avg*10)/10; foundMetrics.push('Sleep'); }
+        else if(name==='blood_oxygen_saturation')  { snap.bloodOxygen=Math.round(avg*10)/10; foundMetrics.push('Blood oxygen'); }
+        else if(name==='cardio_recovery')          { snap.cardioRecovery=Math.round(avg); foundMetrics.push('Cardio recovery'); }
+        else if(name==='respiratory_rate')         { snap.respiratoryRate=Math.round(avg*10)/10; foundMetrics.push('Respiratory rate'); }
+      }
+      snap.receivedAt = new Date().toISOString();
+
+      // Check we got the important ones
+      var missing = [];
+      if (!snap.restingHR)  { missing.push('Resting HR'); }
+      if (!snap.hrv)        { missing.push('HRV'); }
+      if (!snap.vo2max)     { missing.push('VO2 Max'); }
+      if (!snap.stepsAvg)   { missing.push('Steps'); }
+
+      // Save to localStorage
+      try { localStorage.setItem('health_twin_apple', JSON.stringify(snap)); } catch(e2) {}
+
+      var parsedHtml = '';
+      if (snap.restingHR)     { parsedHtml += 'Resting HR: ' + colVal(snap.restingHR, 62, 68) + ' bpm<br>'; }
+      if (snap.hrv)           { parsedHtml += 'HRV: ' + colVal(snap.hrv, 45, 35) + ' ms<br>'; }
+      if (snap.vo2max)        { parsedHtml += 'VO2 Max: ' + colVal(snap.vo2max, 42, 36) + ' ml/kg/min<br>'; }
+      if (snap.stepsAvg)      { parsedHtml += 'Steps avg: ' + colVal(snap.stepsAvg, 7500, 5000) + '/day<br>'; }
+      if (snap.sleepHrsAvg)   { parsedHtml += 'Sleep: ' + colVal(snap.sleepHrsAvg, 7.5, 7) + ' hrs<br>'; }
+      if (snap.weightLbs)     { parsedHtml += 'Weight 7d avg: ' + snap.weightLbs + ' lbs (' + w7d.length + ' readings)<br>'; }
+      if (snap.activeCalories){ parsedHtml += 'Active calories: ' + snap.activeCalories + ' kcal/day<br>'; }
+      if (snap.bloodOxygen)   { parsedHtml += 'Blood oxygen: ' + colVal(snap.bloodOxygen, 97, 95) + '%<br>'; }
+
+      var steps = [
+        {ok: true, text: 'File type valid: Apple Health JSON'},
+        {ok: true, text: 'File size OK: ' + Math.round(file.size/1024) + ' KB'},
+        {ok: true, text: metrics.length + ' metric types found, ' + foundMetrics.length + ' captured'},
+        {ok: (w7d.length > 0), text: 'Weight: ' + (w7d.length > 0 ? w7d.length + ' readings in last 7 days - 7-day avg calculated' : 'No recent weight readings found')},
+        {ok: missing.length === 0, text: missing.length === 0 ? 'All key metrics present' : 'Missing metrics: ' + missing.join(', ') + ' - check Health Auto Export settings'},
+        {ok: true, text: 'Dashboard metrics updated live'},
+        {ok: true, text: 'Saved to browser storage for this session'}
+      ];
+
+      var snapStr = JSON.stringify(snap, null, 2);
+      var actionHtml = '<button class="copy-btn" onclick="copySnap(this,'apple')">Copy JSON for Apps Script</button>';
+      window._appleSnapStr = snapStr;
+
+      showStatus(resultId, missing.length === 0 ? 'success' : 'pending',
+        missing.length === 0 ? 'Apple Health data accepted' : 'Apple Health data accepted (some metrics missing)',
+        steps, parsedHtml, actionHtml);
+      logUpload(file.name, 'apple', missing.length === 0 ? 'ok' : 'ok', foundMetrics.length + ' metrics captured');
+
+    } catch(err) {
+      showStatus(resultId, 'error', 'Parse error - file may be corrupted', [
+        {ok: true,  text: 'File type valid: JSON'},
+        {ok: false, text: 'JSON parse failed: ' + err.message},
+        {ok: false, text: 'Re-export from Health Auto Export and try again'}
+      ], null, null);
+      logUpload(file.name, 'apple', 'error', err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── MFP CSV processor ────────────────────────────────────────────────────────
+function processMFP(file, resultId) {
+  showStatus(resultId, 'pending', 'Reading MyFitnessPal nutrition data', [
+    {ok: true,   text: 'File type valid: CSV export'},
+    {ok: true,   text: 'File size OK: ' + Math.round(file.size/1024) + ' KB'},
+    {ok: 'spin', text: 'Parsing nutrition rows...'}
+  ], null, null);
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      var lines = text.split('\n').filter(function(l){ return l.trim(); });
+
+      if (lines.length < 2) {
+        showStatus(resultId, 'error', 'CSV appears empty', [
+          {ok: true,  text: 'File type valid: CSV'},
+          {ok: false, text: 'Only ' + lines.length + ' line(s) found - expected header + data rows'},
+          {ok: false, text: 'Make sure you exported the Nutrition Summary CSV (not Exercise or Measurements)'}
+        ], null, null);
+        logUpload(file.name, 'mfp', 'error', 'Empty CSV');
+        return;
+      }
+
+      var header = lines[0].split(',').map(function(h){ return h.trim().replace(/"/g,'').toLowerCase(); });
+
+      // Detect MFP format - look for key columns
+      var colMap = {};
+      var expectedCols = ['calories', 'protein', 'carbohydrates', 'fat', 'fiber', 'sugar', 'sodium'];
+      var foundCols = [];
+      var missingCols = [];
+
+      for (var i = 0; i < expectedCols.length; i++) {
+        var idx = header.indexOf(expectedCols[i]);
+        if (idx === -1) {
+          // try partial match
+          for (var j = 0; j < header.length; j++) {
+            if (header[j].indexOf(expectedCols[i]) !== -1) { idx = j; break; }
+          }
+        }
+        if (idx !== -1) { colMap[expectedCols[i]] = idx; foundCols.push(expectedCols[i]); }
+        else { missingCols.push(expectedCols[i]); }
+      }
+
+      if (foundCols.length < 3) {
+        showStatus(resultId, 'error', 'File does not look like MFP Nutrition export', [
+          {ok: true,  text: 'File type valid: CSV'},
+          {ok: false, text: 'Only ' + foundCols.length + ' of ' + expectedCols.length + ' expected columns found'},
+          {ok: false, text: 'Columns found: ' + header.slice(0,8).join(', ')},
+          {ok: false, text: 'Make sure you export the "Meal Level Nutrition Details" CSV from MFP'}
+        ], null, null);
+        logUpload(file.name, 'mfp', 'error', 'Wrong CSV format');
+        return;
+      }
+
+      // Parse rows and calculate averages
+      var totals = {}, counts = {};
+      for (var c in colMap) { totals[c] = 0; counts[c] = 0; }
+      var rowsProcessed = 0;
+      var dateCol = header.indexOf('date');
+      var mealCol = header.indexOf('meal');
+
+      // Track unique dates for daily averages
+      var dateMap = {};
+      for (var r = 1; r < lines.length; r++) {
+        var cells = lines[r].split(',').map(function(c2){ return c2.trim().replace(/"/g,''); });
+        if (cells.length < 3) { continue; }
+        var dateKey = dateCol !== -1 ? cells[dateCol] : 'unknown';
+        if (!dateMap[dateKey]) { dateMap[dateKey] = {}; }
+
+        for (var c in colMap) {
+          var val = parseFloat(cells[colMap[c]]);
+          if (!isNaN(val) && val >= 0) {
+            if (!dateMap[dateKey][c]) { dateMap[dateKey][c] = 0; }
+            dateMap[dateKey][c] += val;
+          }
+        }
+        rowsProcessed++;
+      }
+
+      // Calculate daily averages across all dates
+      var dates = Object.keys(dateMap);
+      var dayTotals = {};
+      for (var c in colMap) { dayTotals[c] = 0; }
+      for (var d = 0; d < dates.length; d++) {
+        for (var c in colMap) {
+          if (dateMap[dates[d]][c]) { dayTotals[c] += dateMap[dates[d]][c]; }
+        }
+      }
+      var numDays = dates.length || 1;
+      var avgs = {};
+      for (var c in colMap) { avgs[c] = Math.round(dayTotals[c] / numDays); }
+
+      // Date range detection
+      var sortedDates = dates.filter(function(d){ return d !== 'unknown'; }).sort();
+      var dateRange = sortedDates.length > 0
+        ? sortedDates[0] + ' to ' + sortedDates[sortedDates.length-1]
+        : 'unknown date range';
+
+      // Check protein adequacy for OTF (target ~140-160g for 198 lb active male)
+      var proteinTarget = 145;
+      var calorieTarget = 2400; // rough TDEE for Doug
+
+      // Save to localStorage
+      var nutritionSnap = {
+        source: 'myfitnesspal_csv',
+        dateRange: dateRange,
+        numDays: numDays,
+        avgCalories: avgs.calories,
+        avgProtein: avgs.protein,
+        avgCarbs: avgs.carbohydrates,
+        avgFat: avgs.fat,
+        avgFiber: avgs.fiber,
+        avgSugar: avgs.sugar,
+        avgSodium: avgs.sodium,
+        exportedAt: new Date().toISOString()
+      };
+      try { localStorage.setItem('health_twin_nutrition', JSON.stringify(nutritionSnap)); } catch(e2) {}
+
+      var parsedHtml = '';
+      parsedHtml += 'Date range: ' + dateRange + ' (' + numDays + ' days avg)<br>';
+      parsedHtml += 'Rows processed: ' + rowsProcessed + '<br>';
+      parsedHtml += '&mdash;<br>';
+      if (avgs.calories)       { parsedHtml += 'Calories/day: ' + colVal(avgs.calories, calorieTarget-300, calorieTarget-600) + ' kcal<br>'; }
+      if (avgs.protein)        { parsedHtml += 'Protein/day: ' + colVal(avgs.protein, proteinTarget, 100) + ' g (target: ' + proteinTarget + 'g)<br>'; }
+      if (avgs.carbohydrates)  { parsedHtml += 'Carbs/day: ' + avgs.carbohydrates + ' g<br>'; }
+      if (avgs.fat)            { parsedHtml += 'Fat/day: ' + avgs.fat + ' g<br>'; }
+      if (avgs.fiber)          { parsedHtml += 'Fiber/day: ' + colVal(avgs.fiber, 25, 15) + ' g (target: 25g+)<br>'; }
+      if (avgs.sugar)          { parsedHtml += 'Sugar/day: ' + colVal(null, null, null) + avgs.sugar + ' g<br>'; }
+      if (avgs.sodium)         { parsedHtml += 'Sodium/day: ' + colVal(avgs.sodium <= 2300 ? avgs.sodium : null, 2300, 2000) + ' mg (AHA limit: 2,300mg)<br>'; }
+
+      var warnings = [];
+      if (avgs.protein && avgs.protein < proteinTarget) { warnings.push('Protein below target (' + avgs.protein + 'g vs ' + proteinTarget + 'g) - recovery from OTF may be slower'); }
+      if (avgs.sodium && avgs.sodium > 2300) { warnings.push('Sodium above AHA limit (' + avgs.sodium + 'mg vs 2,300mg) - watch given cardiovascular focus'); }
+      if (avgs.fiber && avgs.fiber < 20) { warnings.push('Fiber below target (' + avgs.fiber + 'g) - aim for 25g+ daily'); }
+
+      var steps = [
+        {ok: true, text: 'File type valid: MFP Nutrition CSV'},
+        {ok: true, text: rowsProcessed + ' meal rows parsed across ' + numDays + ' days'},
+        {ok: foundCols.length === expectedCols.length, text: foundCols.length + '/' + expectedCols.length + ' nutrition columns found' + (missingCols.length ? ' (missing: ' + missingCols.join(', ') + ')' : '')},
+        {ok: avgs.protein >= proteinTarget, text: 'Protein: ' + avgs.protein + 'g/day - ' + (avgs.protein >= proteinTarget ? 'meets target for OTF recovery' : 'below ' + proteinTarget + 'g target for your activity level')},
+        {ok: !avgs.sodium || avgs.sodium <= 2300, text: 'Sodium: ' + (avgs.sodium ? avgs.sodium + 'mg/day - ' + (avgs.sodium <= 2300 ? 'within AHA limit' : 'above 2,300mg AHA limit') : 'not in export')},
+        {ok: true, text: 'Saved to browser storage'},
+        {ok: true, text: 'Will appear in next Friday report (paste JSON into Apps Script)'}
+      ];
+
+      var snapStr = JSON.stringify(nutritionSnap, null, 2);
+      window._mfpSnapStr = snapStr;
+      var actionHtml = '<button class="copy-btn" onclick="copySnap(this,'mfp')">Copy JSON for Apps Script</button>';
+
+      showStatus(resultId, warnings.length === 0 ? 'success' : 'pending',
+        warnings.length === 0 ? 'MFP nutrition data accepted' : 'MFP data accepted - ' + warnings.length + ' nutritional flag(s)',
+        steps, parsedHtml, actionHtml);
+
+      if (warnings.length) {
+        var warnEl = document.getElementById(resultId).querySelector('.status-box');
+        if (warnEl) {
+          var warnDiv = '<div class="parsed-values" style="border-top:1px solid rgba(255,194,0,0.2);margin-top:4px">';
+          for (var w=0; w<warnings.length; w++) { warnDiv += '<span class="val-warn">&#x26A0; ' + warnings[w] + '</span><br>'; }
+          warnDiv += '</div>';
+          warnEl.insertAdjacentHTML('beforeend', warnDiv);
+        }
+      }
+
+      logUpload(file.name, 'mfp', 'ok', numDays + ' days, ' + avgs.calories + ' kcal/day avg, ' + avgs.protein + 'g protein');
+
+    } catch(err) {
+      showStatus(resultId, 'error', 'Parse error', [
+        {ok: true,  text: 'File type valid: CSV'},
+        {ok: false, text: 'Error: ' + err.message},
+        {ok: false, text: 'Try opening the CSV in Excel first to verify it is readable'}
+      ], null, null);
+      logUpload(file.name, 'mfp', 'error', err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── PDF processor (CPAP + Lab) ────────────────────────────────────────────────
+function processPDF(file, type, resultId) {
+  var labels = {
+    cpap: {title:'MyAir PDF', dest:'Supabase cpap_sessions table', score:'Sleep Therapy score'},
+    lab:  {title:'Lab Results PDF', dest:'bloodwork constants in health-twin.html', score:'Blood Chemistry score'}
+  };
+  var lbl = labels[type] || {title:'PDF', dest:'appropriate data store', score:'relevant score'};
+
+  var steps = [
+    {ok: true, text: 'File type valid: PDF'},
+    {ok: true, text: 'File size OK: ' + Math.round(file.size/1024) + ' KB'},
+    {ok: null, text: 'PDF received and ready - requires Claude to extract the structured data'},
+    {ok: null, text: 'Next step: drop this file into claude.ai chat (see instructions below)'},
+    {ok: null, text: 'Once SQL is generated, paste into Supabase SQL Editor and run'},
+    {ok: null, text: lbl.score + ' will update on next Friday report'}
+  ];
+
+  var pdfInstructions = type === 'cpap'
+    ? '1. Open claude.ai in a new tab\n2. Drop this PDF into the chat\n3. Say: "Parse my ResMed MyAir sleep therapy PDF and give me the SQL to load all nightly sessions into my Supabase cpap_sessions table (columns: session_date, usage_hours, ahi, mask_seal_pct, leak_rate, events_per_hr, score)"\n4. Paste the returned SQL into Supabase SQL Editor and run it'
+    : '1. Open claude.ai in a new tab\n2. Drop this PDF into the chat\n3. Say: "Parse my Virginia Mason lab results and give me the updated bloodwork values to paste into my health-twin.html file (looking for: totalCholesterol, triglycerides, hdl, ldlEstimated, glucoseFasting, alt, ast, creatinine, egfr)"\n4. Update the bloodwork object in health-twin.html with the returned values';
+
+  var actionHtml = '<button class="copy-btn" onclick="copyText(this,'' + encodeURIComponent(pdfInstructions) + '')">Copy Claude instructions</button>';
+
+  showStatus(resultId, 'pending', lbl.title + ' received - action required',
+    steps,
+    '<pre style="white-space:pre-wrap;font-size:10px">' + pdfInstructions + '</pre>',
+    actionHtml);
+
+  logUpload(file.name, type, 'ok', 'PDF queued - needs Claude parse step');
+}
+
+function copySnap(btn, type) {
+  var str = type === 'apple' ? window._appleSnapStr : window._mfpSnapStr;
+  if (str) { navigator.clipboard.writeText(str); }
+  btn.textContent = 'Copied!';
+  var b = btn; setTimeout(function(){ b.textContent = 'Copy JSON for Apps Script'; }, 2000);
+}
+
+function copyText(btn, encoded) {
+  navigator.clipboard.writeText(decodeURIComponent(encoded));
+  btn.textContent = 'Copied!';
+  var b = btn; setTimeout(function(){ b.textContent = 'Copy Claude instructions'; }, 2000);
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
