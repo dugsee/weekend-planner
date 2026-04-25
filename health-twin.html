@@ -20,22 +20,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,101,58,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,101,58,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
 .z1{position:relative;z-index:1}
 header{background:var(--green);border-bottom:3px solid var(--gold);padding:0 16px;position:sticky;top:0;z-index:100}
-.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:72px;gap:12px;padding:10px 0}
+.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:60px;gap:12px;padding:8px 0}
 .header-left{flex:0 0 auto}
 .app-title{font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:20px;letter-spacing:.2em;line-height:1}
 .hname{font-size:14px;font-weight:600;color:#fff;line-height:1.2;margin-top:3px;letter-spacing:.01em}
 .header-sub{font-size:11px;color:rgba(255,255,255,0.45);margin-top:1px}
-.header-right{display:flex;gap:10px;align-items:stretch;flex:1;justify-content:flex-end;min-width:0}
-.overall-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.3);border-radius:10px;padding:8px 14px;flex-shrink:0}
-.overall-num{font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--gold);line-height:1}
-.overall-lbl{font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
-.actions-box{background:rgba(0,0,0,0.2);border:1px solid rgba(255,194,0,0.2);border-radius:10px;padding:8px 12px;max-width:210px;min-width:140px;display:flex;flex-direction:column;justify-content:center}
-.actions-title{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.12em;color:var(--gold);margin-bottom:5px}
-.action-item{display:flex;gap:6px;align-items:flex-start;margin-bottom:4px}
-.action-item:last-child{margin-bottom:0}
-.action-num{font-family:'Bebas Neue',sans-serif;font-size:11px;color:var(--gold);flex-shrink:0;line-height:1.3}
-.action-text{font-size:10px;color:rgba(255,255,255,0.75);line-height:1.4}
-nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:72px;z-index:99;overflow-x:auto}
+.overall-badge{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.overall-num{font-family:'Bebas Neue',sans-serif;font-size:44px;color:var(--gold);line-height:1}
+.overall-lbl{font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:.1em;text-transform:uppercase}
+.top-moves-bar{background:rgba(0,0,0,0.25);border-top:1px solid rgba(255,194,0,0.2);padding:10px 16px}
+.top-moves-inner{max-width:720px;margin:0 auto}
+.top-moves-title{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.15em;color:var(--gold);margin-bottom:8px}
+.top-moves-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.action-item{display:flex;gap:6px;align-items:flex-start}
+.action-num{font-family:'Bebas Neue',sans-serif;font-size:12px;color:var(--gold);flex-shrink:0;line-height:1.4}
+.action-text{font-size:11px;color:rgba(255,255,255,0.8);line-height:1.4}
+nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:142px;z-index:99;overflow-x:auto}
 .nav-inner{max-width:720px;margin:0 auto;display:flex;min-width:500px}
 .tab-btn{flex:1;padding:10px 4px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
 .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,194,0,0.04)}
@@ -155,18 +155,18 @@ input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
       <div class="hname">Dug See</div>
       <div class="header-sub">Age 52 &middot; Bryant, Seattle</div>
     </div>
-    <div class="header-right">
-      <div class="overall-badge">
-        <div class="overall-num" id="overall-display">80</div>
-        <div class="overall-lbl">Overall</div>
-      </div>
-      <div class="actions-box">
-        <div class="actions-title">Top moves this week</div>
-        <div id="action-items"></div>
-      </div>
+    <div class="overall-badge">
+      <div class="overall-num" id="overall-display">80</div>
+      <div class="overall-lbl">Overall</div>
     </div>
   </div>
 </header>
+<div class="top-moves-bar" style="background:var(--green);border-top:1px solid rgba(255,194,0,0.25);padding:10px 16px">
+  <div class="top-moves-inner">
+    <div class="top-moves-title">Top moves this week</div>
+    <div class="top-moves-grid" id="action-items"></div>
+  </div>
+</div>
 <nav>
   <div class="nav-inner">
     <button class="tab-btn active" onclick="showTab('dashboard',this)">Dashboard</button>
@@ -503,6 +503,10 @@ function renderActions() {
   var h='';
   for (var i=0;i<topActions.length;i++){
     h+='<div class="action-item"><span class="action-num">'+topActions[i].num+'.</span><span class="action-text">'+topActions[i].text+'</span></div>';
+  }
+  // Last item spans full width if odd count
+  if (topActions.length % 2 !== 0) {
+    h+='<div></div>';
   }
   document.getElementById('action-items').innerHTML=h;
 }
