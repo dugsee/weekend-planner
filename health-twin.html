@@ -393,32 +393,22 @@ var scores = {overall:80, cardioFitness:76, weeklyActivity:82, heartHealth:91, r
 
 // Nutrition data - populated from MFP PDF/CSV upload (Apr 24, 2026)
 var nutritionData = {
-  source: "myfitnesspal_pdf",
-  date: "2026-04-24",
-  calories: 2730,
-  protein_g: 105,
-  carbs_g: 340,
-  fat_g: 107,
-  fiber_g: 50,
-  sodium_mg: 645,
-  sugar_g: 36,
-  cholesterol_mg: 169,
+  source: null,
+  date: null,
+  calories: null,
+  protein_g: null,
+  carbs_g: null,
+  fat_g: null,
+  fiber_g: null,
+  sodium_mg: null,
+  sugar_g: null,
+  cholesterol_mg: null,
   target_calories: 2400,
   target_protein: 145,
   target_fiber: 25,
   target_sodium: 2300,
-  foods: {
-    breakfast: [
-      {food: "Churro", qty: "2 regular", cal: 377, protein: 5},
-      {food: "Black coffee", qty: "1 cup", cal: 2, protein: 0}
-    ],
-    snacks: [
-      {food: "Southwestern pizza", qty: "4 pieces", cal: 976, protein: 56},
-      {food: "French Fries", qty: "1 medium", cal: 365, protein: 4},
-      {food: "Halal burger burrito", qty: "1", cal: 890, protein: 32},
-      {food: "Cappuccino", qty: "16 fl oz", cal: 120, protein: 8}
-    ]
-  }
+  foods: {},
+  uploadedAt: null
 };
 
 function calcNutritionScore(nd) {
@@ -690,11 +680,17 @@ function renderAppleGrid() {
 
 function renderNutritionCard() {
   var nd = nutritionData;
-  var proteinPct = Math.round((nd.protein_g / nd.target_protein) * 100);
-  var fiberPct   = Math.round((nd.fiber_g / nd.target_fiber) * 100);
-  var calDiff    = nd.calories - nd.target_calories;
-  var calColor   = Math.abs(calDiff) <= 200 ? "var(--good)" : Math.abs(calDiff) <= 500 ? "var(--gold)" : "var(--bad)";
-  var protColor  = nd.protein_g >= nd.target_protein ? "var(--good)" : nd.protein_g >= 110 ? "var(--gold)" : "var(--bad)";
+  // If no data yet, show upload prompt
+  if (!nd.date && !nd.calories) {
+    var el2 = document.getElementById("nutrition-card");
+    if (el2) { el2.innerHTML = "<div style=\"padding:16px;text-align:center;color:var(--muted)\"><div style=\"font-size:24px;margin-bottom:8px\">🥦</div><div style=\"font-size:13px\">No nutrition data yet</div><div style=\"font-size:11px;margin-top:6px\">Go to Upload Data tab → drop your MFP Printable Diary PDF</div></div>"; }
+    return;
+  }
+  var proteinPct = nd.protein_g ? Math.round((nd.protein_g / nd.target_protein) * 100) : 0;
+  var fiberPct   = nd.fiber_g ? Math.round((nd.fiber_g / nd.target_fiber) * 100) : 0;
+  var calDiff    = nd.calories ? nd.calories - nd.target_calories : 0;
+  var calColor   = !nd.calories ? "var(--muted)" : Math.abs(calDiff) <= 200 ? "var(--good)" : Math.abs(calDiff) <= 500 ? "var(--gold)" : "var(--bad)";
+  var protColor  = !nd.protein_g ? "var(--muted)" : nd.protein_g >= nd.target_protein ? "var(--good)" : nd.protein_g >= 110 ? "var(--gold)" : "var(--bad)";
 
   var h = "";
 
@@ -1538,6 +1534,26 @@ function fetchLiveData() {
     if (data.error) {
       if (syncBadge) { syncBadge.textContent = "Sync error"; syncBadge.style.color = "var(--bad)"; }
       return;
+    }
+    // Process nutrition snapshot from Supabase if available and newer than localStorage
+    if (data.nutrition && data.nutrition.length) {
+      var sn = data.nutrition[0];
+      var sbDate = sn.diary_date || sn.uploaded_at;
+      var lsDate = nutritionData.uploadedAt;
+      // Use Supabase data if localStorage is empty or Supabase is newer
+      if (!lsDate || (sbDate && sbDate > lsDate)) {
+        if (sn.avg_calories)      nutritionData.calories      = sn.avg_calories;
+        if (sn.avg_protein_g)     nutritionData.protein_g     = sn.avg_protein_g;
+        if (sn.avg_carbs_g)       nutritionData.carbs_g       = sn.avg_carbs_g;
+        if (sn.avg_fat_g)         nutritionData.fat_g         = sn.avg_fat_g;
+        if (sn.avg_fiber_g)       nutritionData.fiber_g       = sn.avg_fiber_g;
+        if (sn.avg_sodium_mg)     nutritionData.sodium_mg     = sn.avg_sodium_mg;
+        if (sn.avg_cholesterol_mg)nutritionData.cholesterol_mg= sn.avg_cholesterol_mg;
+        if (sn.diary_date)        nutritionData.date          = sn.diary_date;
+        if (sn.uploaded_at)       nutritionData.uploadedAt    = sn.uploaded_at;
+        scores.nutrition = calcNutritionScore(nutritionData);
+        renderNutritionCard();
+      }
     }
     // Process Apple snapshot
     if (data.apple && data.apple.length) {
