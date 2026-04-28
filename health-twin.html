@@ -702,7 +702,12 @@ function renderNutritionCard() {
   lastSync.nutrition = nd.uploadedAt || null;
   var nutritionIsRecent = false;
   if (nd.uploadedAt) { nutritionIsRecent = (new Date() - new Date(nd.uploadedAt)) < 48 * 60 * 60 * 1000; }
-  h += stampHtml("MFP diary loaded", nd.uploadedAt || nd.date + "T00:00:00Z", nutritionIsRecent);
+  // Show diary date (not upload time) in the header
+  h += "<div class=\"data-stamp\">";
+  h += "<div class=\"data-stamp-dot " + (nutritionIsRecent ? "live" : "stale") + "\"></div>";
+  h += "MFP diary: <strong style=\"color:var(--text);margin:0 4px\">" + nd.date + "</strong>";
+  if (nd.uploadedAt) { h += "<span style=\"color:var(--muted)\"> &middot; uploaded " + fmtPDT(nd.uploadedAt) + "</span>"; }
+  h += "</div>";
 
   // 5-metric breakdown row
   h += "<div style=\"display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px\">";
@@ -763,16 +768,21 @@ function renderNutritionCard() {
       var items = nd.foods[meal] || [];
       if (!items.length) { continue; }
       var mealCal = 0; var mealProt = 0;
-      for (var ii = 0; ii < items.length; ii++) { mealCal += items[ii].cal || 0; mealProt += items[ii].protein || 0; }
+      for (var ii = 0; ii < items.length; ii++) {
+        mealCal  += items[ii].calories || items[ii].cal || 0;
+        mealProt += items[ii].protein_g || items[ii].protein || 0;
+      }
       h += "<div style=\"margin-bottom:8px\">";
       h += "<div style=\"display:flex;justify-content:space-between;margin-bottom:3px\">";
       h += "<span style=\"font-size:10px;font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;color:var(--gold)\">" + meal.toUpperCase() + "</span>";
       h += "<span style=\"font-size:10px;color:var(--muted)\">" + mealCal + " cal &middot; " + mealProt + "g protein</span></div>";
       for (var ii = 0; ii < items.length; ii++) {
         var item = items[ii];
+        var itemCal  = item.calories || item.cal || 0;
+        var itemProt = item.protein_g || item.protein || 0;
         h += "<div style=\"display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03)\">";
-        h += "<span style=\"font-size:11px;color:rgba(226,232,223,0.75)\">" + item.food + " <span style=\"color:var(--muted);font-size:10px\">" + (item.qty||"") + "</span></span>";
-        h += "<span style=\"font-size:11px;color:var(--muted)\">" + (item.cal||0) + " cal &middot; " + (item.protein||0) + "g</span>";
+        h += "<span style=\"font-size:11px;color:rgba(226,232,223,0.75)\">" + item.food + " <span style=\"color:var(--muted);font-size:10px\">" + (item.quantity||item.qty||"") + "</span></span>";
+        h += "<span style=\"font-size:11px;color:var(--muted)\">" + (itemCal||"—") + " cal &middot; " + (itemProt||"—") + "g</span>";
         h += "</div>";
       }
       h += "</div>";
@@ -795,6 +805,13 @@ function renderNutritionCard() {
     }
     h += "</div>";
   }
+
+  // Single-day context note
+  h += "<div style=\"font-size:10px;color:var(--muted);margin-top:10px;padding-top:8px;border-top:1px solid var(--border);line-height:1.5\">";
+  h += "📋 <strong style=\"color:var(--text)\">About this data:</strong> Numbers show totals for the diary date above. ";
+  h += "Upload a multi-day MFP PDF (More → Diary → Print → select date range) for weekly averages. ";
+  h += "Protein target 145g supports muscle recovery after OTF.";
+  h += "</div>";
 
   var el = document.getElementById("nutrition-card");
   if (el) { el.innerHTML = h; }
@@ -1652,9 +1669,12 @@ function renderWorkoutCard(workouts) {
       var splats = s.splat_points || 0;
       var splatColor = splats >= 12 ? "#22c55e" : "#FFC200";
       h += "<div class=\"session-row\">";
-      h += "<div class=\"sdate\">" + (s.session_date || "").substring(5).replace("-","/") + "</div>";
+      h += "<div class=\"sdate\">";
+      h += (s.session_date || "").substring(5).replace("-","/");
+      if (s.class_time) { h += "<div style=\"font-size:9px;color:var(--muted);margin-top:1px\">" + s.class_time + "</div>"; }
+      h += "</div>";
       h += "<div class=\"sstats\">";
-      if (cal)    { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div>" + cal + "</div>"; }
+      if (cal)    { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div><span style=\"color:var(--good)\">" + cal + "</span></div>"; }
       if (splats) { h += "<div class=\"stat-pair\"><div class=\"sl\">splats</div><span style=\"color:" + splatColor + "\">" + splats + "</span></div>"; }
       if (avgHR)  { h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + avgHR + "</div>"; }
       if (peakHR) { h += "<div class=\"stat-pair\"><div class=\"sl\">peak HR</div>" + peakHR + "</div>"; }
@@ -1663,7 +1683,7 @@ function renderWorkoutCard(workouts) {
         if (sdMin > 120) { sdMin = Math.round(sdMin / 60 * 10) / 10; }
         h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(sdMin) + "</div>";
       }
-      if (s.coach) { h += "<div class=\"stat-pair\"><div class=\"sl\">coach</div>" + s.coach + "</div>"; }
+      if (s.coach) { h += "<div class=\"stat-pair\" style=\"flex:2\"><div class=\"sl\">coach</div>" + s.coach + "</div>"; }
       var wLabel = (s.workout_type||"OTF").replace("High Intensity Interval Training","HIIT").replace("Functional Strength Training","Strength");
       h += "</div><div class=\"sbadge\">" + wLabel + "</div></div>";
     }
@@ -1692,14 +1712,17 @@ function renderWorkoutCard(workouts) {
       h += "<div class=\"sdate\">" + (w.session_date||"").substring(5).replace("-","/") + "</div>";
       h += "<div class=\"sstats\">";
       h += "<div class=\"stat-pair\" style=\"flex:2\"><div class=\"sl\">activity</div>" + (w.workout_name||w.workout_type||"Workout") + "</div>";
-      if (w.active_calories) { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div>" + w.active_calories + "</div>"; }
-      if (w.duration_min)    {
+      if (w.active_calories) { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div><span style=\"color:var(--good)\">" + w.active_calories + "</span></div>"; }
+      if (w.duration_min) {
         var dispMin = parseFloat(w.duration_min);
-        // Guard: if value looks like seconds (>120), convert
         if (dispMin > 120) { dispMin = Math.round(dispMin / 60 * 10) / 10; }
         h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(dispMin) + "</div>";
       }
-      if (w.distance_km)     { h += "<div class=\"stat-pair\"><div class=\"sl\">km</div>" + w.distance_km + "</div>"; }
+      if (w.distance_km) {
+        var distMi = Math.round(parseFloat(w.distance_km) * 0.621371 * 10) / 10;
+        h += "<div class=\"stat-pair\"><div class=\"sl\">miles</div>" + distMi + "</div>";
+        h += "<div class=\"stat-pair\"><div class=\"sl\">km</div>" + w.distance_km + "</div>";
+      }
       if (w.avg_heart_rate)  { h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + w.avg_heart_rate + "</div>"; }
       h += "</div>";
       h += "<div class=\"sbadge warn\">" + (w.workout_type||"Walk").split(" ")[0] + "</div>";
