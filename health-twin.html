@@ -1481,227 +1481,131 @@ loadState();
 
 // ── Pull live data from Supabase on load ──────────────────────────────────────
 var SUPABASE_URL = "https://rfhxoqrozteybreavedw.supabase.co";
-var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmaHhvcXJvenRleWJyZWF2ZWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDQ4MjI0NDcsImV4cCI6MjAyMDM5ODQ0N30.V5UmhDpx5JoNYBMKGCxLlvtqSvPMDhGRRa1RZ6vmPE4";
+var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmaHhvcXJvenRleWJyZWF2ZWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NTM3NzMsImV4cCI6MjA5MDMyOTcTc3M30.IIFyCjpcO7JM7x_sUU3uqmdomeexNcMIhFp33-MoRpE";
 
 function fetchLiveData() {
   var syncBadge = document.getElementById("live-sync-badge");
   if (syncBadge) { syncBadge.textContent = "Syncing..."; syncBadge.style.color = "var(--gold)"; }
 
-  // Fetch latest apple snapshot
-  fetch(SUPABASE_URL + "/rest/v1/apple_snapshots?order=snapshot_date.desc&limit=1", {
-    headers: { "apikey": SUPABASE_ANON, "Authorization": "Bearer " + SUPABASE_ANON }
-  }).then(function(r) { return r.json(); }).then(function(rows) {
-    if (!rows || !rows.length) {
-      if (syncBadge) { syncBadge.textContent = "No HAE data yet"; syncBadge.style.color = "var(--muted)"; }
+  // Fetch dashboard data via Edge Function - avoids anon key expiry
+  fetch(PARSE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "dashboard_read" })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) {
+      if (syncBadge) { syncBadge.textContent = "Sync error"; syncBadge.style.color = "var(--bad)"; }
       return;
     }
-    var row = rows[0];
-    var snapshotDate = row.snapshot_date || "unknown";
-    var receivedUTC = row.received_at ? new Date(row.received_at) : null;
-    var receivedPDT = receivedUTC ? new Date(receivedUTC.getTime() - 7 * 60 * 60 * 1000) : null;
-    var timeStr = receivedPDT ? receivedPDT.toLocaleTimeString("en-US", {hour:"2-digit", minute:"2-digit"}) + " PDT" : "";
-    var isPartialDay = receivedPDT && receivedPDT.getHours() < 20; // before 8pm = partial day
-
-    // Update live badge
-    if (syncBadge) {
-      syncBadge.textContent = "Live " + snapshotDate + " " + timeStr + (isPartialDay ? " (partial day)" : "");
-      syncBadge.style.color = "var(--good)";
+    // Process Apple snapshot
+    if (data.apple && data.apple.length) {
+      processAppleSnapshot(data.apple);
+    } else {
+      if (syncBadge) { syncBadge.textContent = "No HAE data yet"; syncBadge.style.color = "var(--muted)"; }
     }
-
-    // Update keyMetrics with live values
-    for (var i = 0; i < keyMetrics.length; i++) {
-      var m = keyMetrics[i];
-      if (m.label === "Resting HR"  && row.restingHR)       { m.value = String(row.restingHR); }
-      if (m.label === "HRV avg"     && row.hrv)             { m.value = String(row.hrv); }
-      if (m.label === "VO2 Max"     && row.vo2max)          { m.value = String(row.vo2max); }
-      if (m.label === "Daily steps" && row.stepsAvg) {
-        m.value = Number(row.stepsAvg).toLocaleString();
-        m.note = isPartialDay ? "today so far (partial)" : "daily avg";
-        m.cls = Number(row.stepsAvg) >= 7500 ? "good" : Number(row.stepsAvg) >= 5000 ? "warn" : "bad";
-      }
-      if (m.label === "Sleep avg"   && row.sleepHrsAvg)     { m.value = String(row.sleepHrsAvg); }
-      if (m.label === "Blood O2"    && row.bloodOxygen)     { m.value = String(row.bloodOxygen); }
-      if (m.label === "Weight 7d"   && row.weightLbs)       {
-        weightReadings7d = [Number(row.weightLbs)];
-        m.value = String(row.weightLbs);
-        m.note = "from HAE " + (row.weightReadings7d || 1) + "-day avg";
+    // Process workouts
+    if (data.workouts && data.workouts.length) {
+      lastSync.workouts = new Date().toISOString();
+      renderWorkoutCard(data.workouts);
+    }
+    // Process CPAP
+    if (data.cpap && data.cpap.length) {
+      var row = data.cpap[0];
+      lastSync.cpap = row.created_at || new Date().toISOString();
+      var cpapCard = document.querySelector(".cpap-grid");
+      if (cpapCard) {
+        var cpapSection = cpapCard.closest(".card");
+        if (cpapSection) {
+          var existStamp = cpapSection.querySelector(".data-stamp");
+          if (existStamp) { existStamp.remove(); }
+          cpapSection.insertAdjacentHTML("afterbegin", stampHtml("CPAP data loaded", lastSync.cpap, false));
+        }
       }
     }
-
-    // Update appleData display values
-    for (var i = 0; i < appleData.length; i++) {
-      var a = appleData[i];
-      var color_good = "#22c55e", color_warn = "#FFC200", color_bad = "#ef4444";
-      if (a.tech === "resting HR"     && row.restingHR)    { a.value = row.restingHR + " bpm"; }
-      if (a.tech === "HRV"            && row.hrv)          { a.value = row.hrv + " ms"; }
-      if (a.tech === "VO2 Max"        && row.vo2max) {
-        a.value = row.vo2max + " ml/kg/min";
-        a.cls = row.vo2max >= 42 ? "good" : "warn";
-      }
-      if (a.tech === "step count"     && row.stepsAvg) {
-        a.value = Number(row.stepsAvg).toLocaleString() + (isPartialDay ? " (today so far)" : "/day");
-        a.cls = Number(row.stepsAvg) >= 7500 ? "good" : Number(row.stepsAvg) >= 5000 ? "warn" : "bad";
-      }
-      if (a.tech === "active calories"&& row.activeCalories){ a.value = row.activeCalories + " kcal" + (isPartialDay ? " so far" : "/day"); }
-      if (a.tech === "sleep analysis" && row.sleepHrsAvg)  { a.value = row.sleepHrsAvg + " hrs"; a.cls = row.sleepHrsAvg >= 7.5 ? "good" : "warn"; }
-      if (a.tech === "SpO2"           && row.bloodOxygen)  { a.value = row.bloodOxygen + "%"; }
-      if (a.tech === "cardio recovery"&& row.cardioRecovery){ a.value = row.cardioRecovery + " bpm drop"; }
-    }
-
-    // Recalculate scores from live data
-    if (row.restingHR) {
-      var hr = Number(row.restingHR);
-      scores.cardioFitness = Math.min(100, Math.round(hr <= 50 ? 90 : hr <= 58 ? 80 : hr <= 65 ? 70 : hr <= 72 ? 60 : 50));
-      if (row.vo2max) {
-        var vo2 = Number(row.vo2max);
-        scores.cardioFitness = Math.round((scores.cardioFitness + Math.min(100, vo2 / 50 * 100)) / 2);
-      }
-    }
-    if (row.hrv) {
-      var hrv = Number(row.hrv);
-      scores.recovery = Math.min(100, Math.round(hrv >= 60 ? 90 : hrv >= 45 ? 75 : hrv >= 30 ? 60 : 45));
-    }
-    if (row.stepsAvg) {
-      var steps = Number(row.stepsAvg);
-      scores.dailyMovement = isPartialDay
-        ? Math.min(100, Math.round((steps / 7500) * 100 * 1.5)) // scale up partial day
-        : Math.min(100, Math.round((steps / 7500) * 100));
-    }
-
-    scores.overall = calcOverall();
-    document.getElementById("overall-display").textContent = scores.overall;
-
-    // Store timestamp
-    lastSync.apple = row.received_at || new Date().toISOString();
-
-    // Re-render all affected panels
-    renderScoreGrid();
-    renderMetricGrid();
-    renderAppleGrid();
-
-    // Stamp the Apple Watch section
-    var appleCard = document.getElementById("apple-grid");
-    if (appleCard) {
-      var isRecent = lastSync.apple && (new Date() - new Date(lastSync.apple)) < 2 * 60 * 60 * 1000;
-      var stamp = stampHtml("Apple Health synced", lastSync.apple, isRecent);
-      appleCard.insertAdjacentHTML("afterbegin", stamp);
-    }
-
-    // Stamp the Key Metrics section header
-    var metricGrid = document.getElementById("metric-grid");
-    if (metricGrid) {
-      var existingStamp = metricGrid.previousElementSibling;
-      if (existingStamp && existingStamp.classList.contains("data-stamp")) { existingStamp.remove(); }
-      metricGrid.insertAdjacentHTML("beforebegin", stampHtml("Metrics last updated", lastSync.apple, isRecent));
-    }
-
   }).catch(function(err) {
-    console.error("Live fetch error:", err);
+    console.error("fetchLiveData error:", err);
     if (syncBadge) { syncBadge.textContent = "Sync error"; syncBadge.style.color = "var(--bad)"; }
   });
-
-  // Also fetch latest CPAP session
-  fetch(SUPABASE_URL + "/rest/v1/cpap_sessions?order=session_date.desc&limit=1", {
-    headers: { "apikey": SUPABASE_ANON, "Authorization": "Bearer " + SUPABASE_ANON }
-  }).then(function(r) { return r.json(); }).then(function(rows) {
-    if (!rows || !rows.length) { return; }
-    var row = rows[0];
-    lastSync.cpap = row.created_at || new Date().toISOString();
-    var cpapCard = document.querySelector(".cpap-grid");
-    if (cpapCard) {
-      var cpapSection = cpapCard.closest(".card");
-      if (cpapSection) {
-        var existStamp = cpapSection.querySelector(".data-stamp");
-        if (existStamp) { existStamp.remove(); }
-        cpapSection.insertAdjacentHTML("afterbegin", stampHtml("CPAP data loaded", lastSync.cpap, false));
-      }
-    }
-  }).catch(function() {});
-
-  // Fetch recent workouts from Supabase - all types, last 14 days
-  fetch(SUPABASE_URL + "/rest/v1/workout_sessions?select=session_date,workout_type,workout_name,is_otf,active_calories,duration_min,avg_heart_rate,max_heart_rate,distance_km,source,calories,splat_points,coach&order=session_date.desc&limit=20", {
-    headers: { "apikey": SUPABASE_ANON, "Authorization": "Bearer " + SUPABASE_ANON }
-  }).then(function(r) { return r.json(); }).then(function(rows) {
-    if (!rows) { return; }
-    lastSync.workouts = new Date().toISOString();
-    renderWorkoutCard(rows);
-  }).catch(function() {});
 }
 
-function renderWorkoutCard(workouts) {
-  var el = document.getElementById("otf-sessions");
-  if (!el) { return; }
+function processAppleSnapshot(rows) {
+  var syncBadge = document.getElementById("live-sync-badge");
+  var row = rows[0];
+  var snapshotDate = row.snapshot_date || "unknown";
+  var receivedUTC = row.received_at ? new Date(row.received_at) : null;
+  var receivedPDT = receivedUTC ? new Date(receivedUTC.getTime() - 7 * 60 * 60 * 1000) : null;
+  var timeStr = receivedPDT ? receivedPDT.toLocaleTimeString("en-US", {hour:"2-digit", minute:"2-digit"}) + " PDT" : "";
+  var isPartialDay = receivedPDT && receivedPDT.getHours() < 20;
 
-  var otfRows   = workouts.filter(function(w) { return w.is_otf || w.splat_points; });
-  var otherRows = workouts.filter(function(w) { return !w.is_otf && !w.splat_points; });
-  var hasApple  = workouts.some(function(w) { return w.source === "apple_health_hae"; });
+  if (syncBadge) {
+    syncBadge.textContent = "Live " + snapshotDate + " " + timeStr + (isPartialDay ? " (partial day)" : "");
+    syncBadge.style.color = "var(--good)";
+  }
 
-  var h = "";
-  if (hasApple) { h += stampHtml("Apple Watch workouts synced", lastSync.workouts, true); }
-
-  // OTF sessions
-  if (otfRows.length > 0) {
-    h += "<div style=\"font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.1em;color:var(--gold);margin-bottom:6px\">OTF SESSIONS</div>";
-    for (var i = 0; i < Math.min(otfRows.length, 6); i++) {
-      var s = otfRows[i];
-      var cal = s.active_calories || s.calories || 0;
-      var avgHR = s.avg_heart_rate || s.avg_hr || 0;
-      var peakHR = s.max_heart_rate || s.peak_hr || 0;
-      var splats = s.splat_points || 0;
-      var splatColor = splats >= 12 ? "#22c55e" : "#FFC200";
-      h += "<div class=\"session-row\">";
-      h += "<div class=\"sdate\">" + (s.session_date || "").substring(5).replace("-","/") + "</div>";
-      h += "<div class=\"sstats\">";
-      if (cal)    { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div>" + cal + "</div>"; }
-      if (splats) { h += "<div class=\"stat-pair\"><div class=\"sl\">splats</div><span style=\"color:" + splatColor + "\">" + splats + "</span></div>"; }
-      if (avgHR)  { h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + avgHR + "</div>"; }
-      if (peakHR) { h += "<div class=\"stat-pair\"><div class=\"sl\">peak HR</div>" + peakHR + "</div>"; }
-      if (s.duration_min) { h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(s.duration_min) + "</div>"; }
-      if (s.coach) { h += "<div class=\"stat-pair\"><div class=\"sl\">coach</div>" + s.coach + "</div>"; }
-      h += "</div>";
-      h += "<div class=\"sbadge\">OTF</div>";
-      h += "</div>";
+  for (var i = 0; i < keyMetrics.length; i++) {
+    var m = keyMetrics[i];
+    if (m.label === "Resting HR"  && row.restingHR)      { m.value = String(row.restingHR); }
+    if (m.label === "HRV avg"     && row.hrv)            { m.value = String(row.hrv); }
+    if (m.label === "VO2 Max"     && row.vo2max)         { m.value = String(row.vo2max); }
+    if (m.label === "Daily steps" && row.stepsAvg) {
+      m.value = Number(row.stepsAvg).toLocaleString();
+      m.note = isPartialDay ? "today so far (partial)" : "daily avg";
+      m.cls = Number(row.stepsAvg) >= 7500 ? "good" : Number(row.stepsAvg) >= 5000 ? "warn" : "bad";
     }
-  } else {
-    // Fallback: hardcoded sessions until Apple Watch data arrives
-    for (var i = 0; i < otfSessions.length; i++) {
-      var s2 = otfSessions[i];
-      var sc = s2.splats >= 12 ? "#22c55e" : "#FFC200";
-      h += "<div class=\"session-row\"><div class=\"sdate\">" + s2.date + "</div>";
-      h += "<div class=\"sstats\">";
-      h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div>" + s2.cal + "</div>";
-      h += "<div class=\"stat-pair\"><div class=\"sl\">splats</div><span style=\"color:" + sc + "\">" + s2.splats + "</span></div>";
-      h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + s2.hr + "</div>";
-      h += "<div class=\"stat-pair\"><div class=\"sl\">coach</div>" + s2.coach + "</div></div>";
-      h += "<div class=\"sbadge " + (s2.splats >= 12 ? "" : "warn") + "\">" + s2.type + "</div></div>";
-    }
-    if (!hasApple) {
-      h += "<div style=\"font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)\">Add Workouts to your HAE automation to sync Apple Watch data automatically</div>";
+    if (m.label === "Sleep avg"   && row.sleepHrsAvg)    { m.value = String(row.sleepHrsAvg); }
+    if (m.label === "Blood O2"    && row.bloodOxygen)    { m.value = String(row.bloodOxygen); }
+    if (m.label === "Weight 7d"   && row.weightLbs) {
+      weightReadings7d = [Number(row.weightLbs)];
+      m.value = String(row.weightLbs);
+      m.note = "from HAE " + (row.weightReadings7d || 1) + "-day avg";
     }
   }
 
-  // Other workouts (walks, runs, etc.)
-  if (otherRows.length > 0) {
-    h += "<div style=\"margin-top:12px;padding-top:10px;border-top:1px solid var(--border)\">";
-    h += "<div style=\"font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.1em;color:var(--muted);margin-bottom:6px\">OTHER WORKOUTS</div>";
-    for (var i = 0; i < Math.min(otherRows.length, 5); i++) {
-      var w = otherRows[i];
-      h += "<div class=\"session-row\">";
-      h += "<div class=\"sdate\">" + (w.session_date || "").substring(5).replace("-","/") + "</div>";
-      h += "<div class=\"sstats\">";
-      h += "<div class=\"stat-pair\" style=\"flex:2\"><div class=\"sl\">activity</div>" + (w.workout_name || w.workout_type || "Workout") + "</div>";
-      if (w.active_calories) { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div>" + w.active_calories + "</div>"; }
-      if (w.duration_min)    { h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(w.duration_min) + "</div>"; }
-      if (w.distance_km)     { h += "<div class=\"stat-pair\"><div class=\"sl\">km</div>" + w.distance_km + "</div>"; }
-      if (w.avg_heart_rate)  { h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + w.avg_heart_rate + "</div>"; }
-      h += "</div>";
-      h += "<div class=\"sbadge warn\">" + (w.workout_type || "Walk").split(" ")[0] + "</div>";
-      h += "</div>";
+  for (var i = 0; i < appleData.length; i++) {
+    var a = appleData[i];
+    if (a.tech === "resting HR"     && row.restingHR)    { a.value = row.restingHR + " bpm"; }
+    if (a.tech === "HRV"            && row.hrv)          { a.value = row.hrv + " ms"; }
+    if (a.tech === "VO2 Max"        && row.vo2max) { a.value = row.vo2max + " ml/kg/min"; a.cls = row.vo2max >= 42 ? "good" : "warn"; }
+    if (a.tech === "step count"     && row.stepsAvg) {
+      a.value = Number(row.stepsAvg).toLocaleString() + (isPartialDay ? " (today so far)" : "/day");
+      a.cls = Number(row.stepsAvg) >= 7500 ? "good" : Number(row.stepsAvg) >= 5000 ? "warn" : "bad";
     }
-    h += "</div>";
+    if (a.tech === "active calories" && row.activeCalories) { a.value = row.activeCalories + " kcal" + (isPartialDay ? " so far" : "/day"); }
+    if (a.tech === "sleep analysis"  && row.sleepHrsAvg)    { a.value = row.sleepHrsAvg + " hrs"; a.cls = row.sleepHrsAvg >= 7.5 ? "good" : "warn"; }
+    if (a.tech === "SpO2"            && row.bloodOxygen)    { a.value = row.bloodOxygen + "%"; }
+    if (a.tech === "cardio recovery" && row.cardioRecovery) { a.value = row.cardioRecovery + " bpm drop"; }
   }
 
-  el.innerHTML = h;
+  if (row.restingHR) {
+    var hr = Number(row.restingHR);
+    scores.cardioFitness = Math.min(100, Math.round(hr <= 50 ? 90 : hr <= 58 ? 80 : hr <= 65 ? 70 : hr <= 72 ? 60 : 50));
+    if (row.vo2max) { var vo2 = Number(row.vo2max); scores.cardioFitness = Math.round((scores.cardioFitness + Math.min(100, vo2/50*100))/2); }
+  }
+  if (row.hrv)     { var hrv = Number(row.hrv); scores.recovery = Math.min(100, Math.round(hrv >= 60 ? 90 : hrv >= 45 ? 75 : hrv >= 30 ? 60 : 45)); }
+  if (row.stepsAvg) { var steps = Number(row.stepsAvg); scores.dailyMovement = isPartialDay ? Math.min(100, Math.round((steps/7500)*100*1.5)) : Math.min(100, Math.round((steps/7500)*100)); }
+
+  scores.overall = calcOverall();
+  document.getElementById("overall-display").textContent = scores.overall;
+
+  renderScoreGrid();
+  renderMetricGrid();
+  renderAppleGrid();
+
+  lastSync.apple = row.received_at || new Date().toISOString();
+  var appleCard = document.getElementById("apple-grid");
+  if (appleCard) {
+    var existingStamp = appleCard.querySelector(".data-stamp");
+    if (existingStamp) { existingStamp.remove(); }
+    var isRecent = lastSync.apple && (new Date() - new Date(lastSync.apple)) < 2*60*60*1000;
+    appleCard.insertAdjacentHTML("afterbegin", stampHtml("Apple Health synced", lastSync.apple, isRecent));
+  }
+  var metricGrid = document.getElementById("metric-grid");
+  if (metricGrid) {
+    var existingMetricStamp = metricGrid.previousElementSibling;
+    if (existingMetricStamp && existingMetricStamp.classList.contains("data-stamp")) { existingMetricStamp.remove(); }
+    metricGrid.insertAdjacentHTML("beforebegin", stampHtml("Metrics last updated", lastSync.apple, isRecent));
+  }
 }
 
 // Run on load, then refresh every 10 minutes if page stays open
