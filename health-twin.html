@@ -1199,6 +1199,30 @@ function processMFPPDF(file, resultId) {
         });
       }
 
+      // ── Live dashboard update from MFP PDF ──────────────────────────
+      var s2 = data.summary || {};
+      if (s2.avg_calories)      { nutritionData.calories       = s2.avg_calories; }
+      if (s2.avg_protein_g)     { nutritionData.protein_g      = s2.avg_protein_g; }
+      if (s2.avg_carbs_g)       { nutritionData.carbs_g        = s2.avg_carbs_g; }
+      if (s2.avg_fat_g)         { nutritionData.fat_g          = s2.avg_fat_g; }
+      if (s2.avg_fiber_g)       { nutritionData.fiber_g        = s2.avg_fiber_g; }
+      if (s2.avg_sodium_mg)     { nutritionData.sodium_mg      = s2.avg_sodium_mg; }
+      if (s2.avg_cholesterol_mg){ nutritionData.cholesterol_mg = s2.avg_cholesterol_mg; }
+      if (s2.avg_sugar_g)       { nutritionData.sugar_g        = s2.avg_sugar_g; }
+      if (data.days && data.days[0]) {
+        nutritionData.date = data.days[0].date;
+        if (data.days[0].meals) { nutritionData.foods = data.days[0].meals; }
+      }
+      nutritionData.uploadedAt = (data.snapshot && data.snapshot.exportedAt) ? data.snapshot.exportedAt : new Date().toISOString();
+      // Persist to localStorage for next page load
+      try { localStorage.setItem("health_twin_nutrition", JSON.stringify(data.snapshot||{})); } catch(e3) {}
+      // Recalculate score and re-render nutrition card + score grid
+      scores.nutrition = calcNutritionScore(nutritionData);
+      scores.overall   = calcOverall();
+      document.getElementById("overall-display").textContent = scores.overall;
+      renderScoreGrid();
+      renderNutritionCard();
+
       var snapStr = JSON.stringify(data.snapshot || {}, null, 2);
       window._mfpSnap = snapStr;
 
@@ -1634,7 +1658,11 @@ function renderWorkoutCard(workouts) {
       if (splats) { h += "<div class=\"stat-pair\"><div class=\"sl\">splats</div><span style=\"color:" + splatColor + "\">" + splats + "</span></div>"; }
       if (avgHR)  { h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + avgHR + "</div>"; }
       if (peakHR) { h += "<div class=\"stat-pair\"><div class=\"sl\">peak HR</div>" + peakHR + "</div>"; }
-      if (s.duration_min) { h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(s.duration_min) + "</div>"; }
+      if (s.duration_min) {
+        var sdMin = parseFloat(s.duration_min);
+        if (sdMin > 120) { sdMin = Math.round(sdMin / 60 * 10) / 10; }
+        h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(sdMin) + "</div>";
+      }
       if (s.coach) { h += "<div class=\"stat-pair\"><div class=\"sl\">coach</div>" + s.coach + "</div>"; }
       var wLabel = (s.workout_type||"OTF").replace("High Intensity Interval Training","HIIT").replace("Functional Strength Training","Strength");
       h += "</div><div class=\"sbadge\">" + wLabel + "</div></div>";
@@ -1665,7 +1693,12 @@ function renderWorkoutCard(workouts) {
       h += "<div class=\"sstats\">";
       h += "<div class=\"stat-pair\" style=\"flex:2\"><div class=\"sl\">activity</div>" + (w.workout_name||w.workout_type||"Workout") + "</div>";
       if (w.active_calories) { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div>" + w.active_calories + "</div>"; }
-      if (w.duration_min)    { h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(w.duration_min) + "</div>"; }
+      if (w.duration_min)    {
+        var dispMin = parseFloat(w.duration_min);
+        // Guard: if value looks like seconds (>120), convert
+        if (dispMin > 120) { dispMin = Math.round(dispMin / 60 * 10) / 10; }
+        h += "<div class=\"stat-pair\"><div class=\"sl\">min</div>" + Math.round(dispMin) + "</div>";
+      }
       if (w.distance_km)     { h += "<div class=\"stat-pair\"><div class=\"sl\">km</div>" + w.distance_km + "</div>"; }
       if (w.avg_heart_rate)  { h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + w.avg_heart_rate + "</div>"; }
       h += "</div>";
