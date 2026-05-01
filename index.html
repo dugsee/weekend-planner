@@ -1964,16 +1964,28 @@ async function organizeDump() {
   const input = document.getElementById('brain-dump');
   const raw   = input.value.trim();
   if (!raw) { addChatMsg('ai', 'Type your tasks above first.'); return; }
-  const btn = document.getElementById('organize-btn');
+  const btn    = document.getElementById('organize-btn');
+  const planOut = document.getElementById('plan-output');
   btn.disabled = true; btn.textContent = 'Organizing…';
-  const tasks    = _supabase ? await dbGetToday() : [];
-  const open     = tasks.filter(t => !t.done);
-  const calList  = calEvents.filter(e => e.date === todayStr()).map(e => `- ${e.title} (${e.start ? fmt12(e.start) : 'all day'}${e.end ? ' – ' + fmt12(e.end) : ''}${e.location ? ' @ ' + e.location : ''})`).join('\n') || 'None.';
-  const hoursLeft = Math.max(0, 22 - new Date().getHours() - new Date().getMinutes() / 60).toFixed(1);
-  const userMsg  = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS (don't duplicate):\n${open.length ? open.map(t => `- ${t.title}`).join('\n') : 'none'}\nCALENDAR:\n${calList}\n\nBRAIN DUMP:\n${raw}`;
-  const reply    = await callAI(userMsg, 'dump');
-  btn.disabled = false; btn.textContent = '✏ Organize';
-  if (reply) { renderPlanOutput(reply); input.value = ''; input.style.height = '34px'; }
+  planOut.innerHTML = ''; // clear any previous error
+
+  try {
+    const tasks    = _supabase ? await dbGetToday() : [];
+    const open     = tasks.filter(t => !t.done);
+    const calList  = calEvents.filter(e => e.date === todayStr())
+      .map(e => `- ${e.title} (${e.start ? fmt12(e.start) : 'all day'}${e.end ? ' – ' + fmt12(e.end) : ''}${e.location ? ' @ ' + e.location : ''})`)
+      .join('\n') || 'None.';
+    const hoursLeft = Math.max(0, 22 - new Date().getHours() - new Date().getMinutes() / 60).toFixed(1);
+    const userMsg  = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS (don't duplicate):\n${open.length ? open.map(t => `- ${t.title}`).join('\n') : 'none'}\nCALENDAR:\n${calList}\n\nBRAIN DUMP:\n${raw}`;
+    const reply    = await callAI(userMsg, 'dump');
+    if (reply) { renderPlanOutput(reply); input.value = ''; input.style.height = '34px'; }
+    // If reply is null, callAI already showed the error in plan-output
+  } catch(e) {
+    planOut.innerHTML = aiErrHTML('Organize failed: ' + (e.message || e));
+    console.error('organizeDump:', e);
+  } finally {
+    btn.disabled = false; btn.textContent = '✏ Organize';
+  }
 }
 
 async function planMyDay(focusTaskTitle) {
@@ -2143,21 +2155,40 @@ async function sendChat() {
 }
 
 async function callAI(userMessage, mode = 'chat') {
-  if (!anthropicKey) { addChatMsg('ai', 'Add your Anthropic API key in Settings ⚙.'); return null; }
-  // For email/json/dump modes that render to plan-output, skip the chat thinking bubble
   const usesChatBubble = (mode === 'chat');
+  const planOut = document.getElementById('plan-output');
+
+  // Gate: API key required
+  if (!anthropicKey) {
+    if (usesChatBubble) addChatMsg('ai', 'Add your Anthropic API key in Settings ⚙.');
+    else if (planOut) planOut.innerHTML = aiErrHTML('No Anthropic API key set — add it in Settings ⚙.');
+    return null;
+  }
+
   const thinking = usesChatBubble ? addChatMsg('ai', 'Thinking…', true) : null;
+
+  // Non-chat modes (dump/json/email) use ONLY the current message — no chat history
+  // This prevents stale/long history from corrupting organize requests
+  const messages = usesChatBubble
+    ? [...chatHistory, { role: 'user', content: userMessage }]
+    : [{ role: 'user', content: userMessage }];
+
   try {
-    const messages = [...chatHistory, { role: 'user', content: userMessage }];
-    const res  = await fetch(ANTHROPIC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }, body: JSON.stringify({ model: AI_MODEL, max_tokens: 1800, system: buildSystemPrompt(mode), messages }) });
+    const res  = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 1800, system: buildSystemPrompt(mode), messages })
+    });
     const data = await res.json();
     if (thinking) thinking.remove();
     if (data.error) {
-      if (usesChatBubble) addChatMsg('ai', 'API error: ' + data.error.message);
+      const msg = 'API error: ' + (data.error.message || JSON.stringify(data.error));
+      if (usesChatBubble) addChatMsg('ai', msg);
+      else if (planOut) planOut.innerHTML = aiErrHTML(msg);
+      console.error('callAI error:', data.error);
       return null;
     }
     const reply = data.content?.[0]?.text || '';
-    // Only add to chat history in chat mode — not for email/organize/replan
     if (usesChatBubble) {
       chatHistory.push({ role: 'user', content: userMessage }, { role: 'assistant', content: reply });
       if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
@@ -2166,9 +2197,16 @@ async function callAI(userMessage, mode = 'chat') {
     return reply;
   } catch(e) {
     if (thinking) thinking.remove();
+    const msg = 'Network error: ' + (e.message || e);
     if (usesChatBubble) addChatMsg('ai', 'Network error — check your connection.');
+    else if (planOut) planOut.innerHTML = aiErrHTML(msg);
+    console.error('callAI exception:', e);
     return null;
   }
+}
+
+function aiErrHTML(msg) {
+  return `<div style="background:#fce4e4;border:1px solid #e24b4a;border-radius:var(--radius);padding:12px 14px;font-size:13px;color:#791f1f;line-height:1.5;">⚠ ${escHtml(msg)}</div>`;
 }
 
 function addChatMsg(role, text, isThinking = false) {
