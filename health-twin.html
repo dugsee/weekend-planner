@@ -485,16 +485,138 @@ var topActions = [
   {num:"1", text:"Add 1 outdoor run - VO2 max 36.5 needs to hit 42+"},
   {num:"2", text:"Evening walk with Ana - steps avg 4,024 vs 7,500 target"},
   {num:"3", text:"Protein 105g vs 145g target - add eggs or Greek yogurt to breakfast"}
-];
+]; // ← default placeholder, overridden by buildTopActions() when live data loads
 
-var completedHealthTasks = [
-  {title:"Sign up for OTF classes", date:"Apr 20", score:"Gym work", color:"#22c55e", impact:"Scheduled 2 OTF sessions this week - directly drove the 82/100 Gym Work score"},
-  {title:"Orange 60 Min 2G", date:"Apr 7", score:"Gym work", color:"#22c55e", impact:"Completed OTF 2G class - 736 kcal, 16 splat pts, avg HR 134"},
-  {title:"Morning walk", date:"Recent", score:"Daily hustle", color:"#FFC200", impact:"Contributed ~3,000+ steps toward daily step average"},
-  {title:"Mow the lawn", date:"Recent", score:"Daily hustle", color:"#FFC200", impact:"Physical activity outside OTF - boosts daily movement score"},
-  {title:"Grocery run", date:"Recent", score:"Daily hustle", color:"#FFC200", impact:"Walking errand adds to daily step count"},
-  {title:"Schedule dinner with parents", date:"Apr 24", score:"Recovery", color:"#6c8ef4", impact:"Social connection reduces stress - positive for HRV and recovery"}
-];
+// Build live top actions from current Supabase data
+function buildTopActions(apple, cpap, workouts, nutrition) {
+  var actions = [];
+  var now = new Date();
+
+  // ── Workout-based actions ────────────────────────────────────────────────
+  var weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay()); // Sunday
+  weekStart.setHours(0,0,0,0);
+  var thisWeekOTF = (workouts||[]).filter(function(w) {
+    return w.is_otf && new Date(w.session_date) >= weekStart;
+  });
+  var lastOTF = (workouts||[]).filter(function(w) { return w.is_otf; })[0];
+
+  if (thisWeekOTF.length === 0) {
+    actions.push({num:"1", text:"No OTF this week yet — next class will boost Gym Work score"});
+  } else if (thisWeekOTF.length === 1) {
+    var s = thisWeekOTF[0];
+    actions.push({num:"1", text:"1 OTF session this week (" + s.active_calories + " kcal, " + s.splat_points + " splats) — add a 2nd for max Gym Work score"});
+  } else {
+    var totalCal = thisWeekOTF.reduce(function(a,w){return a+(parseFloat(w.active_calories)||0);},0);
+    var totalSplats = thisWeekOTF.reduce(function(a,w){return a+(parseInt(w.splat_points)||0);},0);
+    actions.push({num:"1", text:thisWeekOTF.length + " OTF sessions this week — " + totalCal + " kcal, " + totalSplats + " splats total"});
+  }
+
+  // ── Steps action ─────────────────────────────────────────────────────────
+  if (apple && apple.stepsAvg) {
+    var steps = parseInt(apple.stepsAvg);
+    var target = 7500;
+    if (steps < 4000) {
+      actions.push({num:"2", text:"Steps at " + steps.toLocaleString() + "/day — 30 min walk with Ana adds ~2,500 toward " + target.toLocaleString() + " target"});
+    } else if (steps < target) {
+      var gap = target - steps;
+      actions.push({num:"2", text:"Steps at " + steps.toLocaleString() + " — just " + gap.toLocaleString() + " more/day to hit " + target.toLocaleString() + " target"});
+    } else {
+      actions.push({num:"2", text:"Steps " + steps.toLocaleString() + "/day ✓ — above " + target.toLocaleString() + " target, keep it up"});
+    }
+  } else {
+    actions.push({num:"2", text:"Evening walk with Ana — steps data syncing from HAE, target 7,500/day"});
+  }
+
+  // ── Protein / nutrition action ────────────────────────────────────────────
+  if (nutrition && nutrition.protein_g) {
+    var prot = nutrition.protein_g;
+    var protTarget = 145;
+    if (prot < 100) {
+      actions.push({num:"3", text:"Protein " + prot + "g — well below " + protTarget + "g target. Add chicken, eggs or Greek yogurt to each meal"});
+    } else if (prot < protTarget) {
+      var gap2 = protTarget - prot;
+      actions.push({num:"3", text:"Protein " + prot + "g — " + gap2 + "g below " + protTarget + "g OTF recovery target. Add protein shake post-workout"});
+    } else {
+      actions.push({num:"3", text:"Protein " + prot + "g ✓ — at or above " + protTarget + "g target. Muscle recovery on track"});
+    }
+  } else {
+    actions.push({num:"3", text:"Upload MFP diary to track protein vs 145g OTF recovery target"});
+  }
+
+  // ── VO2 / cardio action ───────────────────────────────────────────────────
+  if (apple && apple.vo2max) {
+    var vo2 = parseFloat(apple.vo2max);
+    if (vo2 < 38) {
+      actions.push({num:"4", text:"VO2 Max " + vo2 + " — add 1 outdoor run/week to drive toward 42+ target for age 52"});
+    } else if (vo2 < 42) {
+      actions.push({num:"4", text:"VO2 Max " + vo2 + " — getting closer to 42+ target. Interval runs most effective"});
+    }
+  }
+
+  // ── HRV / recovery action ─────────────────────────────────────────────────
+  if (apple && apple.hrv) {
+    var hrv = parseFloat(apple.hrv);
+    if (hrv < 40) {
+      actions.push({num: actions.length > 3 ? "5" : "4", text:"HRV " + hrv + "ms — below 40ms signals recovery deficit. Prioritize 8hrs sleep tonight"});
+    }
+  }
+
+  // ── CPAP action ───────────────────────────────────────────────────────────
+  if (cpap && cpap.length && cpap[0].ahi > 1.0) {
+    actions.push({num: String(actions.length+1), text:"CPAP AHI " + cpap[0].ahi + " — above 1.0 threshold. Check mask seal (" + cpap[0].leak_rate + " L/min leak)"});
+  }
+
+  return actions.slice(0, 4); // show max 4
+}
+
+var completedHealthTasks = [];  // populated from Supabase tasks table
+
+function buildContribTasks(tasks) {
+  var healthKeywords = [
+    {words:["otf","orange","workout","gym","lift","run","walk","bike","swim","yoga","hike","exercise","class"],
+     score:"Gym work", color:"#22c55e"},
+    {words:["sleep","bed","cpap","rest","recover","nap"],
+     score:"Recovery", color:"#6c8ef4"},
+    {words:["meal","food","cook","eat","grocery","protein","diet","nutrition","salad","veggie"],
+     score:"Fuel quality", color:"#22c55e"},
+    {words:["walk","step","stairs","outside","garden","lawn","errand"],
+     score:"Daily hustle", color:"#FFC200"}
+  ];
+
+  var result = [];
+  var sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  (tasks||[]).forEach(function(t) {
+    if (!t.completed_at && !t.is_complete) { return; } // only completed tasks
+    var completedDate = t.completed_at ? new Date(t.completed_at) : null;
+    if (completedDate && completedDate < sevenDaysAgo) { return; } // only last 7 days
+
+    var titleLower = (t.title||"").toLowerCase();
+    var match = null;
+    for (var i = 0; i < healthKeywords.length; i++) {
+      var cat = healthKeywords[i];
+      if (cat.words.some(function(w) { return titleLower.includes(w); })) {
+        match = cat; break;
+      }
+    }
+    if (!match) { return; } // only health-relevant tasks
+
+    var dateStr = completedDate ?
+      completedDate.toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "This week";
+
+    result.push({
+      title: t.title,
+      date: dateStr,
+      score: match.score,
+      color: match.color,
+      impact: t.title + " — completed " + dateStr + ", contributes to " + match.score
+    });
+  });
+
+  return result.slice(0, 6);
+}
 
 var subScores = [
   {key:"cardioFitness",   label:"Heart engine",   tech:"cardio fitness",  pct:20, tip:"Add 1 outdoor run/week - VO2 max 36.5 needs to reach 42+"},
@@ -1229,6 +1351,27 @@ function processMFPPDF(file, resultId) {
       nutritionData.uploadedAt = (data.snapshot && data.snapshot.exportedAt) ? data.snapshot.exportedAt : new Date().toISOString();
       // Persist to localStorage for next page load
       try { localStorage.setItem("health_twin_nutrition", JSON.stringify(data.snapshot||{})); } catch(e3) {}
+
+      // Also save to Supabase nutrition_snapshots for cross-device persistence
+      var nutRow = {
+        diary_date: (data.days && data.days[data.days.length-1]) ? data.days[data.days.length-1].date : null,
+        days_logged: data.days_parsed || 1,
+        avg_calories: s2.avg_calories || null,
+        avg_protein_g: s2.avg_protein_g || null,
+        avg_carbs_g: s2.avg_carbs_g || null,
+        avg_fat_g: s2.avg_fat_g || null,
+        avg_fiber_g: s2.avg_fiber_g || null,
+        avg_sodium_mg: s2.avg_sodium_mg || null,
+        avg_sugar_g: s2.avg_sugar_g || null,
+        avg_cholesterol_mg: s2.avg_cholesterol_mg || null,
+        raw_days: data.days || null,
+        source: "myfitnesspal_pdf"
+      };
+      fetch(PARSE_URL, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({type: "save_nutrition", data: nutRow})
+      }).catch(function() {}); // fire and forget
       // Recalculate score and re-render nutrition card + score grid
       scores.nutrition = calcNutritionScore(nutritionData);
       scores.overall   = calcOverall();
@@ -1236,8 +1379,7 @@ function processMFPPDF(file, resultId) {
       renderScoreGrid();
       renderNutritionCard();
 
-      var snapStr = JSON.stringify(data.snapshot || {}, null, 2);
-      window._mfpSnap = snapStr;
+
 
       var steps = [
         {ok:true, text:"PDF parsed by Claude AI"},
@@ -1565,6 +1707,21 @@ function fetchLiveData() {
     if (data.workouts && data.workouts.length) {
       lastSync.workouts = new Date().toISOString();
       if (typeof renderWorkoutCard === "function") { renderWorkoutCard(data.workouts); }
+    }
+
+    // Rebuild top actions from live data
+    topActions = buildTopActions(
+      data.apple && data.apple[0] ? data.apple[0] : null,
+      data.cpap || [],
+      data.workouts || [],
+      nutritionData
+    );
+    renderActions();
+
+    // Rebuild Weekend Planner contributions from tasks
+    if (data.tasks && data.tasks.length) {
+      completedHealthTasks = buildContribTasks(data.tasks);
+      renderContributions();
     }
     // Process CPAP
     if (data.cpap && data.cpap.length) {
