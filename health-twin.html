@@ -1881,11 +1881,35 @@ function renderWorkoutCard(workouts) {
     h += "<div style=\"font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.1em;color:var(--muted);margin-bottom:6px\">OTHER WORKOUTS</div>";
     for (var i = 0; i < Math.min(otherRows.length, 5); i++) {
       var w = otherRows[i];
+      // Same structure as OTF rows: sdate (left) + sstats (aligned columns) + sbadge (right)
+      var estTag = "<span style=\"font-size:8px;color:var(--muted);margin-left:2px\">est.</span>";
+      var wName = (w.workout_name || w.workout_type || "Workout");
+      var wBadge = wName.split(" ")[0];
+      if (wBadge === "Outdoor") { wBadge = wName.split(" ").slice(0,2).join(" "); }
+
       h += "<div class=\"session-row\">";
-      h += "<div class=\"sdate\">" + (w.session_date||"").substring(5).replace("-","/") + "</div>";
+      // Date + activity name stacked in the sdate column (same width as OTF date col)
+      h += "<div class=\"sdate\">";
+      h += (w.session_date||"").substring(5).replace("-","/");
+      h += "<div style=\"font-size:9px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44px\">" + wName.replace("Outdoor ","") + "</div>";
+      h += "</div>";
+      // Stats in same column order as OTF: kcal | avg HR | peak HR | min | dist
       h += "<div class=\"sstats\">";
-      h += "<div class=\"stat-pair\" style=\"flex:2\"><div class=\"sl\">activity</div>" + (w.workout_name||w.workout_type||"Workout") + "</div>";
-      if (w.active_calories) { h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div><span style=\"color:var(--good)\">" + w.active_calories + "</span></div>"; }
+      if (w.active_calories) {
+        h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div><span style=\"color:var(--good)\">" + w.active_calories + "</span>" + estTag + "</div>";
+      } else {
+        h += "<div class=\"stat-pair\"><div class=\"sl\">kcal</div><span style=\"color:var(--muted)\">—</span></div>";
+      }
+      if (w.avg_heart_rate) {
+        h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + w.avg_heart_rate + estTag + "</div>";
+      } else {
+        h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div><span style=\"color:var(--muted)\">—</span></div>";
+      }
+      if (w.max_heart_rate) {
+        h += "<div class=\"stat-pair\"><div class=\"sl\">peak HR</div>" + w.max_heart_rate + estTag + "</div>";
+      } else {
+        h += "<div class=\"stat-pair\"><div class=\"sl\">peak HR</div><span style=\"color:var(--muted)\">—</span></div>";
+      }
       if (w.duration_min) {
         var dispMin = parseFloat(w.duration_min);
         if (dispMin > 120) { dispMin = Math.round(dispMin / 60 * 10) / 10; }
@@ -1893,12 +1917,10 @@ function renderWorkoutCard(workouts) {
       }
       if (w.distance_km) {
         var distMi = Math.round(parseFloat(w.distance_km) * 0.621371 * 10) / 10;
-        h += "<div class=\"stat-pair\"><div class=\"sl\">miles</div>" + distMi + "</div>";
-        h += "<div class=\"stat-pair\"><div class=\"sl\">km</div>" + w.distance_km + "</div>";
+        h += "<div class=\"stat-pair\"><div class=\"sl\">mi</div>" + distMi + estTag + "</div>";
       }
-      if (w.avg_heart_rate)  { h += "<div class=\"stat-pair\"><div class=\"sl\">avg HR</div>" + w.avg_heart_rate + "</div>"; }
       h += "</div>";
-      h += "<div class=\"sbadge warn\">" + (w.workout_type||"Walk").split(" ")[0] + "</div>";
+      h += "<div class=\"sbadge warn\">" + wBadge + "</div>";
       h += "</div>";
     }
     h += "</div>";
