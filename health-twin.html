@@ -573,6 +573,7 @@ function buildTopActions(apple, cpap, workouts, nutrition) {
 var completedHealthTasks = [];  // populated from Supabase tasks table
 
 function buildContribTasks(tasks) {
+  // tasks table uses: done (boolean), done_at (timestamptz), date (date), title, tag
   var healthKeywords = [
     {words:["otf","orange","workout","gym","lift","run","walk","bike","swim","yoga","hike","exercise","class"],
      score:"Gym work", color:"#22c55e"},
@@ -589,9 +590,11 @@ function buildContribTasks(tasks) {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   (tasks||[]).forEach(function(t) {
-    if (!t.completed_at && !t.is_complete) { return; } // only completed tasks
-    var completedDate = t.completed_at ? new Date(t.completed_at) : null;
-    if (completedDate && completedDate < sevenDaysAgo) { return; } // only last 7 days
+    // Correct field names: done + done_at (not is_complete + completed_at)
+    if (!t.done) { return; }
+    var completedDate = t.done_at ? new Date(t.done_at) :
+                        t.date    ? new Date(t.date)    : null;
+    if (completedDate && completedDate < sevenDaysAgo) { return; }
 
     var titleLower = (t.title||"").toLowerCase();
     var match = null;
@@ -601,7 +604,7 @@ function buildContribTasks(tasks) {
         match = cat; break;
       }
     }
-    if (!match) { return; } // only health-relevant tasks
+    if (!match) { return; }
 
     var dateStr = completedDate ?
       completedDate.toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "This week";
