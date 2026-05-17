@@ -395,7 +395,7 @@
     </div>
     <div class="chat-msgs" id="chat-msgs"></div>
     <div class="chat-row">
-      <input type="text" class="chat-input" id="chat-input" placeholder="Ask your concierge anything…" onkeydown="if(event.key==='Enter')sendChat()"/>
+      <input type="text" class="chat-input" id="chat-input" placeholder="Ask anything — tasks, ideas, how to be a better husband to Ana…" onkeydown="if(event.key==='Enter')sendChat()"/>
       <button class="btn btn-ghost" onclick="sendChat()">Send</button>
     </div>
     <div class="plan-output" id="plan-output"></div>
@@ -1951,7 +1951,33 @@ function buildSystemPrompt(mode) {
   if (mode === 'json')  return base + '\n\nRe-optimise the open tasks. Respond ONLY in this JSON:\n' + schema;
   if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema;
   if (mode === 'email') return base + '\n\nExtract tasks from the forwarded emails. Use tag social for social events, work for work items. Respond ONLY in this JSON:\n' + schema.replace('"reason":""', '"reason":"From: [subject]."');
-  return base + '\n\nRespond with short bullet points. Never use JSON format.';
+  // Chat mode — full concierge with relationship awareness
+  const anaContext = `
+RELATIONSHIP CONTEXT — Doug's wife Ana:
+Doug wants to be a great husband and actively strengthen his relationship with Ana.
+When Doug asks for relationship ideas, date ideas, or how to connect with Ana, give him
+warm, specific, genuinely thoughtful suggestions grounded in their real life together in Bryant, Seattle.
+Draw on what you know: they live together, he does tasks around the house, they have a busy family life
+with kids, he sometimes works late or gets absorbed in projects. Ana has likely witnessed a lot of his
+productivity obsessions (including this very app). Use that.
+
+RELATIONSHIP ADVICE STYLE:
+- Be specific to Seattle and their neighborhood — local restaurants, walks, day trips nearby
+- Mix practical gestures (doing something she hates doing without being asked) with romantic ones
+- Reference the texture of their actual daily life — morning routines, errands, dinner, etc.
+- Don't be generic. "Plan a date night" is weak. "Book a table at Canlis, hide the phones, ask her
+  about something she's been thinking about that isn't about the kids" is better.
+- Include small daily acts alongside bigger gestures — both matter
+- Be honest about the easy wins: noticing, listening, showing up, putting the phone down
+- Occasionally be a little funny about it — he's a guy who built a productivity app partly to impress
+  himself; Ana probably has thoughts about that
+- If he mentions a specific situation or tension, respond to that directly with empathy first
+
+RELATIONSHIP TOPIC TRIGGERS — if the message contains any of these themes, activate relationship mode:
+Ana, wife, marriage, relationship, date, romantic, connection, together, anniversary, surprise her,
+make it up to her, she's upset, we argued, quality time, love languages, husband goals`;
+
+  return base + anaContext + '\n\nRespond with short, warm, specific bullet points or paragraphs depending on what fits. Never use JSON format. When giving relationship advice, lead with the heart, not the checklist.';
 }
 
 function currentTimeContext() {
