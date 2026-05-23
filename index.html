@@ -1971,7 +1971,7 @@ function buildSystemPrompt(mode) {
   var base = baseLines.join('\n');
   var schema = '{"warning":null,"items":[{"time":"10:00 am - 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00","queue":"today","date":""}],"suggestions":[]}';
   if (mode === 'json')  return base + '\n\nRe-optimise the open tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL tasks — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it fits the remaining schedule, or \"queue\": \"suggest\" if it cannot realistically happen today. Never silently discard tasks.';
-  if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL items from the brain dump — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it can be scheduled today, or \"queue\": \"suggest\" if it cannot realistically happen today (wrong time of day, day-specific constraint, or schedule is too full). Never silently discard tasks.\nDATE FIELD: If any task mentions a specific date or day (e.g. \"Saturday\", \"next Tuesday\", \"the 28th\", \"tomorrow\"), resolve it to a YYYY-MM-DD string and set the \"date\" field on that item. For tasks intended for today or with no date reference, leave \"date\" as \"\". The current date is provided in the user message.';
+  if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL items from the brain dump — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it can be scheduled today, or \"queue\": \"suggest\" if it cannot realistically happen today (wrong time of day, day-specific constraint, or schedule is too full). Never silently discard tasks.\nDATE FIELD: A DATE REFERENCE MAP is provided above the brain dump with pre-resolved YYYY-MM-DD dates for any day names mentioned. Use those exact dates in the \"date\" field. Do NOT calculate or invent dates yourself. For tasks with no date reference leave \"date\" as \"\".';
   if (mode === 'email') return base + '\n\nExtract tasks from the forwarded emails. Use tag social for social events, work for work items. Respond ONLY in this JSON:\n' + schema.replace('"reason":""', '"reason":"From: [subject]."');
   // Chat mode — full concierge with relationship awareness
   const anaContext = `
@@ -2008,6 +2008,70 @@ function currentTimeContext() {
   return `${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}. Local time: ${h%12||12}:${mm} ${h>=12?'pm':'am'} (24h: ${hh}:${mm}) ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
 }
 
+// Pre-resolve day-of-week references to concrete YYYY-MM-DD dates.
+// Returns an object like { sunday: '2026-05-24', tuesday: '2026-05-26', tomorrow: '2026-05-23' }
+// so the AI never has to guess — we tell it exactly what date each word means.
+function resolveDateReferences(text) {
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const resolved = {};
+
+  // Helper: get the next occurrence of a given day index (0=Sun…6=Sat)
+  // "next" always means strictly AFTER today, never today itself
+  function nextWeekday(targetDay) {
+    const diff = ((targetDay - todayMidnight.getDay() + 7) % 7) || 7;
+    const d = new Date(todayMidnight);
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Helper: YYYY-MM-DD for a date offset from today
+  function offsetDate(days) {
+    const d = new Date(todayMidnight);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  const lower = text.toLowerCase();
+
+  // Relative words
+  if (/\btomorrow\b/.test(lower))             resolved['tomorrow']  = offsetDate(1);
+  if (/\bday after tomorrow\b/.test(lower))   resolved['day after tomorrow'] = offsetDate(2);
+  if (/\bnext week\b/.test(lower))            resolved['next week'] = offsetDate(7);
+
+  // Day names — always next upcoming occurrence (never today, never months away)
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  days.forEach((name, idx) => {
+    if (new RegExp('\\b' + name + '\\b').test(lower)) {
+      resolved[name] = nextWeekday(idx);
+    }
+    // Also handle abbreviations: sun, mon, tue/tues, wed, thu/thur/thurs, fri, sat
+  });
+  const abbrs = { sun:0, mon:1, tue:2, tues:2, wed:3, thu:4, thur:4, thurs:4, fri:5, sat:6 };
+  Object.entries(abbrs).forEach(([abbr, idx]) => {
+    if (new RegExp('\\b' + abbr + '\\b').test(lower) && !resolved[days[idx]]) {
+      resolved[days[idx]] = nextWeekday(idx);
+    }
+  });
+
+  // "This [day]" — same as next occurrence (next 7 days)
+  // "Next [day]" — same algorithm, already handled above
+
+  return resolved;
+}
+
+// Build a date-reference preamble to inject into the prompt
+function buildDatePreamble(text) {
+  const refs = resolveDateReferences(text);
+  if (!Object.keys(refs).length) return '';
+  const lines = Object.entries(refs).map(([word, date]) => {
+    const d = new Date(date + 'T12:00:00');
+    const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    return `- "${word}" = ${date} (${label})`;
+  });
+  return `DATE REFERENCE MAP (use these exact dates — do not calculate your own):\n${lines.join('\n')}\n`;
+}
+
 async function organizeDump() {
   const input = document.getElementById('brain-dump');
   const raw   = input.value.trim();
@@ -2024,7 +2088,8 @@ async function organizeDump() {
       .map(e => `- ${e.title} (${e.start ? fmt12(e.start) : 'all day'}${e.end ? ' – ' + fmt12(e.end) : ''}${e.location ? ' @ ' + e.location : ''})`)
       .join('\n') || 'None.';
     const hoursLeft = Math.max(0, 22 - new Date().getHours() - new Date().getMinutes() / 60).toFixed(1);
-    const userMsg  = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS (don't duplicate):\n${open.length ? open.map(t => `- ${t.title}`).join('\n') : 'none'}\nCALENDAR:\n${calList}\n\nBRAIN DUMP:\n${raw}`;
+    const datePreamble = buildDatePreamble(raw);
+    const userMsg  = `${currentTimeContext()}.\nWEATHER: ${weatherSummary()}\nHOURS LEFT: ~${hoursLeft}h\nOPEN TASKS (don't duplicate):\n${open.length ? open.map(t => `- ${t.title}`).join('\n') : 'none'}\nCALENDAR:\n${calList}\n\n${datePreamble}BRAIN DUMP:\n${raw}`;
     const reply    = await callAI(userMsg, 'dump');
     if (reply) { renderPlanOutput(reply); input.value = ''; input.style.height = '34px'; }
     // If reply is null, callAI already showed the error in plan-output
