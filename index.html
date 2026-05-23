@@ -2065,7 +2065,7 @@ function renderPlanOutput(jsonStr) {
         <div class="plan-item-actions">
           <span class="tag tag-${item.tag || 'admin'}">${item.tag || 'task'}</span>
           ${item.queue === 'suggest' ? '<span style="font-size:10px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.05em;padding:2px 7px;border-radius:99px;background:#1a3a2a;color:#7ec8a0;border:1px solid #2d6b4a;">later</span>' : ''}
-          <button class="btn-add-plan" onclick="addPlanItem(${i})">+ add to today</button>
+          <button class="btn-add-plan" onclick="addPlanItem(${i})">${(item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && item.date !== new Date().toISOString().slice(0,10)) ? '+ add to ' + new Date(item.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '+ add to today'}</button>
           <button class="btn-add-plan" onclick="addToSuggest(${i})" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);">→ suggest</button>
         </div>
       </div>`;
