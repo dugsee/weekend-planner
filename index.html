@@ -1948,9 +1948,9 @@ function buildSystemPrompt(mode) {
     '  admin=paperwork/calls/finances, work=job-related tasks, social=meetups/events/meals with others'
   ];
   var base = baseLines.join('\n');
-  var schema = '{"warning":null,"items":[{"time":"10:00 am - 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00","queue":"today"}],"suggestions":[]}';
+  var schema = '{"warning":null,"items":[{"time":"10:00 am - 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00","queue":"today","date":""}],"suggestions":[]}';
   if (mode === 'json')  return base + '\n\nRe-optimise the open tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL tasks — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it fits the remaining schedule, or \"queue\": \"suggest\" if it cannot realistically happen today. Never silently discard tasks.';
-  if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL items from the brain dump — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it can be scheduled today, or \"queue\": \"suggest\" if it cannot realistically happen today (wrong time of day, day-specific constraint, or schedule is too full). Never silently discard tasks.';
+  if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL items from the brain dump — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it can be scheduled today, or \"queue\": \"suggest\" if it cannot realistically happen today (wrong time of day, day-specific constraint, or schedule is too full). Never silently discard tasks.\nDATE FIELD: If any task mentions a specific date or day (e.g. \"Saturday\", \"next Tuesday\", \"the 28th\", \"tomorrow\"), resolve it to a YYYY-MM-DD string and set the \"date\" field on that item. For tasks intended for today or with no date reference, leave \"date\" as \"\". The current date is provided in the user message.';
   if (mode === 'email') return base + '\n\nExtract tasks from the forwarded emails. Use tag social for social events, work for work items. Respond ONLY in this JSON:\n' + schema.replace('"reason":""', '"reason":"From: [subject]."');
   // Chat mode — full concierge with relationship awareness
   const anaContext = `
@@ -2060,6 +2060,7 @@ function renderPlanOutput(jsonStr) {
       html += `<div class="plan-item${item.queue === 'suggest' ? ' is-suggest' : ''}" data-idx="${i}">
         <div class="plan-item-hd"><div class="plan-item-title">${escHtml(item.title)}</div><div class="plan-item-time">${escHtml(item.time || '')}</div></div>
         ${item.location ? `<div style="font-size:11px;color:#3a7abf;margin-top:3px;">📍 ${escHtml(item.location)}</div>` : ''}
+        ${(item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && item.date !== new Date().toISOString().slice(0,10)) ? `<div style="font-size:11px;color:#c8a000;margin-top:3px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.04em;">📅 ${new Date(item.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>` : ''}
         <div class="plan-item-reason">${escHtml(item.reason || '')}</div>
         <div class="plan-item-actions">
           <span class="tag tag-${item.tag || 'admin'}">${item.tag || 'task'}</span>
@@ -2109,17 +2110,20 @@ async function addPlanItem(idx) {
   if (!_lastPlan?.items[idx]) return;
   const item = _lastPlan.items[idx];
   const today = todayStr();
+  // Use AI-resolved date if provided, otherwise fall back to today
+  const targetDate = (item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date)) ? item.date : today;
+  const isFuture = targetDate !== today;
 
   // Mark added immediately so button state updates right away
   _lastPlan.items[idx]._added = true;
   renderPlanOutput(JSON.stringify(_lastPlan));
 
   try {
-    // Check for a same-title task already on today's list
+    // Check for a same-title task already on the target date
     // Use eq (exact) not ilike to avoid Supabase filter compatibility issues
     const { data: existing, error: checkErr } = await _supabase
       .from('tasks').select('id,start_time,end_time')
-      .eq('date', today)
+      .eq('date', targetDate)
       .eq('title', item.title.trim());
 
     if (checkErr) {
@@ -2143,7 +2147,7 @@ async function addPlanItem(idx) {
       // Insert as a new task — use upsert so duplicate IDs never cause a hard failure
       const newTask = {
         title:        item.title.trim(),
-        date:         today,
+        date:         targetDate,
         start_time:   item.start  || null,
         end_time:     item.end    || null,
         tag:          sanitizeTag(item.tag),
@@ -2162,10 +2166,17 @@ async function addPlanItem(idx) {
         renderPlanOutput(JSON.stringify(_lastPlan));
         return;
       }
-      showToast(`"${item.title}" added to today`);
+      if (isFuture) {
+        const d = new Date(targetDate + 'T12:00:00');
+        const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        showToast(`"${item.title}" scheduled for ${label}`);
+      } else {
+        showToast(`"${item.title}" added to today`);
+      }
     }
 
     await renderTaskList();
+    if (isFuture) await renderPlanned();
 
   } catch(e) {
     console.error('addPlanItem exception:', e);
