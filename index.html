@@ -105,6 +105,7 @@
     /* Plan output */
     .plan-output{margin-bottom:10px;}
     .plan-item{background:var(--bg2);border-radius:var(--radius);padding:10px 12px;margin-bottom:7px;}
+    .plan-item.is-suggest{border-left:3px solid #2d6b4a;opacity:0.85;}
     .plan-item-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
     .plan-item-title{font-size:14px;font-weight:500;color:var(--text);line-height:1.4;}
     .plan-item-time{font-size:13px;color:var(--green);font-family:var(--font-cond);font-weight:600;white-space:nowrap;margin-top:1px;}
@@ -1947,9 +1948,9 @@ function buildSystemPrompt(mode) {
     '  admin=paperwork/calls/finances, work=job-related tasks, social=meetups/events/meals with others'
   ];
   var base = baseLines.join('\n');
-  var schema = '{"warning":null,"items":[{"time":"10:00 am - 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00"}],"suggestions":[]}';
-  if (mode === 'json')  return base + '\n\nRe-optimise the open tasks. Respond ONLY in this JSON:\n' + schema;
-  if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema;
+  var schema = '{"warning":null,"items":[{"time":"10:00 am - 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00","queue":"today"}],"suggestions":[]}';
+  if (mode === 'json')  return base + '\n\nRe-optimise the open tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL tasks — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it fits the remaining schedule, or \"queue\": \"suggest\" if it cannot realistically happen today. Never silently discard tasks.';
+  if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL items from the brain dump — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it can be scheduled today, or \"queue\": \"suggest\" if it cannot realistically happen today (wrong time of day, day-specific constraint, or schedule is too full). Never silently discard tasks.';
   if (mode === 'email') return base + '\n\nExtract tasks from the forwarded emails. Use tag social for social events, work for work items. Respond ONLY in this JSON:\n' + schema.replace('"reason":""', '"reason":"From: [subject]."');
   // Chat mode — full concierge with relationship awareness
   const anaContext = `
@@ -2056,13 +2057,15 @@ function renderPlanOutput(jsonStr) {
     html += '<div>';
     plan.items.forEach((item, i) => {
       if (item._added) return;
-      html += `<div class="plan-item" data-idx="${i}">
+      html += `<div class="plan-item${item.queue === 'suggest' ? ' is-suggest' : ''}" data-idx="${i}">
         <div class="plan-item-hd"><div class="plan-item-title">${escHtml(item.title)}</div><div class="plan-item-time">${escHtml(item.time || '')}</div></div>
         ${item.location ? `<div style="font-size:11px;color:#3a7abf;margin-top:3px;">📍 ${escHtml(item.location)}</div>` : ''}
         <div class="plan-item-reason">${escHtml(item.reason || '')}</div>
         <div class="plan-item-actions">
           <span class="tag tag-${item.tag || 'admin'}">${item.tag || 'task'}</span>
-          <button class="btn-add-plan" onclick="addPlanItem(${i})">+ add to list</button>
+          ${item.queue === 'suggest' ? '<span style="font-size:10px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.05em;padding:2px 7px;border-radius:99px;background:#1a3a2a;color:#7ec8a0;border:1px solid #2d6b4a;">later</span>' : ''}
+          <button class="btn-add-plan" onclick="addPlanItem(${i})">+ add to today</button>
+          <button class="btn-add-plan" onclick="addToSuggest(${i})" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);">→ suggest</button>
         </div>
       </div>`;
     });
@@ -2167,6 +2170,44 @@ async function addPlanItem(idx) {
   } catch(e) {
     console.error('addPlanItem exception:', e);
     showToast('Error adding task — try again');
+    _lastPlan.items[idx]._added = false;
+    renderPlanOutput(JSON.stringify(_lastPlan));
+  }
+}
+
+async function addToSuggest(idx) {
+  if (!_lastPlan?.items[idx]) return;
+  const item = _lastPlan.items[idx];
+
+  _lastPlan.items[idx]._added = true;
+  renderPlanOutput(JSON.stringify(_lastPlan));
+
+  try {
+    const newTask = {
+      title:      item.title.trim(),
+      date:       null,
+      start_time: null,
+      end_time:   null,
+      tag:        sanitizeTag(item.tag),
+      location:   item.location || null,
+      source:     'manual',
+      done:       false,
+      rollover_count: 0,
+      starred:    false
+    };
+    const { error } = await _supabase.from('tasks').insert(newTask);
+    if (error) {
+      console.error('addToSuggest error:', error);
+      showToast('Could not add to Suggest: ' + error.message);
+      _lastPlan.items[idx]._added = false;
+      renderPlanOutput(JSON.stringify(_lastPlan));
+      return;
+    }
+    showToast(`"${item.title}" added to Suggest queue`);
+    await renderTaskList();
+  } catch(e) {
+    console.error('addToSuggest exception:', e);
+    showToast('Error — try again');
     _lastPlan.items[idx]._added = false;
     renderPlanOutput(JSON.stringify(_lastPlan));
   }
