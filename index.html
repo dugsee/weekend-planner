@@ -413,7 +413,13 @@
       <span id="cal-count" style="font-size:10px;opacity:0.7;font-weight:500;"></span>
     </div>
     <div id="cal-strips"></div>
-    <div class="sec-label">Today's Tasks</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div class="sec-label" style="margin-bottom:0;">Today's Tasks</div>
+      <div id="reorder-controls" style="display:flex;gap:6px;align-items:center;">
+        <button class="reorder-mode-btn" id="reorder-toggle-btn" onclick="toggleReorderMode()" title="Manually reorder tasks — times will cascade">⇅ Reorder</button>
+        <button class="reorder-done-btn" id="reorder-done-btn" onclick="commitReorder()" style="display:none;">✓ Done</button>
+      </div>
+    </div>
     <div id="task-list"></div>
     <div class="completed-toggle" id="completed-toggle" onclick="toggleCompleted()">
       <span class="c-caret">›</span> <span id="completed-label">Completed (0)</span>
@@ -998,15 +1004,18 @@ async function renderTaskList() {
     return false;
   });
 
-  document.getElementById('task-list').innerHTML = openDeduped.length
-    ? openDeduped.map(taskCardHTML).join('')
+  const reorderOn = window._reorderMode;
+  // In reorder mode use the local pending order; otherwise use DB order
+  const displayOpen = reorderOn && window._reorderPending ? window._reorderPending : openDeduped;
+  document.getElementById('task-list').innerHTML = displayOpen.length
+    ? displayOpen.map((t, i) => taskCardHTML(t, reorderOn ? i : undefined, reorderOn ? displayOpen.length : undefined)).join('')
     : '<div style="font-size:14px;color:var(--text3);padding:12px 0;">No tasks yet — add below or use Organize.</div>';
 
   document.getElementById('completed-label').textContent = `Completed (${doneN})`;
-  document.getElementById('completed-list').innerHTML    = done.map(taskCardHTML).join('');
+  document.getElementById('completed-list').innerHTML    = done.map(t => taskCardHTML(t)).join('');
 }
 
-function taskCardHTML(t) {
+function taskCardHTML(t, idx, total) {
   const isCal   = t.is_cal_event;
   const isEmail = t.source === 'email';
   const cls     = ['task-card', t.done ? 'done' : '', isCal ? 'is-cal' : '', isEmail ? 'is-email' : ''].filter(Boolean).join(' ');
@@ -1016,7 +1025,15 @@ function taskCardHTML(t) {
   const suggBtn = (!t.done && !isCal)
     ? `<button class="move-sugg" onclick="moveToSuggestions('${safeId}')" title="Move to Suggestions (unschedule)">→ Suggest</button>`
     : '';
+  // Reorder buttons — only for undone, non-cal tasks when reorder mode is active
+  const reorderBtns = (!t.done && !isCal && idx !== undefined)
+    ? `<div class="reorder-btns" id="rbtn-${safeId}">
+        <button class="reorder-btn" onclick="localMoveTask('${safeId}',-1)" ${idx===0?'disabled':''} title="Move up">▲</button>
+        <button class="reorder-btn" onclick="localMoveTask('${safeId}',1)" ${idx===total-1?'disabled':''} title="Move down">▼</button>
+      </div>`
+    : '';
   return `<div class="${cls}" data-id="${safeId}">
+    ${reorderBtns}
     <button class="task-check ${t.done ? 'done' : ''}" onclick="toggleTask('${safeId}')"></button>
     <div class="task-body">
       <div class="task-title">${escHtml(t.title)}</div>
@@ -2111,6 +2128,110 @@ async function planMyDay(focusTaskTitle) {
   const reply = await callAI(userMsg, 'json');
   if (reply) renderPlanOutput(reply);
 }
+
+// ═══════════════════════════════════════════════════════════
+// REORDER MODE — manual task ordering with time cascade
+// ═══════════════════════════════════════════════════════════
+window._reorderMode    = false;
+window._reorderPending = null; // local copy of tasks being reordered
+
+async function toggleReorderMode() {
+  const btn     = document.getElementById('reorder-toggle-btn');
+  const doneBtn = document.getElementById('reorder-done-btn');
+
+  if (!window._reorderMode) {
+    // Enter reorder mode — snapshot current open tasks
+    const tasks = await dbGetToday();
+    window._reorderPending = tasks.filter(t => !t.done && !t.is_cal_event);
+    window._reorderMode    = true;
+    btn.classList.add('active');
+    btn.textContent = '✕ Cancel';
+    doneBtn.style.display = '';
+    document.body.classList.add('reorder-active');
+    showToast('Reorder mode — use ▲▼ to rearrange, then tap ✓ Done');
+  } else {
+    // Cancel — discard changes
+    window._reorderMode    = false;
+    window._reorderPending = null;
+    btn.classList.remove('active');
+    btn.textContent = '⇅ Reorder';
+    doneBtn.style.display = 'none';
+    document.body.classList.remove('reorder-active');
+  }
+  await renderTaskList();
+}
+
+function localMoveTask(taskId, dir) {
+  if (!window._reorderPending) return;
+  const list = window._reorderPending;
+  const idx  = list.findIndex(t => t.id === taskId);
+  if (idx === -1) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  // Swap
+  [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
+  // Re-render immediately (local, no DB call)
+  const taskListEl = document.getElementById('task-list');
+  taskListEl.innerHTML = list.map((t, i) => taskCardHTML(t, i, list.length)).join('');
+  // Brief flash on moved card
+  const moved = taskListEl.querySelector(`[data-id="${CSS.escape(list[newIdx].id)}"]`);
+  if (moved) { moved.style.background = 'var(--gold-bg)'; setTimeout(() => moved.style.background = '', 350); }
+}
+
+async function commitReorder() {
+  if (!window._reorderPending) return;
+  const btn     = document.getElementById('reorder-done-btn');
+  const togBtn  = document.getElementById('reorder-toggle-btn');
+  btn.textContent = 'Saving…';
+  btn.disabled    = true;
+
+  try {
+    const list    = window._reorderPending;
+    // Cascade times: each task keeps its duration; start times flow sequentially
+    // Cal events in the full list act as anchors — but here we only have manual tasks.
+    // Anchor: use the start_time of the first task in the new order (or 10:00 if none).
+    let cursorMin = null;
+    if (list[0] && list[0].start_time) {
+      const [h, m] = list[0].start_time.split(':').map(Number);
+      cursorMin = h * 60 + m;
+    }
+
+    const updates = [];
+    for (const t of list) {
+      const durMin = (t.start_time && t.end_time) ? timeDiffMin(t.start_time, t.end_time) : 60;
+      if (cursorMin !== null) {
+        const newStart = minToTime(cursorMin);
+        const newEnd   = minToTime(cursorMin + durMin);
+        updates.push(dbUpdate(t.id, { start_time: newStart, end_time: newEnd }));
+        cursorMin += durMin;
+      } else {
+        updates.push(Promise.resolve()); // no time assigned, leave as-is
+      }
+    }
+    await Promise.all(updates);
+    showToast('Order saved ✓ — times updated');
+  } catch (e) {
+    console.error('commitReorder', e);
+    showToast('Save failed — try again');
+  }
+
+  window._reorderMode    = false;
+  window._reorderPending = null;
+  togBtn.classList.remove('active');
+  togBtn.textContent    = '⇅ Reorder';
+  btn.textContent       = '✓ Done';
+  btn.disabled          = false;
+  btn.style.display     = 'none';
+  document.body.classList.remove('reorder-active');
+  await renderTaskList();
+}
+
+// Helper: "HH:MM" → minutes since midnight
+function timeToMin(t) { if (!t) return 0; const [h,m] = t.split(':').map(Number); return h*60+m; }
+// Helper: minutes → "HH:MM"
+function minToTime(m) { m = Math.max(0, Math.min(1439, m)); return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
+// Helper: duration in minutes between two "HH:MM" strings
+function timeDiffMin(s, e) { return Math.max(15, timeToMin(e) - timeToMin(s)); }
 
 // Per-task replan: re-optimize the full day with focus on this specific task
 async function replanAroundTask(taskId) {
