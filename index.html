@@ -1855,7 +1855,7 @@ async function fetchInboxTasks() {
 
     // Step 3: read each message and strip the label so it won't be re-processed
     const emailTexts = [];
-    for (const msg of messages.slice(0, 5)) {
+    for (const msg of messages.slice(0, 10)) {
       const msgRes  = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, { headers: { Authorization: 'Bearer ' + accessToken } });
       const msgData = await msgRes.json();
       if (msgData.error) continue;
@@ -1893,7 +1893,7 @@ async function fetchInboxTasks() {
         extractHtml(msgData.payload?.parts);
       }
 
-      emailTexts.push(`--- EMAIL ---\nFrom: ${from}\nDate: ${date}\nSubject: ${subject}\n\n${body.slice(0, 2000)}`);
+      emailTexts.push(`--- EMAIL ---\nFrom: ${from}\nDate: ${date}\nSubject: ${subject}\n\n${body.slice(0, 15000)}`);
 
       // Remove the Weekend Planner label so this email won't be re-processed next time
       await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`, {
@@ -1938,8 +1938,21 @@ async function fetchInboxTasks() {
     // Scroll plan-output into view so user can see it
     planOut.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Now call AI — plan-output is already showing useful info while we wait
-    const reply = await callAI('Today is ' + currentTimeContext() + '.\n\n' + emailTexts.join('\n\n'), 'email');
+    // Fast path: if the emails contain a PLANNER TASKS block, parse it directly —
+    // no AI call, no length limit, exact titles/dates/times as written
+    const structuredItems = parseStructuredTasks(emailTexts.join('\n\n'));
+    if (structuredItems.length) {
+      renderPlanOutput(JSON.stringify({ warning: null, items: structuredItems, suggestions: [] }));
+      planOut.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('inbox-badge').style.display = 'none';
+      resetBtn(); return;
+    }
+
+    // Fallback: AI extraction for free-form emails
+    const openToday  = _supabase ? (await dbGetToday()).filter(t => !t.done) : [];
+    const allText    = emailTexts.join('\n\n');
+    const emailMsg   = `${currentTimeContext()}.\nOPEN TASKS ALREADY ON TODAY (don't duplicate):\n${openToday.length ? openToday.map(t => '- ' + t.title).join('\n') : 'none'}\n\n${buildDatePreamble(allText)}EMAILS:\n${allText}`;
+    const reply = await callAI(emailMsg, 'email');
     if (reply) {
       renderPlanOutput(reply);
       // Auto-scroll to the results
@@ -1989,7 +2002,22 @@ function buildSystemPrompt(mode) {
   var schema = '{"warning":null,"items":[{"time":"10:00 am - 11:00 am","title":"","location":"","reason":"","tag":"errands","start":"10:00","end":"11:00","queue":"today","date":""}],"suggestions":[]}';
   if (mode === 'json')  return base + '\n\nRe-optimise the open tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL tasks — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it fits the remaining schedule, or \"queue\": \"suggest\" if it cannot realistically happen today. Never silently discard tasks.';
   if (mode === 'dump')  return base + '\n\nParse the brain dump into tasks. Respond ONLY in this JSON:\n' + schema + '\n\nCRITICAL: Include ALL items from the brain dump — do NOT drop or omit any task.\nFor each item set \"queue\": \"today\" if it can be scheduled today, or \"queue\": \"suggest\" if it cannot realistically happen today (wrong time of day, day-specific constraint, or schedule is too full). Never silently discard tasks.\nDATE FIELD: A DATE REFERENCE MAP is provided above the brain dump with pre-resolved YYYY-MM-DD dates for any day names mentioned. Use those exact dates in the \"date\" field. Do NOT calculate or invent dates yourself. For tasks with no date reference leave \"date\" as \"\".';
-  if (mode === 'email') return base + '\n\nExtract tasks from the forwarded emails. Use tag social for social events, work for work items. Respond ONLY in this JSON:\n' + schema.replace('"reason":""', '"reason":"From: [subject]."');
+  if (mode === 'email') return base + [
+    '',
+    '',
+    'Extract actionable to-do items from the forwarded emails. These are often a DAILY TRIAGE SUMMARY containing many items in sections like "Needs reply", "Flagged / important", "Deadlines / follow-ups".',
+    'EXTRACTION RULES:',
+    '- Create ONE item per bullet that asks Doug to DO something (reply, confirm, pay, fix, attend, schedule, buy). Process EVERY bullet — summaries can contain 20+ items; never stop early or cap the list.',
+    '- Title = a short imperative action (max ~8 words), e.g. "Confirm Samuel ortho appt w/ Northcut", "Fix Supabase RLS on weekend-planner", "Reply to ackodama re: forwarded summary". Never use the email subject line as the title.',
+    '- SKIP: paragraphs summarizing ignored mail ("Everything else...", marketing, receipts, newsletters), the summary email\'s own header/footer, and anything purely informational.',
+    '- Events (tickets, appointments): create an "Attend ..." item with date = the event date and start/end = the event time if given (assume 2h if no end). Also create a separate "Confirm/RSVP" item for today if a confirmation is requested.',
+    '- Replies, confirmations and fixes with no stated date: date = "" (today), no start/end time, queue "today" if fewer than ~8 such items, otherwise queue "suggest" for the lower-priority ones.',
+    '- Dates: convert explicit dates ("Tuesday, October 6, 2026") to YYYY-MM-DD. For relative day names use the DATE REFERENCE MAP if present. Dates in the past: queue "suggest", date "".',
+    '- reason = one short line with the sender and the key detail (deadline, time, place). location = venue/address if any, else "".',
+    '- Do not duplicate tasks listed under OPEN TASKS ALREADY ON TODAY.',
+    '- Respond ONLY with JSON (no prose, no code fences) in this shape:',
+    schema
+  ].join('\n');
   // Chat mode — full concierge with relationship awareness
   const anaContext = `
 RELATIONSHIP CONTEXT — Doug's wife Ana:
@@ -2246,11 +2274,86 @@ async function replanAroundTask(taskId) {
   showToast(`Re-optimizing around "${t.title}"…`);
 }
 
+// Parse a model reply into a plan object. Tolerates code fences, prose around the
+// JSON, and — if the reply was cut off — salvages every complete item object.
+function parsePlanJSON(text) {
+  const clean = String(text || '').replace(/```json|```/g, '').trim();
+  try { return JSON.parse(clean); } catch(e) {}
+  const a = clean.indexOf('{'), b = clean.lastIndexOf('}');
+  if (a >= 0 && b > a) { try { return JSON.parse(clean.slice(a, b + 1)); } catch(e) {} }
+  // Salvage: pull each complete {...} inside "items":[ ... ]
+  const start = clean.indexOf('"items"');
+  if (start < 0) return null;
+  const items = [];
+  let depth = 0, objStart = -1, inStr = false, esc = false;
+  for (let i = clean.indexOf('[', start) + 1; i > 0 && i < clean.length; i++) {
+    const ch = clean[i];
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === '{') { if (depth === 0) objStart = i; depth++; }
+    else if (ch === '}') { depth--; if (depth === 0 && objStart >= 0) { try { items.push(JSON.parse(clean.slice(objStart, i + 1))); } catch(e) {} objStart = -1; } }
+    else if (ch === ']' && depth === 0) break;
+  }
+  return items.length ? { warning: 'Response was cut off — showing the ' + items.length + ' tasks that came through.', items, suggestions: [] } : null;
+}
+
+// Parse a machine-readable block from the daily summary email:
+//   === PLANNER TASKS ===
+//   - Title | date: 2026-10-06 | time: 16:20-17:00 | tag: health | loc: Northcut Ortho | note: from Northcut
+//   === END PLANNER TASKS ===
+// Returns plan items (same shape the AI returns). Empty array if no block found.
+function parseStructuredTasks(text) {
+  const m = String(text || '').match(/=+\s*PLANNER TASKS\s*=+([\s\S]*?)(?:=+\s*END PLANNER TASKS\s*=+|$)/i);
+  if (!m) return [];
+  const today = todayStr();
+  const items = [];
+  for (const rawLine of m[1].split(/\r?\n/)) {
+    const line = rawLine.trim().replace(/^[-*•]\s*(\[\s?\]\s*)?/, '');
+    if (!line || /^=+/.test(line)) continue;
+    const parts = line.split('|').map(x => x.trim()).filter(Boolean);
+    const title = parts.shift();
+    if (!title) continue;
+    const f = {};
+    for (const part of parts) {
+      const kv = part.match(/^([a-z]+)\s*:\s*(.*)$/i);
+      if (kv) f[kv[1].toLowerCase()] = kv[2].trim();
+    }
+    let date = /^\d{4}-\d{2}-\d{2}$/.test(f.date || '') ? f.date : '';
+    let queue = (f.queue || '').toLowerCase() === 'suggest' ? 'suggest' : 'today';
+    if (date && date < today) { date = ''; queue = 'suggest'; }
+    let start = '', end = '';
+    const tm = (f.time || '').match(/^(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?$/);
+    if (tm) {
+      start = tm[1].padStart(5, '0');
+      end   = tm[2] ? tm[2].padStart(5, '0') : minToTime(timeToMin(start) + 60);
+    }
+    items.push({
+      title, date, start, end, queue,
+      time:     start ? fmt12(start) + ' - ' + fmt12(end) : '',
+      tag:      sanitizeTag(f.tag),
+      location: f.loc || f.location || '',
+      reason:   f.note || '',
+    });
+  }
+  return items;
+}
+
+async function addAllPlanItems() {
+  if (!_lastPlan?.items) return;
+  const idxs = _lastPlan.items.map((it, i) => it._added ? -1 : i).filter(i => i >= 0);
+  for (const i of idxs) {
+    if (_lastPlan.items[i].queue === 'suggest') await addToSuggest(i);
+    else await addPlanItem(i);
+  }
+  await loadAll();
+  showToast(`Added ${idxs.length} task${idxs.length !== 1 ? 's' : ''}`);
+}
+
 function renderPlanOutput(jsonStr) {
   const out = document.getElementById('plan-output');
   let plan;
-  try { plan = JSON.parse(jsonStr.replace(/```json|```/g, '').trim()); }
-  catch(e) { out.innerHTML = ''; addChatMsg('ai', jsonStr); return; }
+  plan = parsePlanJSON(jsonStr);
+  if (!plan) { out.innerHTML = ''; addChatMsg('ai', jsonStr); return; }
 
   // Clear stale chat bubbles so they don't push plan items off screen
   const chatMsgs = document.getElementById('chat-msgs');
@@ -2267,17 +2370,21 @@ function renderPlanOutput(jsonStr) {
       html += `<div class="plan-item${item.queue === 'suggest' ? ' is-suggest' : ''}" data-idx="${i}">
         <div class="plan-item-hd"><div class="plan-item-title">${escHtml(item.title)}</div><div class="plan-item-time">${escHtml(item.time || '')}</div></div>
         ${item.location ? `<div style="font-size:11px;color:#3a7abf;margin-top:3px;">📍 ${escHtml(item.location)}</div>` : ''}
-        ${(item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && item.date !== new Date().toISOString().slice(0,10)) ? `<div style="font-size:11px;color:#c8a000;margin-top:3px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.04em;">📅 ${new Date(item.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>` : ''}
+        ${(item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && item.date !== todayStr()) ? `<div style="font-size:11px;color:#c8a000;margin-top:3px;font-family:var(--font-cond);font-weight:600;letter-spacing:0.04em;">📅 ${new Date(item.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>` : ''}
         <div class="plan-item-reason">${escHtml(item.reason || '')}</div>
         <div class="plan-item-actions">
           <span class="tag tag-${item.tag || 'admin'}">${item.tag || 'task'}</span>
           ${item.queue === 'suggest' ? '<span style="font-size:10px;font-family:var(--font-cond);font-weight:700;letter-spacing:0.05em;padding:2px 7px;border-radius:99px;background:#1a3a2a;color:#7ec8a0;border:1px solid #2d6b4a;">later</span>' : ''}
-          <button class="btn-add-plan" onclick="addPlanItem(${i})">${(item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && item.date !== new Date().toISOString().slice(0,10)) ? '+ add to ' + new Date(item.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '+ add to today'}</button>
+          <button class="btn-add-plan" onclick="addPlanItem(${i})">${(item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && item.date !== todayStr()) ? '+ add to ' + new Date(item.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '+ add to today'}</button>
           <button class="btn-add-plan" onclick="addToSuggest(${i})" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);">→ suggest</button>
         </div>
       </div>`;
     });
     html += '</div>';
+  }
+  const remaining = (plan.items || []).filter(it => !it._added).length;
+  if (remaining > 1) {
+    html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text3);">${remaining} tasks found</span><button class="btn-add-plan" onclick="addAllPlanItems()">+ add all</button></div>` + html;
   }
   if (html && html.includes('plan-item')) {
     html += '<div style="text-align:right;margin-top:4px;"><button onclick="clearPlanOutput()" style="background:none;border:none;font-size:11px;color:var(--text3);cursor:pointer;font-family:var(--font-cond);letter-spacing:0.04em;padding:4px 0;">✕ clear results</button></div>';
@@ -2560,7 +2667,7 @@ async function callAI(userMessage, mode = 'chat') {
     const res  = await fetch(ANTHROPIC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: AI_MODEL, max_tokens: 1800, system: buildSystemPrompt(mode), messages })
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: (mode === 'email' || mode === 'dump') ? 8000 : 1800, system: buildSystemPrompt(mode), messages })
     });
     const data = await res.json();
     if (thinking) thinking.remove();
@@ -2572,6 +2679,7 @@ async function callAI(userMessage, mode = 'chat') {
       return null;
     }
     const reply = data.content?.[0]?.text || '';
+    if (data.stop_reason === 'max_tokens') console.warn('callAI: response hit max_tokens — output may be truncated');
     if (usesChatBubble) {
       chatHistory.push({ role: 'user', content: userMessage }, { role: 'assistant', content: reply });
       if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
